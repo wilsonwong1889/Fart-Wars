@@ -7,6 +7,8 @@ return {
 	sound = true,
 	-- Contextual tips (the "tips" experiment can start them off).
 	tips = true,
+	-- Players whose emotes are hidden (the Players screen), by user ID.
+	hiddenEmotes = {} :: { [number]: boolean },
 	-- The ones the player has changed themselves.
 	chosen = {} :: { [string]: boolean },
 }

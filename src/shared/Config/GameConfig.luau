@@ -115,6 +115,13 @@ local GameConfig = {
 	MODERATION = table.freeze({
 		KICK_AT_FLAGS = 0,
 		BANNED_USER_IDS = table.freeze({}) :: { number },
+		-- Player reports (the Players screen): the reasons offered, how many
+		-- a player can send a session (one per person reported), and how
+		-- many different players reporting someone in one server flags them
+		-- for review (the flag counts toward KICK_AT_FLAGS like any other).
+		REPORT_REASONS = table.freeze({ "Cheating", "Harassment", "Griefing", "Other" }),
+		REPORTS_PER_SESSION = 5,
+		REPORTS_TO_FLAG = 3,
 	}),
 }
 

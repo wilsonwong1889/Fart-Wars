@@ -12,7 +12,7 @@
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
---   /fw selftest   /fw daily   /fw spins 3
+--   /fw selftest   /fw daily   /fw spins 3   /fw health
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -45,6 +45,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local Messages = require(script.Parent.Messages)
+local Health = require(script.Parent.Health)
 local Telemetry = require(script.Parent.Telemetry)
 
 local TestControls = {}
@@ -274,6 +275,8 @@ local REMOTES = {
 	ProfileUpdate = "RemoteEvent",
 	RewardsRequest = "RemoteFunction",
 	Emote = "RemoteEvent",
+	ReportPlayer = "RemoteFunction",
+	ClientReport = "RemoteEvent",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
@@ -311,7 +314,11 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		end
 	end
 	table.sort(missing)
-	expect(#missing == 0, "Remotes", "all 16 present", `missing or wrong: {table.concat(missing, ", ")}`)
+	local remoteCount = 0
+	for _ in REMOTES do
+		remoteCount += 1
+	end
+	expect(#missing == 0, "Remotes", `all {remoteCount} present`, `missing or wrong: {table.concat(missing, ", ")}`)
 	local teamsOk = true
 	for _, id in TeamConfig.order do
 		teamsOk = teamsOk and game:GetService("Teams"):FindFirstChild(TeamConfig.teams[id].name) ~= nil
@@ -369,6 +376,18 @@ function TestControls.selftest(player: Player?): (boolean, string)
 end
 
 -- A short summary of the server's counters (all of it goes to the output).
+-- The server's health now: status, problems and the numbers behind them.
+function TestControls.health(): (boolean, string)
+	local report = Health.check()
+	print("[FW] health", game:GetService("HttpService"):JSONEncode(report))
+	local memory = if report.memoryMb then `{math.floor(report.memoryMb)} MB` else "memory n/a"
+	local summary = `{report.status} v{report.version} ({report.channel}): {report.players} players, {report.serverFps} FPS, {memory}, {report.errorsPerMinute} errors/min, saving: {report.saving}`
+	if #report.problems > 0 then
+		summary ..= ` | {table.concat(report.problems, "; ")}`
+	end
+	return report.status ~= "FAILING", summary
+end
+
 function TestControls.stats(): (boolean, string)
 	local snapshot = Telemetry.snapshot()
 	local rejected, errored = 0, 0
@@ -408,7 +427,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -445,6 +464,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.selftest(player)
 	elseif command == "stats" then
 		ok, message = TestControls.stats()
+	elseif command == "health" then
+		ok, message = TestControls.health()
 	end
 	Messages.send(player, "test", (if ok then "TEST: " else "TEST failed: ") .. message)
 	return message

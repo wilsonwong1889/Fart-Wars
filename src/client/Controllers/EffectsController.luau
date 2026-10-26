@@ -182,6 +182,9 @@ end
 
 -- An emote over someone's head for a moment (and a little puff).
 function EffectsController.emote(userId: number, id: string): BillboardGui?
+	if Settings.hiddenEmotes[userId] then
+		return nil
+	end
 	local other = Players:GetPlayerByUserId(userId)
 	local head = other and other.Character and other.Character:FindFirstChild("Head")
 	local cosmetic = ProgressionConfig.cosmetics[id]

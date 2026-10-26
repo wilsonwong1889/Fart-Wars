@@ -26,7 +26,8 @@
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
--- before anything else) acts on the flags.
+-- before anything else) acts on the flags and takes player reports;
+-- Health runs the service loops and checks the server's health.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -61,8 +62,11 @@ local MonetizationService = require(Services.MonetizationService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
+local Health = require(script.Parent.Health)
+local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 
 Moderation.start()
+Health.start({ probe = DataService.probe })
 DataService.start()
 MapService.load(GameConfig.DEFAULT_MAP)
 MatchScoreService.reset()
@@ -90,4 +94,4 @@ TestControls.start()
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then
 	warn(`[Fart Wars] Max Players is {Players.MaxPlayers}; set it to {GameConfig.MAX_PLAYERS} in Game Settings → Places`)
 end
-print(`[Fart Wars] server ready: {GameConfig.DEFAULT_MAP}, {RoundService.getMode().displayName}, {FeatureFlags.MATCH_MODE}`)
+print(`[Fart Wars] server ready: v{ReleaseConfig.label(ReleaseConfig.channel(game.PlaceId))}, {GameConfig.DEFAULT_MAP}, {RoundService.getMode().displayName}, {FeatureFlags.MATCH_MODE}`)

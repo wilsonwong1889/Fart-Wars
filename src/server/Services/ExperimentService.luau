@@ -12,6 +12,7 @@ local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local DataService = require(script.Parent.DataService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 
@@ -142,12 +143,7 @@ function ExperimentService.start()
 		end
 		cohorts[player] = nil
 	end)
-	task.spawn(function()
-		while true do
-			local dt = task.wait(1)
-			ExperimentService.tick(dt)
-		end
-	end)
+	Health.loop("Experiments", 1, ExperimentService.tick)
 end
 
 return ExperimentService

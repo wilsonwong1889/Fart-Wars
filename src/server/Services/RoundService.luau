@@ -24,6 +24,7 @@ local TeamBalance = require(Shared.TeamBalance)
 local GameModeBase = require(Shared.Interfaces.GameModeBase)
 local RoundClock = require(Shared.RoundClock)
 local Server = script.Parent.Parent
+local Health = require(Server.Health)
 local TeamService = require(script.Parent.TeamService)
 local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
@@ -240,11 +241,9 @@ function RoundService.start()
 	if continuous then
 		startContinuous(now())
 	end
-	task.spawn(function()
-		while true do
-			RoundService.step(now())
-			task.wait(GameConfig.ROUND_TICK_SECONDS)
-		end
+	RoundService.step(now())
+	Health.loop("Rounds", GameConfig.ROUND_TICK_SECONDS, function()
+		RoundService.step(now())
 	end)
 end
 

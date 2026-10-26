@@ -20,6 +20,7 @@ local FeatureFlags = require(Shared.Config.FeatureFlags)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local TeamService = require(script.Parent.TeamService)
@@ -189,12 +190,7 @@ function SocialService.start()
 		end
 		sessions[player] = nil
 	end)
-	task.spawn(function()
-		while true do
-			local dt = task.wait(1)
-			SocialService.tick(dt)
-		end
-	end)
+	Health.loop("Social", 1, SocialService.tick)
 end
 
 return SocialService

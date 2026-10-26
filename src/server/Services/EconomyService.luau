@@ -28,6 +28,7 @@ local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local DataService = require(script.Parent.DataService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
@@ -478,12 +479,7 @@ function EconomyService.start()
 		local grant = GRANTS.alpha
 		EconomyService.grant(player, `alpha:{eventId}`, "alpha", grant.coins, grant.xp)
 	end)
-	task.spawn(function()
-		while true do
-			local dt = task.wait(EconomyService.TICK_SECONDS)
-			EconomyService.tick(dt)
-		end
-	end)
+	Health.loop("Economy", EconomyService.TICK_SECONDS, EconomyService.tick)
 end
 
 return EconomyService

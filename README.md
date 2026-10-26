@@ -105,11 +105,11 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote` |
-| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `TestControls`, `Messages`, `RateLimit` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport` |
+| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code |
@@ -147,8 +147,9 @@ else.
 | `SocialService` | playing with friends: the squad bonus (a friend on your team), the one-time newcomer welcome, co-play counts |
 | `RewardsService` | `RewardsRequest`: the daily track, ten-minute gifts (active play only, capped per day), free spins drawn by published weights; every claim recorded before it pays |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
-| `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
-| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `HomeController` (home screen, Choose a Team): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls, reports from several players): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS`; `ReportPlayer` (fixed reasons, once per person, a few a session) |
+| `Health` | runs the service loops (an error in a tick is counted and reported, and the loop goes on); checks loops, errors per minute, frame rate, memory and saving every 30 seconds; Workspace's `ServerHealth`; `ClientReport` (clients' frame rate, ping, errors) |
+| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -258,6 +259,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `Release` | the version and channel on every screen; health (every loop watched, a stopped loop FAILING and recovering, a tick's error counted and the loop going on, an error burst, saving's check, `/fw health`); client reports (averaged, junk and spam refused); player reports (reasons, not yourself, once each, the session cap, three reporters flag once); the Players screen (block, hide emotes, report and the answer) |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
@@ -423,6 +425,26 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Prestige, a battle pass and events wait** for after the beta, with the
   open questions in [`docs/roadmap.md`](docs/roadmap.md); prestige's power
   bonus needs an explicit balance decision first.
+
+## Phase 5 decisions
+
+- **The beta's scope is frozen** in [`docs/release.md`](docs/release.md):
+  PC only, one map, two teams, rounds as the default mode, everything else
+  on the roadmap.
+- **Every build says which it is**: `ReleaseConfig.VERSION`, and the
+  channel (live, staging, dev) from the place ID, on the home screen, in
+  Settings and in the server's first log line.
+- **Health is watched, not acted on**: a server that's DEGRADED or FAILING
+  says so (Workspace's `ServerHealth`, the log, `/fw health`) and keeps
+  running; the service loops survive an error in one tick.
+- **Reports from players are evidence, not verdicts**: one report does
+  nothing but count; three different players in one server flag someone
+  for review, the same as the other flags. Roblox's own Report (Esc menu)
+  is the path to Roblox moderation, and the Players screen says so.
+- **Blocking is Roblox's** (its prompt, which also mutes chat); hiding
+  someone's emotes is this player's choice for this session.
+- **Clients report a few numbers** (frame rate, ping, errors, graphics
+  quality) about once a minute, and nothing else.
 
 ## Handoff to Phase 5: Launch and optimization
 

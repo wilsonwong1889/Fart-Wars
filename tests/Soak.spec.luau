@@ -41,6 +41,7 @@ local Explosions = require(Services.ExplosionService)
 local Projectiles = require(Services.ProjectileService)
 local Combat = require(Services.CombatService)
 local Telemetry = require(server.Telemetry)
+local Health = require(server.Health)
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
 local Remotes = ReplicatedStorage.Remotes
 
@@ -173,6 +174,14 @@ local function act(bot: Bot)
 		-- Junk, as an exploiter would send it.
 		Remotes.FireWeapon.OnServerEvent:Fire(player, Vector3.new(0 / 0, 1, 0), "x")
 		task.spawn(Remotes.ShopRequest.OnServerInvoke, player, { "buy" }, 7, nil)
+		task.spawn(Remotes.ReportPlayer.OnServerInvoke, player, "everyone", { 1 })
+		Remotes.ClientReport.OnServerEvent:Fire(player, { fps = "fast", ping = 0 / 0 })
+	elseif roll < 0.118 then
+		-- Honest client reports, and the odd honest player report.
+		Remotes.ClientReport.OnServerEvent:Fire(player, { fps = rng:NextInteger(40, 144), ping = rng:NextNumber(0.02, 0.2), errors = 0 })
+		local others = Players:GetPlayers()
+		local other = others[rng:NextInteger(1, #others)]
+		task.spawn(Remotes.ReportPlayer.OnServerInvoke, player, other.UserId, "Other")
 	end
 end
 
@@ -264,6 +273,13 @@ check((counters["Ability.RecoveryBurst"] or 0) + (counters["Ability.GasPulse"] o
 check((counters["Projectile.landed"] or 0) > 0, "stink bombs landed")
 check(roundsSeen >= 3, `rounds kept turning over: {roundsSeen}`)
 check(snapshot.rejects.FireWeapon and snapshot.rejects.FireWeapon.badPayload, "junk was refused")
+check(snapshot.rejects.ReportPlayer and snapshot.rejects.ReportPlayer.badPayload, "junk reports refused")
+check((counters["client.reports"] or 0) > 0, "client reports arrived")
+local health = Health.check()
+check(health.status ~= "FAILING", `the server stayed healthy: {health.status} {table.concat(health.problems, "; ")}`)
+for _, name in Health.loopNames() do
+	check(not string.find(table.concat(health.problems, ";"), name .. " loop", 1, true), `the {name} loop kept running`)
+end
 
 -- Everyone leaves.
 for player in bots do

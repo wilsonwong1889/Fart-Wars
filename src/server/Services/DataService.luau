@@ -21,6 +21,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 
 local DataService = {}
 
@@ -528,12 +529,9 @@ function DataService.start()
 		task.spawn(onJoin, player)
 	end
 	-- Autosave: every profile, so changes are kept and locks stay fresh.
-	task.spawn(function()
-		while true do
-			task.wait(DataService.AUTOSAVE_SECONDS)
-			for player in profiles do
-				task.spawn(DataService.save, player)
-			end
+	Health.loop("Autosave", DataService.AUTOSAVE_SECONDS, function()
+		for player in profiles do
+			task.spawn(DataService.save, player)
 		end
 	end)
 	game:BindToClose(DataService.saveAll)

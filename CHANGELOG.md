@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0: Phase 5, part 1: release, health and player safety
+
+- Version `0.5.0` (`ReleaseConfig`), and a channel from the place ID
+  (live, staging or dev): on the home screen, in Settings, in Workspace
+  attributes and the server's first log line.
+- `Health`: the service loops run through it (an error in one tick is
+  counted and reported, and the loop keeps going). Every 30 seconds it
+  checks the loops, errors per minute, frame rate, memory and a DataStore
+  round trip, and publishes OK, DEGRADED or FAILING (`ServerHealth`, the
+  log, `/fw health`). Clients send their frame rate, ping, error count and
+  graphics quality about once a minute (`ClientReport`).
+- The Players screen (PLAYERS on the home screen and in the M menu):
+  BLOCK (Roblox's prompt), HIDE EMOTES and REPORT with a reason
+  (`ReportPlayer`). Three different players reporting someone in a server
+  flags them for review; the screen points to Roblox's own Report too.
+- A notice on touch screens without a keyboard: the beta is for PC.
+- Docs: [`docs/release.md`](docs/release.md) (beta scope, staging and
+  live places, version numbers, the release checklist, rollback, the soft
+  launch, live metrics, decision gates, the weekly issue list and the test
+  matrix).
+- New spec: `Release`.
+
 ## Phase 4, part 3: friends, experiments and the roadmap
 
 - `SocialService`: the squad bonus (50 coins and 50 XP for every ten

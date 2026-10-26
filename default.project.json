@@ -55,6 +55,12 @@
         },
         "Emote": {
           "$className": "RemoteEvent"
+        },
+        "ReportPlayer": {
+          "$className": "RemoteFunction"
+        },
+        "ClientReport": {
+          "$className": "RemoteEvent"
         }
       }
     },

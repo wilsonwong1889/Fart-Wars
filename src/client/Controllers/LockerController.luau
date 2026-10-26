@@ -21,6 +21,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
@@ -443,6 +444,11 @@ local function settingsTab(content: Frame)
 	text(content, table.concat(controls, "  ·  "), 14, 11, {
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Size = UDim2.new(1, 0, 0, 60),
+	})
+	text(content, `Version {ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)}`, 13, 12, {
+		Name = "Version",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = C.muted,
 	})
 end
 

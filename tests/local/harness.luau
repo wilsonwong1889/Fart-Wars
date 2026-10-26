@@ -2064,6 +2064,9 @@ METHODS = {
 		IsFriendsWithAsync = function()
 			return false
 		end,
+		GetNetworkPing = function()
+			return 0.06
+		end,
 		GetRankInGroup = function()
 			return 0
 		end,
@@ -2436,6 +2439,11 @@ local SERVICE_METHODS = {
 	},
 	SoundService = { PlayLocalSound = noop, SetListener = noop },
 	ContentProvider = { PreloadAsync = noop },
+	Stats = {
+		GetTotalMemoryUsageMb = function()
+			return 420
+		end,
+	},
 	AnalyticsService = {
 		LogCustomEvent = noop,
 		LogEconomyEvent = noop,
@@ -2716,7 +2724,15 @@ if not specFn then
 	print(`FAIL {name}: {compileError}`)
 	return
 end
-setfenv(specFn, setmetatable({}, { __index = globals }))
+setfenv(specFn, setmetatable({
+	-- For a spec that sets off an error on purpose: the background errors so
+	-- far (then forgotten, so they don't fail the spec).
+	takeBackgroundErrors = function()
+		local list = table.clone(backgroundErrors)
+		table.clear(backgroundErrors)
+		return list
+	end,
+}, { __index = globals }))
 
 local finished, outcome = false, nil
 local mainThread = coroutine.create(function()

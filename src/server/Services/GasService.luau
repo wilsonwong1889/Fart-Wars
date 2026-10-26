@@ -21,6 +21,7 @@ local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
@@ -364,12 +365,7 @@ function GasService.start()
 			m.contributors[player] = nil
 		end
 	end)
-	task.spawn(function()
-		while true do
-			local dt = task.wait(GAS.TICK_SECONDS)
-			GasService.tick(dt)
-		end
-	end)
+	Health.loop("Gas", GAS.TICK_SECONDS, GasService.tick)
 end
 
 return GasService

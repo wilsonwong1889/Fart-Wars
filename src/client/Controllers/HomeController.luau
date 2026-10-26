@@ -13,6 +13,7 @@
 -- Buttons only send intent; the server decides, and the screens follow
 -- the player's State attribute.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TeamConfig = require(Shared.Config.TeamConfig)
@@ -27,6 +28,8 @@ local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
 local RewardsController = require(script.Parent.RewardsController)
+local PlayersController = require(script.Parent.PlayersController)
+local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 
 local C = UIConfig.colors
 local Phase = States.Phase
@@ -77,6 +80,14 @@ local function sectionButtons(parent: Instance, width: number)
 		Parent = parent,
 	})
 	UI.onClick(rewards, RewardsController.openDaily)
+	local playersButton = UI.button("PLAYERS", C.panelLight, {
+		Name = "Players",
+		LayoutOrder = 18,
+		Size = UDim2.new(0, width, 0, 40),
+		TextSize = 18,
+		Parent = parent,
+	})
+	UI.onClick(playersButton, PlayersController.open)
 	for i, section in UIConfig.comingSoon do
 		local button = UI.button(string.upper(section), C.panelLight, {
 			Name = section,
@@ -155,12 +166,38 @@ local function build()
 	})
 	p.play = play
 	UI.onClick(play, HomeController.play)
+	-- The beta is for PC: say so on a touch screen with no keyboard (in case
+	-- the place's device settings let one in).
+	p.deviceNotice = UI.label("Fart Wars is a PC beta for now: it needs a mouse and keyboard.", 16, {
+		Name = "DeviceNotice",
+		Position = UDim2.new(0, 0, 0, 372),
+		Size = UDim2.new(1, 0, 0, 40),
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = C.warning,
+		Visible = UserInputService.TouchEnabled == true and UserInputService.KeyboardEnabled ~= true,
+		Parent = side,
+	})
+	-- The build, so a screenshot or report says which one it was.
+	p.version = UI.label(`v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`, 13, {
+		Name = "Version",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = C.muted,
+		Font = UIConfig.bodyFont,
+		Parent = side,
+	})
+	workspace:GetAttributeChangedSignal("ReleaseChannel"):Connect(function()
+		p.version.Text = `v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`
+	end)
 
 	local sections = UI.new("Frame", {
 		Name = "Sections",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -28, 0.5, 0),
-		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon + 1) * 48),
+		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon + 2) * 48),
 		BackgroundTransparency = 1,
 		Parent = home,
 	}, { UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Right) })
@@ -270,7 +307,7 @@ local function build()
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0, 300, 0, 540),
+		Size = UDim2.new(0, 300, 0, 620),
 		BackgroundColor3 = C.panel,
 		Parent = menu,
 	}, { UI.corner(16), UI.stroke(C.stroke, 4), UI.padding(16), UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center) })

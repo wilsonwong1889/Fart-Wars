@@ -28,6 +28,7 @@ local FeatureFlags = require(Shared.Config.FeatureFlags)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local RateLimit = require(Server.RateLimit)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
@@ -365,12 +366,7 @@ function RewardsService.start()
 	rewardsRequest.OnServerInvoke = function(player, action)
 		return RewardsService.request(player, action)
 	end
-	task.spawn(function()
-		while true do
-			local dt = task.wait(1)
-			RewardsService.tick(dt)
-		end
-	end)
+	Health.loop("Rewards", 1, RewardsService.tick)
 end
 
 return RewardsService

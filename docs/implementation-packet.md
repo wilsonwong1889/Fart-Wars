@@ -77,7 +77,8 @@ Services start in this order and never require one that starts later.
 | `ShopService` | `start()`, `buy(player, weaponId) -> Result`, `request(player, action, kind, id?) -> Result` (`{ ok, reason, message, profile? }`) |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
-| `Moderation` | `start()`, `flagsOf(player)`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`) |
+| `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
+| `Health` | `start({ probe })`, `loop(name, seconds, tick)`, `check() -> Report`, `report()`, `probe()`, `clientReport(player, payload)`, `loopNames()`, `testSetBeat(name, at)`, `setProbe(fn)`; a report is `{ status, problems, version, channel, players, serverFps, memoryMb?, errorsPerMinute, saving, at }` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
 | `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores? }) -> (team?, why)`, `bestTeams`, `preferenceAllowed`, `canSwitch`, `canStart`, `spread`, `spreadAfterJoin` |
@@ -103,6 +104,8 @@ reason.
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
+| `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
+| `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
 | `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position }` (all), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
@@ -181,6 +184,11 @@ Retention and Phase 4: `retention.newPlayers`, `.nextDay`, `.D1`, `.D7`;
 `.leftWithFriend` / `.leftSolo`; and per experiment cohort
 `exp.<key>.<variant>.sessions`, `.newPlayers`, `.returning`,
 `.returnedNextDay`, `.D1`, `.D7`, `.reached10Minutes`, `.activeMinutes`.
+
+Release and health: `health.OK` / `.DEGRADED` / `.FAILING` (one per check),
+`health.probeFailures`; `client.reports`, `.lowFps`, `.highPing`,
+`.errors`, with `samples.client.fps`, `.client.pingMs`,
+`.client.graphicsQuality`; `reports.total` and `reports.<reason>`.
 
 ## Save format
 

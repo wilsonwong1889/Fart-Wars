@@ -16,6 +16,7 @@ local UIConfig = require(Shared.Config.UIConfig)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Messages = require(Server.Messages)
+local Health = require(Server.Health)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 
 local PlayerState = States.Player
@@ -100,11 +101,8 @@ function AFKService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		watching[player] = nil
 	end)
-	task.spawn(function()
-		while true do
-			task.wait(GameConfig.AFK_TICK_SECONDS)
-			AFKService.check(now())
-		end
+	Health.loop("AFK", GameConfig.AFK_TICK_SECONDS, function()
+		AFKService.check(now())
 	end)
 end
 
