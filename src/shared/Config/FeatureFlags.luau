@@ -7,6 +7,11 @@ return table.freeze({
 	-- no results screen (the masterplan's alternative baseline).
 	MATCH_MODE = "Rounds" :: "Rounds" | "Continuous",
 
+	-- Prestige (Phase 6): start again from level 50 for a rank, badges and
+	-- cosmetics (no power). Off until its design is signed off
+	-- (PrestigeConfig, docs/roadmap.md).
+	PRESTIGE = false,
+
 	-- Mode rotation (Phase 6): each round takes the next mode in
 	-- GameConfig.MODE_ROTATION that the map supports, once at least
 	-- ROTATION_MIN_PLAYERS are on teams; smaller servers stay on

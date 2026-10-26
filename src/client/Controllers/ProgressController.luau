@@ -183,7 +183,8 @@ local function refresh()
 	local level = number("Level", 1)
 	local xp = number("XP", 0)
 	local need = math.max(1, number("XPToNext", ProgressionConfig.xpToNext(level)))
-	p.level.Text = `LV {level}`
+	local rank = number("Prestige", 0)
+	p.level.Text = if rank > 0 then `P{rank} · LV {level}` else `LV {level}`
 	p.nextLevel.Text = if level >= ProgressionConfig.MAX_LEVEL then "★" else tostring(level + 1)
 	p.xpFill.Size = UDim2.new(math.clamp(xp / need, 0, 1), 0, 1, 0)
 	p.xpText.Text = `{commas(xp)} / {commas(need)} XP`
@@ -284,7 +285,7 @@ function ProgressController.start()
 	started = true
 	build()
 	refresh()
-	for _, name in { "Coins", "Level", "XP", "XPToNext", "DataStatus" } do
+	for _, name in { "Coins", "Level", "XP", "XPToNext", "DataStatus", "Prestige" } do
 		player:GetAttributeChangedSignal(name):Connect(refresh)
 	end
 	ClientState.StateChanged:Connect(refresh)

@@ -292,6 +292,7 @@ local REMOTES = {
 	Emote = "RemoteEvent",
 	ReportPlayer = "RemoteFunction",
 	ClientReport = "RemoteEvent",
+	PrestigeRequest = "RemoteFunction",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,

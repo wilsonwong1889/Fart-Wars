@@ -22,6 +22,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
+local PrestigeConfig = require(Shared.Config.PrestigeConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
@@ -33,6 +34,7 @@ local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
 local Detail = require(Client.Detail)
 local HealthController = require(script.Parent.HealthController)
+local PrestigeController = require(script.Parent.PrestigeController)
 local Signal = require(Shared.Signal)
 local ProgressController = require(script.Parent.ProgressController)
 
@@ -249,6 +251,31 @@ local function progressionTab(content: Frame)
 	text(left, `{number("XP", 0)} / {number("XPToNext", ProgressionConfig.xpToNext(level))} XP · {number("LifetimeXP", 0)} lifetime`, 15, 2, { TextXAlignment = Enum.TextXAlignment.Left })
 	text(left, `{number("Coins", 0)} coins`, 15, 3, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(255, 210, 70) })
 	text(left, `Next: {ProgressController.nextGoal(level)}`, 15, 4, { Name = "Goal", TextXAlignment = Enum.TextXAlignment.Left })
+	-- Prestige, when the server has it on (FeatureFlags.PRESTIGE).
+	if workspace:GetAttribute("PrestigeOpen") == true then
+		local rank = number("Prestige", 0)
+		if level >= PrestigeConfig.REQUIRED_LEVEL and rank < PrestigeConfig.MAX_RANK then
+			local button = UI.button(`PRESTIGE {rank + 1}...`, Color3.fromRGB(230, 110, 40), {
+				Name = "Prestige",
+				LayoutOrder = 5,
+				Size = UDim2.new(0, 220, 0, 32),
+				TextSize = 16,
+				Parent = left,
+			})
+			UI.onClick(button, function()
+				LockerController.close()
+				PrestigeController.open()
+			end)
+		else
+			local label = if rank >= PrestigeConfig.MAX_RANK then `Prestige {rank}: the highest rank`
+				else `Prestige at level {PrestigeConfig.REQUIRED_LEVEL}: start again for a badge and cosmetics, no power.`
+			text(left, if rank > 0 and rank < PrestigeConfig.MAX_RANK then `Prestige {rank} · ` .. label else label, 13, 5, {
+				Name = "Prestige",
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = Color3.fromRGB(255, 160, 70),
+			})
+		end
+	end
 	local levels = {}
 	for at in ProgressionConfig.unlocks do
 		table.insert(levels, at)
@@ -287,7 +314,7 @@ local function progressionTab(content: Frame)
 	local grid = UI.new("Frame", {
 		Name = "Cosmetics",
 		LayoutOrder = 21,
-		Size = UDim2.new(1, 0, 0, 3 * 44),
+		Size = UDim2.new(1, 0, 0, math.ceil(#ProgressionConfig.cosmeticOrder / 3) * 44),
 		BackgroundTransparency = 1,
 		Parent = right,
 	}, {

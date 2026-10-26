@@ -4,7 +4,8 @@
 --     first hit, first elimination, 5 and 10 minutes (funnel.<step>, and
 --     Roblox's onboarding funnel in the Creator Hub)
 --   * fairness: eliminations and deaths by segment (fairness.kills.<seg>,
---     fairness.deaths.<seg>), so paid and veteran advantage shows
+--     fairness.deaths.<seg>), and by level band (level1to9, level10to24,
+--     level25to49, level50, prestige), so paid and veteran advantage shows
 --   * sessions: length buckets for the median (metrics.sessionLength.*),
 --     sessions and minutes by segment, concurrent players each minute
 --   * the economy's sources and sinks, sent on to Roblox's economy events
@@ -101,6 +102,17 @@ local function both(player: Player): (string, string)
 	return age or "unknown", pay or "unknown"
 end
 
+-- Which level band a player is in, for veteran advantage.
+function MetricsService.levelBand(player: Player): string
+	local rank = player:GetAttribute("Prestige")
+	if type(rank) == "number" and rank > 0 then
+		return "prestige"
+	end
+	local level = player:GetAttribute("Level")
+	level = if type(level) == "number" then level else 1
+	return if level >= 50 then "level50" elseif level >= 25 then "level25to49" elseif level >= 10 then "level10to24" else "level1to9"
+end
+
 local function onElimination(elimination: EliminationService.Elimination)
 	if not elimination.counted then
 		return
@@ -108,11 +120,13 @@ local function onElimination(elimination: EliminationService.Elimination)
 	local victimAge, victimPay = both(elimination.victim)
 	Telemetry.count(`fairness.deaths.{victimAge}`)
 	Telemetry.count(`fairness.deaths.{victimPay}`)
+	Telemetry.count(`fairness.deaths.{MetricsService.levelBand(elimination.victim)}`)
 	local killer = elimination.killer
 	if killer and killer ~= elimination.victim then
 		local killerAge, killerPay = both(killer)
 		Telemetry.count(`fairness.kills.{killerAge}`)
 		Telemetry.count(`fairness.kills.{killerPay}`)
+		Telemetry.count(`fairness.kills.{MetricsService.levelBand(killer)}`)
 	end
 end
 

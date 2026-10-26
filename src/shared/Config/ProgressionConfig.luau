@@ -67,9 +67,12 @@ local ProgressionConfig = {
 		LimeTrail = table.freeze({ id = "LimeTrail", kind = "trail", name = "Lime Trail", trailColor = Color3.fromRGB(150, 255, 90), source = "Starter Pack" }),
 		Toot = table.freeze({ id = "Toot", kind = "emote", name = "Toot", emoji = "💨", text = "TOOT!", free = true, source = "Everyone" }),
 		VictoryToot = table.freeze({ id = "VictoryToot", kind = "emote", name = "Victory Toot", emoji = "🎺", text = "VICTORY TOOT!", source = "Starter Pack" }),
+		PrestigeFlame = table.freeze({ id = "PrestigeFlame", kind = "tracer", name = "Prestige Flame", tracerColor = Color3.fromRGB(255, 110, 40), source = "Prestige 1" }),
+		PrestigeTrail = table.freeze({ id = "PrestigeTrail", kind = "trail", name = "Prestige Trail", trailColor = Color3.fromRGB(190, 120, 255), source = "Prestige 3" }),
+		CrownToot = table.freeze({ id = "CrownToot", kind = "emote", name = "Crown Toot", emoji = "👑", text = "ROYAL TOOT!", source = "Prestige 5" }),
 	}),
 	-- Cosmetics in the order the locker shows them.
-	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot" }),
+	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot" }),
 
 	-- Sanity limits on any one transaction, and how many recent ones each
 	-- profile keeps for audits.

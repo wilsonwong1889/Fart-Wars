@@ -16,6 +16,14 @@ versions of the same weapons, which the beta's fairness goals rule out.
 The proposal needs an **explicit balance decision** before any power
 bonus is built.
 
+**What's built (off):** option 1 below, cosmetic-only prestige, behind
+`FeatureFlags.PRESTIGE` (`PrestigeConfig`, `PrestigeService`, the
+Prestige screen). It resets level, XP, coin-bought weapons and coins
+(unspent store coins are kept), and gives a rank tag (P1, P2...), a
+badge per rank and a cosmetic at ranks 1, 3 and 5. There's no power
+bonus and no code path for one. Turning the flag on is a decision for
+you.
+
 **Safer options to test first:**
 
 1. Cosmetic-only prestige: a badge, a name colour and a prestige-only
@@ -35,6 +43,19 @@ bonus is built.
   and kept, with the numbers, and needs a second confirmation.
 - The save format already has room: `SaveVersion`, `LifetimeXP` and a
   migration step. A prestige count would be a new field with a default.
+
+## Long-term economy
+
+- Sources and sinks: `Economy.coins.<reason>` (and Roblox's economy events
+  through `MetricsService`); unspent balances in `samples.unspentCoins`.
+- Unlock pacing: `Economy.reachedLevel.<n>` and `firsts.levelUp`.
+- Veteran advantage: `fairness.kills.<band>` and `fairness.deaths.<band>`
+  by level band (`level1to9`, `level10to24`, `level25to49`, `level50`,
+  `prestige`). If veterans win too often against new players, look at
+  matchmaking and weapon balance before anything else.
+- Prices can change without invalidating purchases: ownership is a list of
+  IDs in the profile, never a price, so a weapon bought at 1,200 stays
+  owned if it later costs 1,000 (or 1,500).
 
 ## Battle pass (seasons)
 

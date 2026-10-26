@@ -109,6 +109,7 @@ function EconomyService.publish(player: Player)
 	player:SetAttribute("XP", data.XP)
 	player:SetAttribute("XPToNext", EconomyService.xpToNext(data))
 	player:SetAttribute("LifetimeXP", data.LifetimeXP)
+	player:SetAttribute("Prestige", if data.Prestige > 0 then data.Prestige else nil)
 end
 
 -- Runs `change` on the player's profile now, or as soon as it loads; then
@@ -291,6 +292,7 @@ function EconomyService.grantPurchase(player: Player, id: string, coins: number)
 	session.granted[id] = true
 	withProfile(player, function(data, events)
 		credit(player, data, events, id, "purchase", coins, 0)
+		data.PurchasedCoins += coins
 	end)
 	return true
 end
@@ -305,6 +307,7 @@ function EconomyService.revoke(player: Player, id: string, coins: number)
 	DataService.update(player, function(data)
 		local taken = math.min(coins, data.Coins)
 		data.Coins -= taken
+		data.PurchasedCoins = math.max(0, data.PurchasedCoins - coins)
 		addToLedger(player, data, `{id}:revoked`, "revoked", -taken, 0)
 	end)
 	Telemetry.count("Economy.revoked", coins)

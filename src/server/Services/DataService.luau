@@ -92,6 +92,11 @@ export type Data = {
 	WelcomedFriends: { number },
 	WelcomeDay: number,
 	WelcomesToday: number,
+	-- Prestige (Phase 6): the rank and when it was last taken; coins bought
+	-- in the store and not yet protected by a prestige (it keeps them).
+	Prestige: number,
+	LastPrestigeAt: number,
+	PurchasedCoins: number,
 }
 export type Profile = {
 	data: Data,
@@ -156,6 +161,9 @@ function DataService.defaults(): Data
 		WelcomedFriends = {},
 		WelcomeDay = 0,
 		WelcomesToday = 0,
+		Prestige = 0,
+		LastPrestigeAt = 0,
+		PurchasedCoins = 0,
 	}
 end
 

@@ -78,6 +78,8 @@ Services start in this order and never require one that starts later.
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
+| `PrestigeService` | `start()`, `enabled()`, `eligible(player) -> (ok, reason)`, `describe(data)`, `preview(player)`, `confirm(player, token)`, `request(player, action, token?)`, `testEnable(on?)`, `testExpire(player)` |
+| `ZoneService` | `start()`, `parts() -> (zone?, ring?)`, `inside(position, zone)`, `isActive()`, `state() -> (owner?, contested)`, `tick(dt)`, signal `Changed(owner?, contested)` |
 | `MetricsService` | `start()`, `segments(player) -> (age?, pay?)`, `setAnalytics(fake)` (tests); constants `FUNNEL`, `LENGTHS` |
 | `Profiler` | `record(name, seconds)`, `wrap(name, fn)`, `costs() -> { { name, count, averageMs, maxMs, totalMs } }`, `reset()` |
 | `Health` | `start({ probe })`, `loop(name, seconds, tick)`, `check() -> Report`, `report()`, `probe()`, `clientReport(player, payload)`, `loopNames()`, `testSetBeat(name, at)`, `setProbe(fn)`; a report is `{ status, problems, version, channel, players, serverFps, memoryMb?, errorsPerMinute, saving, at }` |
@@ -107,6 +109,7 @@ reason.
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
 | `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
+| `PrestigeRequest` | client → server (RemoteFunction) | `action: "preview" \| "confirm"`, `token: string?` (from the preview); returns `{ ok, reason, message, preview?, token?, rank? }` |
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
@@ -232,6 +235,8 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `Spins`, `SpinsUsed`, `GiftDay`, `GiftsToday` | number | free spins banked and used (the spin's grant ID), today's gifts |
 | `EquippedTrail`, `EquippedEmote` | string? | the Fart Dash trail and emote slots (`EquippedCosmetic` is the tracer) |
 | `Receipts`, `PassesGranted` | { string } | the latest 100 purchase IDs paid, the passes whose contents were given |
+| `Prestige`, `LastPrestigeAt` | number | the prestige rank (0 before the first) and when it was last taken (os.time) |
+| `PurchasedCoins` | number | coins bought in the store since the last prestige (a prestige keeps up to this many) |
 | `SquadDay`, `SquadToday` | number | the UTC day and count of today's squad bonuses |
 | `WelcomedBy` | number | the friend (user ID) who welcomed this player; 0 if nobody yet |
 | `WelcomedFriends`, `WelcomeDay`, `WelcomesToday` | { number }, number, number | newcomers this player has welcomed (the latest 50), today's welcomes |

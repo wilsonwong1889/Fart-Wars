@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0: Phase 6, part 2: prestige (off) and the long-term economy
+
+- Prestige, cosmetic only, behind `FeatureFlags.PRESTIGE` (off): at level
+  50, from the home screen, an exact preview (level, XP and coins before
+  and after, the weapons that go, what stays) and two presses to confirm.
+  It resets level, XP, coin-bought weapons and coins, but keeps every
+  cosmetic, lifetime XP and stats, badges, mastery, abilities, passes and
+  unspent store coins. Each rank gives a badge (and a cosmetic at ranks 1,
+  3 and 5: Prestige Flame, Prestige Trail, Crown Toot) and a tag (P1, P2...)
+  on the level bar and scoreboard. Saved before it's confirmed; a failed
+  save puts everything back. No power bonus.
+- `PurchasedCoins` in the profile (store coins since the last prestige);
+  the `PrestigeRequest` remote.
+- Veteran advantage: eliminations and deaths by level band
+  (`fairness.kills.level50`, `.prestige`...).
+- Docs: the roadmap's prestige and long-term economy sections.
+- New spec: `Prestige`.
+
 ## 0.6.0: Phase 6, part 1: Gas Control and the map kit
 
 - A second mode, **Gas Control**: a team alone in Porcelain Plaza scores a

@@ -417,7 +417,9 @@ local function renderScoreboard()
 			return a.DisplayName < b.DisplayName
 		end)
 		for i, member in members do
-			UI.label(`{member.DisplayName}`, 17, {
+			local rank = member:GetAttribute("Prestige")
+			local tag = if type(rank) == "number" and rank > 0 then `  [P{rank}]` else ""
+			UI.label(`{member.DisplayName}{tag}`, 17, {
 				Name = member.Name,
 				LayoutOrder = i,
 				Size = UDim2.new(1, 0, 0, 22),
