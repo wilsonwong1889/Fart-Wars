@@ -159,6 +159,18 @@ function TeamService.snapshot(): { counts: { [string]: number }, maxTeamSize: nu
 	return { counts = TeamService.counts(), maxTeamSize = GameConfig.MAX_TEAM_SIZE }
 end
 
+-- Each player's friends on each team, as Friends_<team> attributes (the
+-- team cards say so; the balance rules still decide).
+function TeamService.publishFriends()
+	for _, player in Players:GetPlayers() do
+		local counts = TeamService.friendCounts(player)
+		for _, team in TeamConfig.order do
+			local n = counts[team] or 0
+			player:SetAttribute(`Friends_{team}`, if n > 0 then n else nil)
+		end
+	end
+end
+
 local function noteFriends(player: Player)
 	friendsOf[player] = friendsOf[player] or {}
 	for _, other in Players:GetPlayers() do
@@ -171,6 +183,7 @@ local function noteFriends(player: Player)
 			end
 		end
 	end
+	TeamService.publishFriends()
 end
 
 local function forget(player: Player)
@@ -199,6 +212,7 @@ function TeamService.start()
 	end
 	TeamService.Changed:Connect(function()
 		teamUpdate():FireAllClients(TeamService.snapshot())
+		TeamService.publishFriends()
 	end)
 	Players.PlayerAdded:Connect(function(player)
 		task.spawn(noteFriends, player)

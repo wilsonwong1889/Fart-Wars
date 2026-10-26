@@ -140,7 +140,7 @@ render = function()
 			BorderSizePixel = 0,
 			Parent = row,
 		})
-		UI.label(`{other.DisplayName}  @{other.Name}`, 15, {
+		UI.label(`{UI.teamSymbol(other:GetAttribute("TeamId") :: any)}{other.DisplayName}  @{other.Name}`, 15, {
 			Name = "PlayerName",
 			Position = UDim2.new(0, 14, 0, 10),
 			Size = UDim2.new(0, 210, 0, 22),

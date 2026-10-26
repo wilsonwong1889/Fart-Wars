@@ -31,6 +31,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
+local Settings = require(Client.Settings)
 local InputController = require(script.Parent.InputController)
 
 local C = UIConfig.colors
@@ -94,7 +95,7 @@ local function nameOf(userId: number): (string, Color3)
 	local other = Players:GetPlayerByUserId(userId)
 	local team = other and other:GetAttribute("TeamId")
 	local color = if team and TeamConfig.teams[team] then TeamConfig.teams[team].color else C.text
-	return if other then other.DisplayName else "Someone", color
+	return if other then `{UI.teamSymbol(team :: any)}{other.DisplayName}` else "Someone", color
 end
 
 local function build()
@@ -519,6 +520,28 @@ local function refreshTeammates()
 			local existing = character:FindFirstChild("TeammateOutline")
 			local team = other:GetAttribute("TeamId")
 			local show = FeatureFlags.TEAMMATE_HIGHLIGHTS and mine ~= nil and team == mine and TeamConfig.teams[team]
+			-- The team's symbol over teammates' heads too (not colour alone).
+			local mark = character:FindFirstChild("TeamMark")
+			local head = character:FindFirstChild("Head")
+			if show and Settings.teamSymbols and head and not mark then
+				local board = Instance.new("BillboardGui")
+				board.Name = "TeamMark"
+				board.Size = UDim2.new(0, 28, 0, 28)
+				board.StudsOffset = Vector3.new(0, 2.6, 0)
+				board.MaxDistance = 150
+				board.Adornee = head
+				local label = Instance.new("TextLabel")
+				label.BackgroundTransparency = 1
+				label.Size = UDim2.new(1, 0, 1, 0)
+				label.Text = TeamConfig.teams[team].symbol
+				label.TextScaled = true
+				label.TextColor3 = TeamConfig.teams[team].color
+				label.TextStrokeTransparency = 0.2
+				label.Parent = board
+				board.Parent = character
+			elseif mark and not (show and Settings.teamSymbols) then
+				mark:Destroy()
+			end
 			if show and not existing then
 				local outline = Instance.new("Highlight")
 				outline.Name = "TeammateOutline"

@@ -451,12 +451,25 @@ local function storeTab(content: Frame)
 end
 
 local VOLUME_STEP = 0.25
+local HUD_SIZES = { 0.8, 0.9, 1, 1.1, 1.25 }
 
 local function settingsTab(content: Frame)
-	UI.list(Enum.FillDirection.Vertical, 6).Parent = content
+	-- Everything scrolls in one list.
+	local list = UI.new("ScrollingFrame", {
+		Name = "Settings",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		Parent = content,
+	}, { UI.list(Enum.FillDirection.Vertical, 6) })
 	local toggles = {
 		{ key = "reducedEffects", name = "ReducedEffects", label = "REDUCED EFFECTS", note = "Fewer puffs and clouds (stink clouds that gas you always show)." },
 		{ key = "lowDetail", name = "LowDetail", label = "LOW DETAIL", note = "No shadows and fewer effects, for slower PCs." },
+		{ key = "reduceMotion", name = "ReduceMotion", label = "REDUCE MOTION", note = "Still spectator shots, no pulsing outlines, softer explosions." },
+		{ key = "teamSymbols", name = "TeamSymbols", label = "TEAM SYMBOLS", note = "▲ and ● next to names and over teammates, not just colour." },
 		{ key = "sound", name = "Sound", label = "SOUND EFFECTS", note = "The game's sounds (Roblox's own volume still applies)." },
 		{ key = "tips", name = "Tips", label = "TIPS", note = "A short hint now and then, never mid-fight." },
 	}
@@ -464,9 +477,9 @@ local function settingsTab(content: Frame)
 		return UI.new("Frame", {
 			Name = name .. "Row",
 			LayoutOrder = order,
-			Size = UDim2.new(1, 0, 0, 38),
+			Size = UDim2.new(1, -10, 0, 38),
 			BackgroundTransparency = 1,
-			Parent = content,
+			Parent = list,
 		})
 	end
 	local function note(parent: Instance, value: string)
@@ -480,6 +493,25 @@ local function settingsTab(content: Frame)
 			Font = UIConfig.bodyFont,
 			Parent = parent,
 		})
+	end
+	-- A row with - and + around a value.
+	local function stepper(name: string, order: number, label: string, onStep: (number) -> (), help: string)
+		local holder = row(name, order)
+		local down = UI.button("-", C.panelLight, { Name = name .. "Down", Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+		UI.onClick(down, function()
+			onStep(-1)
+		end)
+		UI.label(label, 17, {
+			Name = name,
+			Position = UDim2.new(0, 50, 0, 0),
+			Size = UDim2.new(0, 200, 1, 0),
+			Parent = holder,
+		})
+		local up = UI.button("+", C.panelLight, { Name = name .. "Up", Position = UDim2.new(0, 256, 0, 0), Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+		UI.onClick(up, function()
+			onStep(1)
+		end)
+		note(holder, help)
 	end
 	for i, toggle in toggles do
 		local holder = row(toggle.name, i)
@@ -500,38 +532,28 @@ local function settingsTab(content: Frame)
 		end)
 		note(holder, toggle.note)
 	end
-	-- Volume, in quarter steps.
-	local holder = row("Volume", #toggles + 1)
-	local function step(by: number)
-		Settings.volume = math.clamp(Settings.volume + by, 0, 1)
+	stepper("Volume", #toggles + 1, `VOLUME {math.floor(Settings.volume * 100 + 0.5)}%`, function(by)
+		Settings.volume = math.clamp(Settings.volume + by * VOLUME_STEP, 0, 1)
 		Settings.chosen.volume = true
 		render()
-	end
-	local down = UI.button("-", C.panelLight, { Name = "VolumeDown", Size = UDim2.new(0, 44, 0, 38), Parent = holder })
-	UI.onClick(down, function()
-		step(-VOLUME_STEP)
-	end)
-	UI.label(`VOLUME {math.floor(Settings.volume * 100 + 0.5)}%`, 17, {
-		Name = "Volume",
-		Position = UDim2.new(0, 50, 0, 0),
-		Size = UDim2.new(0, 200, 1, 0),
-		Parent = holder,
-	})
-	local up = UI.button("+", C.panelLight, { Name = "VolumeUp", Position = UDim2.new(0, 256, 0, 0), Size = UDim2.new(0, 44, 0, 38), Parent = holder })
-	UI.onClick(up, function()
-		step(VOLUME_STEP)
-	end)
-	note(holder, "The game's sound effects, on top of Roblox's own volume.")
-	text(content, "CONTROLS", 18, 10, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
+	end, "The game's sound effects, on top of Roblox's own volume.")
+	stepper("HudSize", #toggles + 2, `HUD SIZE {math.floor(Settings.hudScale * 100 + 0.5)}%`, function(by)
+		local index = table.find(HUD_SIZES, Settings.hudScale) or 3
+		Settings.hudScale = HUD_SIZES[math.clamp(index + by, 1, #HUD_SIZES)]
+		Settings.chosen.hudScale = true
+		UI.applyScale()
+		render()
+	end, "Bigger or smaller panels and text, everywhere.")
+	text(list, "CONTROLS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	local controls = {}
 	for _, entry in UIConfig.controls do
 		table.insert(controls, `{entry[1]} {entry[2]}`)
 	end
-	text(content, table.concat(controls, "  ·  "), 14, 11, {
+	text(list, table.concat(controls, "  ·  "), 14, 21, {
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Size = UDim2.new(1, 0, 0, 60),
+		Size = UDim2.new(1, -10, 0, 60),
 	})
-	text(content, `Version {ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)}`, 13, 12, {
+	text(list, `Version {ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)}`, 13, 22, {
 		Name = "Version",
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = C.muted,

@@ -1,7 +1,8 @@
-# Studio sign-off: Phases 1-3
+# Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 19 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 30 specs, including a 20-player, 20-minute soak).
+Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6.
 What's left needs real Roblox: physics, rendering, sound, the real network
 and real DataStores. This is one session, in order, about an hour. Tick
 each box; anything that doesn't match, note what you saw (a screenshot and
@@ -118,6 +119,53 @@ private experience for 20 minutes:
 - [ ] `/fw stats` and the JSON in the server log: kills per minute, time to
       explosion, coins per 10 minutes, purchases, spawn deaths. Note how
       fun it was: the masterplan's gate is that people keep playing.
+
+## 7. Phases 4-6 (rewards, the store, launch tooling, expansion)
+
+Rewards and the store:
+
+- [ ] A new profile: the Daily Rewards screen opens by itself on the home
+      screen. CLAIM pays 100 coins; the countdown runs to 00:00 UTC.
+- [ ] Ten minutes of play (not AFK): a free spin arrives. SPIN shows every
+      prize's chance and pays one.
+- [ ] Create the Starter Pack pass and the three coin packs in the Creator
+      Hub, put their IDs in `MonetizationConfig`, and buy each with
+      Studio's test purchases: coins arrive once; rejoin and they're still
+      there; the pack's tracer, trail and emote are in the cosmetics grid;
+      E shows the emote.
+- [ ] A friend's account (a real Roblox friend) on your team for ten
+      minutes: both get the squad bonus line.
+
+Launch tooling:
+
+- [ ] `/fw health` says OK; `/fw perf` lists the costliest paths in
+      milliseconds; the home screen and Settings show `v0.6.0 (dev)`.
+- [ ] M → PLAYERS: the other test client is listed; BLOCK shows Roblox's
+      block prompt; HIDE EMOTES hides their E emote; REPORT → a reason
+      says "Reported".
+- [ ] Settings → LOW DETAIL: shadows go; VOLUME steps down to 0% and back.
+- [ ] Studio → File → Studio Settings → Network → Incoming Replication Lag
+      0.25, two clients: shots at a strafing player miss more, nothing hits
+      that the server didn't see land, nothing errors.
+
+Expansion (each is off as shipped; turn one on in `FeatureFlags`, test,
+turn it back off unless you're keeping it):
+
+- [ ] `/fw mode gascontrol`, then end the round (`/fw end 0`): the next
+      round is Gas Control. The plaza ring shows; standing in it alone
+      scores a point a second and the HUD says who holds it; with an enemy
+      in it, CONTESTED and no points.
+- [ ] `PRESTIGE = true`, `/fw xp 120000` to reach level 50, leave the match:
+      Progression → PRESTIGE 1... shows the exact numbers; the second press
+      resets you to level 1 with P1 on the level bar.
+- [ ] `SEASONS = true` (and a test season in `SeasonConfig` with dates
+      around today): 🏆 SEASON appears top right; the screen shows the
+      tier, the challenges and the time left.
+- [ ] `EVENTS = true`: within a few rounds the Bean Rain banner shows, rings
+      mark where beans land (never in the spawn rooms), and walking over a
+      bean pays coins and readies your Fart Dash.
+- [ ] Settings → REDUCE MOTION, HUD SIZE 80% and 125% (panels stay in
+      their corners), TEAM SYMBOLS (▲ over teammates; off removes it).
 
 ## Before any public release
 

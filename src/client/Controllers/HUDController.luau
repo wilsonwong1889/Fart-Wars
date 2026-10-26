@@ -47,7 +47,7 @@ local function teamPanel(team: string, order: number): Frame
 		Size = UDim2.new(1, 0, 0, 46),
 		Parent = panel,
 	})
-	UI.label(config.shortName, 15, {
+	UI.label(`{config.symbol} {config.shortName}`, 15, {
 		Name = "TeamName",
 		Position = UDim2.new(0, 0, 0, 44),
 		Size = UDim2.new(1, 0, 0, 16),

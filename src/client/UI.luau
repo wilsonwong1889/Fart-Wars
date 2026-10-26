@@ -3,6 +3,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local UIConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.UIConfig)
+local TeamConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.TeamConfig)
+local Settings = require(script.Parent.Settings)
 
 local C = UIConfig.colors
 
@@ -82,6 +84,34 @@ function UI.list(direction: Enum.FillDirection, gap: number, align: Enum.Horizon
 	})
 end
 
+-- The HUD size (Settings.hudScale): every panel on every screen grows or
+-- shrinks around its own anchor, so corner panels stay in their corners.
+-- Full-screen backdrops are left alone.
+local scaled: { UIScale } = setmetatable({}, { __mode = "v" }) :: any
+
+local function scale(item: Instance)
+	if not item:IsA("GuiObject") or item:FindFirstChild("HudScale") then
+		return
+	end
+	if item.Size.X.Scale >= 1 and item.Size.Y.Scale >= 1 then
+		return
+	end
+	local uiScale = Instance.new("UIScale")
+	uiScale.Name = "HudScale"
+	uiScale.Scale = Settings.hudScale
+	uiScale.Parent = item
+	table.insert(scaled, uiScale)
+end
+
+-- Applies Settings.hudScale everywhere.
+function UI.applyScale()
+	for _, uiScale in scaled do
+		if uiScale.Parent then
+			uiScale.Scale = Settings.hudScale
+		end
+	end
+end
+
 -- A ScreenGui in the local player's PlayerGui that survives respawns.
 function UI.screen(name: string, displayOrder: number): ScreenGui
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -89,7 +119,7 @@ function UI.screen(name: string, displayOrder: number): ScreenGui
 	if existing then
 		existing:Destroy()
 	end
-	return UI.new("ScreenGui", {
+	local screen = UI.new("ScreenGui", {
 		Name = name,
 		ResetOnSpawn = false,
 		IgnoreGuiInset = true,
@@ -97,6 +127,17 @@ function UI.screen(name: string, displayOrder: number): ScreenGui
 		DisplayOrder = displayOrder,
 		Parent = playerGui,
 	})
+	screen.ChildAdded:Connect(function(child)
+		-- Once its size is set.
+		task.defer(scale, child)
+	end)
+	return screen
+end
+
+-- A team's symbol and a space ("▲ "), or "" with team symbols off.
+function UI.teamSymbol(team: string?): string
+	local config = team and TeamConfig.teams[team]
+	return if config and Settings.teamSymbols then `{config.symbol} ` else ""
 end
 
 function UI.label(text: string, size: number, props: { [string]: any }?): TextLabel

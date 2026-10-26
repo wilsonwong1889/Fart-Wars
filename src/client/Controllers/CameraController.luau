@@ -10,6 +10,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UIConfig = require(Shared.Config.UIConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local ClientState = require(script.Parent.Parent.ClientState)
+local Settings = require(script.Parent.Parent.Settings)
 local InputController = require(script.Parent.InputController)
 
 local CameraController = {}
@@ -71,6 +72,11 @@ local function runShots(token: number)
 		local cam = camera()
 		cam.CameraType = Enum.CameraType.Scriptable
 		cam.CFrame = from
+		-- Reduce motion: a still shot.
+		if Settings.reduceMotion then
+			task.wait(UIConfig.spectatorShotSeconds)
+			continue
+		end
 		local tween = TweenService:Create(
 			cam,
 			TweenInfo.new(UIConfig.spectatorShotSeconds, Enum.EasingStyle.Linear),

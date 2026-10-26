@@ -89,7 +89,7 @@ task.wait(0.5)
 check(string.find(Home.parts.version.Text, ReleaseConfig.VERSION, 1, true) and string.find(Home.parts.version.Text, "dev", 1, true), "the home screen shows the build")
 Locker.open("Settings")
 task.wait(0.1)
-check(Locker.parts.content:FindFirstChild("Version") and Locker.parts.content.Version.Text == `Version {ReleaseConfig.VERSION} (dev)`, "and Settings")
+check(Locker.parts.content.Settings:FindFirstChild("Version") and Locker.parts.content.Settings.Version.Text == `Version {ReleaseConfig.VERSION} (dev)`, "and Settings")
 Locker.close()
 
 -- Health.

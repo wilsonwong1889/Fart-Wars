@@ -12,6 +12,7 @@
 --               while it's open, even in first person.
 -- Buttons only send intent; the server decides, and the screens follow
 -- the player's State attribute.
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
@@ -253,7 +254,9 @@ local function build()
 		})
 		local h, sat, v = config.color:ToHSV()
 		UI.gradient(Color3.fromHSV(h, sat * 0.85, math.min(1, v * 1.1)), Color3.fromHSV(h, math.min(1, sat * 1.1), v * 0.62)).Parent = card
-		UI.label(config.shortName, 40, { Name = "TeamName", Position = UDim2.new(0, 0, 0, 34), Size = UDim2.new(1, 0, 0, 46), Parent = card })
+		UI.label(`{config.symbol} {config.shortName}`, 40, { Name = "TeamName", Position = UDim2.new(0, 0, 0, 34), Size = UDim2.new(1, 0, 0, 46), Parent = card })
+		-- Friends already on this team (the server counts them).
+		UI.label("", 18, { Name = "Friends", Position = UDim2.new(0, 0, 0, 228), Size = UDim2.new(1, 0, 0, 22), Font = UIConfig.bodyFont, Parent = card })
 		UI.label("0", 96, { Name = "Count", Position = UDim2.new(0, 0, 0, 90), Size = UDim2.new(1, 0, 0, 104), Parent = card })
 		UI.label("/ 10", 22, { Name = "Max", Position = UDim2.new(0, 0, 0, 196), Size = UDim2.new(1, 0, 0, 26), Parent = card })
 		UI.label("🔒", 56, {
@@ -403,6 +406,10 @@ local function renderPicker()
 		card.Count.Text = tostring(counts[team] or 0)
 		card.Max.Text = `/ {max}`
 		card.Border.Color = if team == selected then C.text else C.stroke
+		local friends = Players.LocalPlayer:GetAttribute(`Friends_{team}`)
+		card.Friends.Text = if type(friends) == "number" and friends > 0
+			then `👥 {friends} friend{if friends == 1 then "" else "s"} here`
+			else ""
 	end
 	if selected and not TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, selected) then
 		-- The teams moved on; fall back to automatic rather than promise
@@ -410,7 +417,7 @@ local function renderPicker()
 		HomeController.choose(nil)
 		return
 	end
-	p.teamHint.Text = "Locked teams would make the match unfair. AUTO puts you where you're needed."
+	p.teamHint.Text = "Locked teams would make the match unfair. AUTO puts you where you're needed (with friends when it's fair)."
 end
 
 local function render()
@@ -510,6 +517,9 @@ function HomeController.start()
 	ClientState.TeamChanged:Connect(render)
 	ClientState.TeamsChanged:Connect(render)
 	ClientState.SnapshotChanged:Connect(render)
+	for _, team in TeamConfig.order do
+		Players.LocalPlayer:GetAttributeChangedSignal(`Friends_{team}`):Connect(render)
+	end
 	InputController.MenuToggled:Connect(function()
 		HomeController.setMenu(not HomeController.menuOpen)
 	end)

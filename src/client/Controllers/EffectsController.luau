@@ -132,7 +132,9 @@ function EffectsController.explosion(position: Vector3, color: Color3?, radius: 
 	burst.Color = color or GAS_GREEN
 	burst.Size = Vector3.one * 2
 	burst.CFrame = CFrame.new(position)
-	burst.Transparency = 0.2
+	-- Reduce motion: a softer burst (not glowing, more see-through).
+	burst.Material = if Settings.reduceMotion then Enum.Material.SmoothPlastic else Enum.Material.Neon
+	burst.Transparency = if Settings.reduceMotion then 0.55 else 0.2
 	TweenService:Create(burst, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Size = Vector3.one * reach * 2,
 		Transparency = 1,
@@ -322,10 +324,14 @@ local function renderGas(character: Model)
 		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 		highlight.Adornee = character
 		highlight.Parent = character
-		-- A slow pulse: one cycle a second at most.
-		TweenService:Create(highlight, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-			FillTransparency = 0.4,
-		}):Play()
+		-- A slow pulse: one cycle a second at most (steady with reduce motion).
+		if Settings.reduceMotion then
+			highlight.FillTransparency = 0.55
+		else
+			TweenService:Create(highlight, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+				FillTransparency = 0.4,
+			}):Play()
+		end
 	elseif outline and not critical then
 		outline:Destroy()
 	end

@@ -9,6 +9,13 @@ return {
 	volume = 1,
 	-- Low detail: no shadows and fewer effects, for slower PCs.
 	lowDetail = false,
+	-- Accessibility (Phase 6): less motion and flashing (still spectator
+	-- shots, no pulsing outlines, softer bursts); the HUD's size; team
+	-- symbols (▲ ●) next to names and over teammates, so teams don't rely
+	-- on colour alone.
+	reduceMotion = false,
+	hudScale = 1,
+	teamSymbols = true,
 	-- Contextual tips (the "tips" experiment can start them off).
 	tips = true,
 	-- Players whose emotes are hidden (the Players screen), by user ID.

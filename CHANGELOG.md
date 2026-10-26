@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0: Phase 6, part 4: accessibility, friends and operations
+
+- Settings: REDUCE MOTION (still spectator shots, a steady gas outline,
+  softer explosion bursts), HUD SIZE (80% to 125%; every panel scales
+  around its own corner) and TEAM SYMBOLS (▲ Stinkers, ● Sharters: on the
+  score boxes and team cards, in the kill feed and Players screen, and
+  over teammates' heads). Settings scroll now.
+- The team cards say where your friends are (`Friends_<team>`); AUTO
+  prefers their team within the balance rules.
+- Docs: [`docs/operations.md`](docs/operations.md) (the week, the
+  telemetry audit, patch notes, balance changes, technical debt,
+  rollback, the expansion gate, monetization checks) and the Phase 6
+  checklist.
+- New spec: `Access`.
+
 ## 0.6.0: Phase 6, part 3: seasons, Bean Rain and booms (all off)
 
 - Seasons, behind `FeatureFlags.SEASONS`: Season 1 (2 November to 28

@@ -5,6 +5,8 @@ export type Team = {
 	id: string,
 	name: string,
 	shortName: string,
+	-- A shape that tells the teams apart without colour (accessibility).
+	symbol: string,
 	color: Color3,
 	darkColor: Color3,
 	brickColor: string,
@@ -15,6 +17,7 @@ local teams: { [string]: Team } = {
 		id = "Stinkers",
 		name = "Skibidi Stinkers",
 		shortName = "STINKERS",
+		symbol = "▲",
 		color = Color3.fromRGB(102, 255, 51), -- toxic green
 		darkColor = Color3.fromRGB(28, 92, 16),
 		brickColor = "Lime green",
@@ -23,6 +26,7 @@ local teams: { [string]: Team } = {
 		id = "Sharters",
 		name = "Sigma Sharters",
 		shortName = "SHARTERS",
+		symbol = "●",
 		color = Color3.fromRGB(255, 221, 26), -- bright yellow
 		darkColor = Color3.fromRGB(110, 92, 0),
 		brickColor = "New Yeller",

@@ -264,6 +264,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `Access` | team symbols (score boxes, cards, kill feed, Players screen, over teammates, off), HUD size (panels scale, backdrops don't, the limits), reduce motion, friends on the team cards |
 | `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
@@ -480,6 +481,12 @@ Where the plans left room, or disagreed, Phase 1 does this:
   current modes allow, and its rewards are coins and cosmetics. Bean Rain
   warns first, never lands in a spawn room, hurts nobody and pays only a
   little. Both are off until you turn them on.
+- **Accessibility is in Settings**: reduce motion, HUD size, team symbols
+  (on by default, so teams never rely on colour alone), sound and volume,
+  low detail and reduced effects.
+- **Friends play together within the rules**: the team cards say where
+  your friends are and AUTO prefers their team, but never past the
+  balance rules.
 - **Maps are built from shared pieces** (`MapKit`) and pass the same
   fairness checks as the first one before they can rotate; see
   [`docs/maps-and-modes.md`](docs/maps-and-modes.md).
@@ -498,9 +505,11 @@ to week. The places it plugs into:
   events, and the decisions they need first.
 - `Telemetry`, `MetricsService` and `ExperimentService` for the evidence
   an expansion needs; `Health` and `/fw perf` for its cost.
-- [`docs/phase-4-checklist.md`](docs/phase-4-checklist.md) and
-  [`docs/phase-5-checklist.md`](docs/phase-5-checklist.md) for the Studio
+- [`docs/phase-4-checklist.md`](docs/phase-4-checklist.md),
+  [`docs/phase-5-checklist.md`](docs/phase-5-checklist.md) and
+  [`docs/phase-6-checklist.md`](docs/phase-6-checklist.md) for the Studio
   and live runs still owed (real purchases, the test matrix, the soft
-  launch).
+  launch); [`docs/operations.md`](docs/operations.md) for the weekly
+  routine.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for what changed.
