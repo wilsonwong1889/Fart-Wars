@@ -21,6 +21,7 @@ local Telemetry = require(Server.Telemetry)
 local RateLimit = require(Server.RateLimit)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
+local ExperimentService = require(script.Parent.ExperimentService)
 local LoadoutService = require(script.Parent.LoadoutService)
 
 local ShopService = {}
@@ -75,7 +76,8 @@ function ShopService.buy(player: Player, id: string): Result
 	end
 	purchases += 1
 	local ledgerId = `purchase:{id}:{purchases}`
-	if not EconomyService.spend(player, ledgerId, "purchase", weapon.price) then
+	local price = ExperimentService.weaponPrice(player, weapon.price)
+	if not EconomyService.spend(player, ledgerId, "purchase", price) then
 		return result(false, "coins")
 	end
 	DataService.update(player, function(d)
@@ -88,7 +90,7 @@ function ShopService.buy(player: Player, id: string): Result
 				table.remove(d.OwnedWeapons, index)
 			end
 		end)
-		EconomyService.refund(player, ledgerId, weapon.price)
+		EconomyService.refund(player, ledgerId, price)
 		LoadoutService.push(player)
 		return result(false, "saveFailed")
 	end
@@ -99,7 +101,7 @@ function ShopService.buy(player: Player, id: string): Result
 		Telemetry.count("Shop.firstPurchases")
 		Telemetry.first(player, "purchase")
 	end
-	Telemetry.log("Shop", "bought", { player = player, weapon = id, price = weapon.price })
+	Telemetry.log("Shop", "bought", { player = player, weapon = id, price = price })
 	LoadoutService.push(player)
 	return result(true, "bought")
 end

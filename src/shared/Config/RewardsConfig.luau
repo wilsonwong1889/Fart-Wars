@@ -22,6 +22,23 @@ local RewardsConfig = {
 	-- Spins bank up to this many.
 	MAX_SPINS = 10,
 
+	-- Playing with friends (masterplan 4.3). The squad bonus: for every
+	-- SQUAD_MINUTES of active play with a Roblox friend active on your team
+	-- in the same server, SQUAD_COINS and SQUAD_XP, SQUAD_PER_DAY times a
+	-- UTC day. The welcome: when a friend's very first session reaches
+	-- WELCOME_MINUTES of active play in your server, you both get
+	-- WELCOME_COINS, once per newcomer; a player can welcome at most
+	-- WELCOMES_PER_DAY newcomers a day (no farming with new accounts).
+	SQUAD_MINUTES = 10,
+	SQUAD_COINS = 50,
+	SQUAD_XP = 50,
+	SQUAD_PER_DAY = 3,
+	WELCOME_MINUTES = 10,
+	WELCOME_COINS = 200,
+	WELCOMES_PER_DAY = 3,
+	-- How many welcomed newcomers a profile remembers.
+	WELCOME_MEMORY = 50,
+
 	-- The free spin. Each prize's chance is its weight over the total, and
 	-- the wheel shows every chance as a percentage.
 	spin = table.freeze({

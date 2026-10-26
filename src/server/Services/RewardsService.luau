@@ -2,7 +2,8 @@
 --   * the daily track: one claim per UTC day, seven days that loop; a
 --     missed day doesn't reset it (the next claim is the next day). Day 3
 --     and day 6 add a free spin, day 7 a cosmetic (coins if owned)
---   * ten-minute gifts: a free spin for every GIFT_ACTIVE_MINUTES of
+--   * ten-minute gifts: a free spin for every GIFT_ACTIVE_MINUTES (or the
+--     player's giftMinutes experiment value) of
 --     ACTIVE play (AFK and the home screen don't count), at most
 --     GIFTS_PER_DAY a UTC day, banked up to MAX_SPINS; the day's count is
 --     saved, the minutes toward the next gift are per session
@@ -32,11 +33,16 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local LoadoutService = require(script.Parent.LoadoutService)
+local ExperimentService = require(script.Parent.ExperimentService)
 
 type Data = DataService.Data
 export type Result = { [string]: any }
 
-local GIFT_SECONDS = RewardsConfig.GIFT_ACTIVE_MINUTES * 60
+-- Seconds of active play per gift, for this player.
+local function giftSeconds(player: Player): number
+	local minutes = ExperimentService.value(player, "giftMinutes")
+	return (if type(minutes) == "number" and minutes > 0 then minutes else RewardsConfig.GIFT_ACTIVE_MINUTES) * 60
+end
 
 local RewardsService = {}
 
@@ -102,7 +108,7 @@ function RewardsService.publish(player: Player)
 	player:SetAttribute("Spins", data.Spins)
 	local session = sessions[player]
 	local giving = session ~= nil and RewardsService.giftsLeft(data) > 0 and data.Spins < RewardsConfig.MAX_SPINS
-	player:SetAttribute("NextGiftSeconds", if giving and session then math.max(0, math.ceil(GIFT_SECONDS - session.giftSeconds)) else nil)
+	player:SetAttribute("NextGiftSeconds", if giving and session then math.max(0, math.ceil(giftSeconds(player) - session.giftSeconds)) else nil)
 end
 
 -- What the rewards screens show.
@@ -120,7 +126,7 @@ function RewardsService.status(player: Player): Result
 		claims = data.DailyClaims,
 		spins = data.Spins,
 		giftsLeft = RewardsService.giftsLeft(data),
-		nextGiftSeconds = if session then math.max(0, math.ceil(GIFT_SECONDS - session.giftSeconds)) else GIFT_SECONDS,
+		nextGiftSeconds = if session then math.max(0, math.ceil(giftSeconds(player) - session.giftSeconds)) else giftSeconds(player),
 		secondsToReset = 86400 - os.time() % 86400,
 		saving = not profile.temporary,
 	})
@@ -272,7 +278,7 @@ function RewardsService.tick(dt: number)
 				and data.Spins < RewardsConfig.MAX_SPINS
 			then
 				session.giftSeconds += dt
-				if session.giftSeconds >= GIFT_SECONDS then
+				if session.giftSeconds >= giftSeconds(player) then
 					session.giftSeconds = 0
 					DataService.update(player, function(d)
 						d.Spins += 1

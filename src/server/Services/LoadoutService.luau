@@ -30,6 +30,7 @@ local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local CombatService = require(script.Parent.CombatService)
 local AbilityService = require(script.Parent.AbilityService)
 local EconomyService = require(script.Parent.EconomyService)
+local ExperimentService = require(script.Parent.ExperimentService)
 
 type Data = DataService.Data
 
@@ -201,6 +202,13 @@ function LoadoutService.view(player: Player): { [string]: any }?
 	for id, entry in data.WeaponMastery do
 		mastery[id] = { eliminations = entry.Eliminations, claimed = table.clone(entry.Claimed) }
 	end
+	-- Shop prices for this player (experiments can change early ones).
+	local prices = {}
+	for id, entry in WeaponConfig.weapons do
+		if entry.unlock == "shop" then
+			prices[id] = ExperimentService.weaponPrice(player, entry.price)
+		end
+	end
 	return {
 		ownedWeapons = table.clone(data.OwnedWeapons),
 		equippedWeapon = weapon,
@@ -213,6 +221,7 @@ function LoadoutService.view(player: Player): { [string]: any }?
 		passes = table.clone(data.PassesGranted),
 		badges = table.clone(data.Badges),
 		mastery = mastery,
+		prices = prices,
 		stats = {
 			eliminations = data.TotalEliminations,
 			deaths = data.TotalDeaths,

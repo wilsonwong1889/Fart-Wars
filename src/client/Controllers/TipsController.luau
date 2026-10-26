@@ -7,6 +7,8 @@
 --   * two minutes in: gas barrels
 --   * a weapon you can now afford and haven't bought
 --   * an ability you've unlocked but haven't equipped
+-- Whether tips start on is the "tips" experiment's (on, unless the player
+-- is in a cohort without them); Settings changes it either way.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -14,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local UIConfig = require(Shared.Config.UIConfig)
+local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local Settings = require(Client.Settings)
@@ -81,7 +84,7 @@ function TipsController.check()
 		local weapon = WeaponConfig.weapons[id]
 		local owned = type(profile.ownedWeapons) == "table" and table.find(profile.ownedWeapons, id)
 		if weapon.unlock == "shop" and not owned and profile.saving ~= false
-			and number("Level") >= weapon.level and number("Coins") >= weapon.price
+			and number("Level") >= weapon.level and number("Coins") >= LockerController.priceOf(id)
 		then
 			if TipsController.show(`buy:{id}`, string.format(tips.buy, weapon.displayName)) then
 				return
@@ -103,6 +106,14 @@ function TipsController.start()
 		return
 	end
 	started = true
+	-- The experiment's default, until the player picks in Settings.
+	local function applyExperiment()
+		if not Settings.chosen.tips then
+			Settings.tips = ExperimentConfig.valueOf("tips", player:GetAttribute("Exp_tips")) ~= false
+		end
+	end
+	applyExperiment()
+	player:GetAttributeChangedSignal("Exp_tips"):Connect(applyExperiment)
 	InputController.DashPressed:Connect(function()
 		dashed = true
 	end)

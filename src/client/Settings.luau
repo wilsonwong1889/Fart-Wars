@@ -5,6 +5,8 @@ return {
 	reducedEffects = false,
 	-- The game's sound effects.
 	sound = true,
-	-- Contextual tips.
+	-- Contextual tips (the "tips" experiment can start them off).
 	tips = true,
+	-- The ones the player has changed themselves.
+	chosen = {} :: { [string]: boolean },
 }

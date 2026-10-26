@@ -43,6 +43,15 @@ LockerController.tab = "Weapons"
 LockerController.isOpen = false
 -- The latest ProfileUpdate.
 LockerController.profile = nil :: { [string]: any }?
+
+-- What a shop weapon costs this player (the server's figure when it has
+-- sent one: experiments can change early prices).
+function LockerController.priceOf(id: string): number
+	local profile = LockerController.profile
+	local prices = profile and profile.prices
+	local price = type(prices) == "table" and prices[id]
+	return if type(price) == "number" then price else WeaponConfig.weapons[id].price
+end
 -- A request is out; buttons wait.
 LockerController.busy = false
 -- (profile): a new ProfileUpdate arrived.
@@ -188,10 +197,10 @@ local function weaponsTab(content: Frame)
 			end)
 		elseif level < weapon.level then
 			actionButton(box, `LEVEL {weapon.level}`, false)
-		elseif coins < weapon.price then
-			actionButton(box, `{weapon.price} COINS`, false)
+		elseif coins < LockerController.priceOf(id) then
+			actionButton(box, `{LockerController.priceOf(id)} COINS`, false)
 		else
-			actionButton(box, `BUY {weapon.price}`, profile.saving ~= false, function()
+			actionButton(box, `BUY {LockerController.priceOf(id)}`, profile.saving ~= false, function()
 				LockerController.request("buy", "weapon", id)
 			end)
 		end
@@ -421,6 +430,7 @@ local function settingsTab(content: Frame)
 		})
 		UI.onClick(button, function()
 			(Settings :: any)[toggle.key] = not (Settings :: any)[toggle.key]
+			Settings.chosen[toggle.key] = true
 			render()
 		end)
 		text(content, toggle.note, 13, i * 2, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.muted })

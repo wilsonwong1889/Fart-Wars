@@ -74,6 +74,13 @@ function TeamService.members(team: string): { Player }
 	return list
 end
 
+-- Whether `a` and `b` are Roblox friends, as far as is known yet (looked
+-- up as they join; never waits).
+function TeamService.areFriends(a: Player, b: Player): boolean
+	local friends = friendsOf[a]
+	return friends ~= nil and friends[b] == true
+end
+
 -- How many of `player`'s friends hold a slot on each team.
 function TeamService.friendCounts(player: Player): { [string]: number }
 	local counts = {}

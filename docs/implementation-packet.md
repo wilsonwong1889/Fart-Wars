@@ -59,7 +59,7 @@ Services start in this order and never require one that starts later.
 | `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `probe() -> (ok, why)` (a scratch round trip), `setStore(store)` (specs), signal `Loaded(player, profile)` |
 | `MapService` | `load(mapId) -> Model` (errors on a broken map), `current()`, `spawns(teamId)`, `safeSpawn(teamId, enemyPositions)`, `cameraPoints()`, signal `Loaded(model, entry)` |
 | `MatchScoreService` | `reset()`, `open(mode, context, endsAt)`, `closeAt(t)`, `freeze()`, `isOpen()`, `getScores()`, `recordElimination(event) -> boolean`, `testAddElimination(team, n)`, signal `Changed` |
-| `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `testSetTeam(player, team)`, signal `Changed` |
+| `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `areFriends(a, b)`, `testSetTeam(player, team)`, signal `Changed` |
 | `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)`, `Leaving(player, character?)`, `Replacing(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
@@ -72,6 +72,8 @@ Services start in this order and never require one that starts later.
 | `ProjectileService` | `start()`, `throw(player, from, direction, weapon)`, `arc(from, direction, weapon, ignore) -> (landing, flight, path)`, `step()`, `cloudCount()` |
 | `EconomyService` | `start()`, `grant(player, id, reason, coins, xp) -> boolean`, `spend(player, id, reason, coins) -> boolean`, `refund(player, id, coins)`, `xpToNext(data)`, `publish(player)`, `tick(dt)`, `activeSecondsOf(player)`, `testGrant(player, coins, xp)`, signal `Changed(player)` |
 | `LoadoutService` | `start()`, `resolve(data) -> (weapon, ability?, cosmetic?)`, `apply(player)`, `equip(player, kind, id?) -> (ok, "now" / "respawn" / reason)`, `view(player)`, `push(player)`, `testGive(player, kind, id)` |
+| `ExperimentService` | `start()`, `assign(player)`, `variant(player, key) -> string?`, `value(player, key)`, `weaponPrice(player, price)`, `track(player, metric, n?)`, `tick(dt)`, `setConfig(config)` (tests) |
+| `SocialService` | `start()`, `squadmate(player) -> Player?`, `coplayed(player)`, `tick(dt)` |
 | `ShopService` | `start()`, `buy(player, weaponId) -> Result`, `request(player, action, kind, id?) -> Result` (`{ ok, reason, message, profile? }`) |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
@@ -172,6 +174,14 @@ masterplan asks to measure: `firsts.shot`, `.hit`, `.elimination`,
 `samples.unspentCoins` (inflation), `Economy.coins.<reason>` and
 `Economy.xp.<reason>` (sources), and `flags.<reason>` (moderation).
 
+Retention and Phase 4: `retention.newPlayers`, `.nextDay`, `.D1`, `.D7`;
+`Rewards.dailyClaims`, `.gifts`, `.spins`; `Store.purchases`,
+`Store.bought.<product>`, `Store.passGranted.<pass>`; `social.squadBonuses`,
+`.welcomes`, `.sessionsWithFriend`, `.friendCoplaySeconds`,
+`.leftWithFriend` / `.leftSolo`; and per experiment cohort
+`exp.<key>.<variant>.sessions`, `.newPlayers`, `.returning`,
+`.returnedNextDay`, `.D1`, `.D7`, `.reached10Minutes`, `.activeMinutes`.
+
 ## Save format
 
 One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
@@ -196,6 +206,9 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `Spins`, `SpinsUsed`, `GiftDay`, `GiftsToday` | number | free spins banked and used (the spin's grant ID), today's gifts |
 | `EquippedTrail`, `EquippedEmote` | string? | the Fart Dash trail and emote slots (`EquippedCosmetic` is the tracer) |
 | `Receipts`, `PassesGranted` | { string } | the latest 100 purchase IDs paid, the passes whose contents were given |
+| `SquadDay`, `SquadToday` | number | the UTC day and count of today's squad bonuses |
+| `WelcomedBy` | number | the friend (user ID) who welcomed this player; 0 if nobody yet |
+| `WelcomedFriends`, `WelcomeDay`, `WelcomesToday` | { number }, number, number | newcomers this player has welcomed (the latest 50), today's welcomes |
 | `Lock` | { Job, At }? | the server holding the profile; absent when free |
 
 A new field gets a default in `DataService.defaults()`; `migrate` fills it

@@ -81,6 +81,15 @@ export type Data = {
 	-- RECEIPT_MEMORY), and game passes whose contents were given.
 	Receipts: { string },
 	PassesGranted: { string },
+	-- Friends (Phase 4): today's squad bonuses; who welcomed this player
+	-- (a user ID, 0 if nobody), the newcomers they've welcomed, and today's
+	-- welcomes.
+	SquadDay: number,
+	SquadToday: number,
+	WelcomedBy: number,
+	WelcomedFriends: { number },
+	WelcomeDay: number,
+	WelcomesToday: number,
 }
 export type Profile = {
 	data: Data,
@@ -92,6 +101,9 @@ export type Profile = {
 	-- A write is under way (writes take turns), and the final one is done.
 	writing: boolean?,
 	released: boolean?,
+	-- This visit, as it loaded: back before? the day after the last visit?
+	-- the day after (d1) or a week after (d7) the first?
+	visit: { returning: boolean, nextDay: boolean, d1: boolean, d7: boolean }?,
 }
 
 local profiles: { [Player]: Profile } = {}
@@ -136,6 +148,12 @@ function DataService.defaults(): Data
 		GiftsToday = 0,
 		Receipts = {},
 		PassesGranted = {},
+		SquadDay = 0,
+		SquadToday = 0,
+		WelcomedBy = 0,
+		WelcomedFriends = {},
+		WelcomeDay = 0,
+		WelcomesToday = 0,
 	}
 end
 
@@ -440,18 +458,23 @@ local function onJoin(player: Player)
 		player:SetAttribute("DataStatus", "ready")
 		-- The return rate: session.returning over session.joins.
 		local at = os.time()
-		if data.Sessions > 0 then
+		local visit = { returning = data.Sessions > 0, nextDay = false, d1 = false, d7 = false }
+		profile.visit = visit
+		if visit.returning then
 			Telemetry.count("session.returning")
 			Telemetry.sample("daysSinceLastVisit", (at - data.LastSeen) / 86400)
 			-- Day-1 and day-7 retention: back the day after joining, or a
 			-- week after (UTC days), over retention.newPlayers.
 			local today, firstDay, lastDay = at // 86400, data.FirstSeen // 86400, data.LastSeen // 86400
-			if today - lastDay == 1 then
+			visit.nextDay = today - lastDay == 1
+			visit.d1 = today - firstDay == 1 and lastDay < today
+			visit.d7 = today - firstDay == 7 and lastDay < today
+			if visit.nextDay then
 				Telemetry.count("retention.nextDay")
 			end
-			if today - firstDay == 1 and lastDay < today then
+			if visit.d1 then
 				Telemetry.count("retention.D1")
-			elseif today - firstDay == 7 and lastDay < today then
+			elseif visit.d7 then
 				Telemetry.count("retention.D7")
 			end
 		else

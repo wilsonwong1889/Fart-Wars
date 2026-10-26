@@ -43,6 +43,7 @@ local FeatureFlags = require(Shared.Config.FeatureFlags)
 local AudioConfig = require(Shared.Config.AudioConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
+local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local Messages = require(script.Parent.Messages)
 local Telemetry = require(script.Parent.Telemetry)
 
@@ -340,6 +341,13 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		forSale += if item.id ~= 0 then 1 else 0
 	end
 	expect(forSale > 0, "Store", `{forSale} items set up`, "no pass or product IDs in MonetizationConfig yet: the store shows everything as unavailable", "WARN")
+	local running = {}
+	for _, experiment in ExperimentConfig.experiments do
+		if experiment.percent > 0 then
+			table.insert(running, `{experiment.key} {experiment.percent}%`)
+		end
+	end
+	report("OK", "Experiments", if #running > 0 then `running: {table.concat(running, ", ")}` else "none running (every cohort gets the control)")
 	local silent = 0
 	for _, id in AudioConfig :: any do
 		if id == "" then

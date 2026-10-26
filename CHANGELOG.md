@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 4, part 3: friends, experiments and the roadmap
+
+- `SocialService`: the squad bonus (50 coins and 50 XP for every ten
+  active minutes with a Roblox friend on your team, 3 a day) and the
+  newcomer welcome (a new account's first ten active minutes with a friend
+  in the server pays both 200 coins, once per newcomer; the friend must
+  have played before and can welcome 3 a day). No invite rewards.
+  Friendships come from TeamService's lookup as players join.
+- `ExperimentService` and `ExperimentConfig`: cohorts from the user ID
+  (stable across servers), a share of players by percent and variants by
+  weight. Three experiments, all at 0% as shipped: `giftMinutes` (8 instead
+  of 10), `earlyUnlock` (early shop weapons 25% cheaper; the server's price
+  is what's paid and shown) and `tips` (tips start off; Settings still
+  wins). Counters by cohort: `exp.<key>.<variant>.*`.
+- Retention by visit (`profile.visit`), co-play counters (`social.*`),
+  new profile fields for squads and welcomes.
+- Docs: [`docs/roadmap.md`](docs/roadmap.md) (prestige, battle pass,
+  events, and what needs a decision) and the Phase 4 checklist.
+- New spec: `Social`.
+
 ## Phase 4, part 2: the store and cosmetics
 
 - `MonetizationService` and `MonetizationConfig`: coin packs (developer

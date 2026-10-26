@@ -105,10 +105,10 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `TestControls`, `Messages`, `RateLimit` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
@@ -143,6 +143,8 @@ else.
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
+| `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
+| `SocialService` | playing with friends: the squad bonus (a friend on your team), the one-time newcomer welcome, co-play counts |
 | `RewardsService` | `RewardsRequest`: the daily track, ten-minute gifts (active play only, capped per day), free spins drawn by published weights; every claim recorded before it pays |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
@@ -255,6 +257,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
+| `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
@@ -395,27 +398,45 @@ Where the plans left room, or disagreed, Phase 1 does this:
   not refreshed for 3 minutes (a crashed server) is taken at once. A server
   that finds its lock taken stops saving that profile.
 
-## Handoff to Phase 4: Rewards, retention and monetization
+## Phase 4 decisions
 
-Phase 4 adds daily rewards, challenges, more cosmetics and monetization.
-The places it plugs into:
+- **Days are UTC days.** The daily claim, gifts, squad bonuses and
+  welcomes all reset at 00:00 UTC, the same moment for everyone; the
+  daily screen counts down to it exactly.
+- **A missed day doesn't reset the daily track**; it waits on the next day.
+- **Gifts are for active play only**, capped per day and banked up to a
+  limit, so leaving the game open earns nothing.
+- **Odds are on the screen.** The spin shows every prize's chance; the
+  draw is on the server.
+- **Nothing for sale changes combat.** The store sells coins and
+  cosmetics; weapons are bought with coins earned in play, as before.
+- **A purchase is saved before Roblox hears "granted"**; when it can't
+  be, Roblox is told "not yet" and retries, and the coins are taken back.
+- **Friend rewards need real co-play.** The squad bonus is for active
+  minutes with a Roblox friend on your team; the welcome is once per new
+  account, only from a friend who has played before, a few a day. There
+  are no invite rewards (nothing to farm with spam or alternate accounts).
+- **Experiments are off as shipped** (`ExperimentConfig`, every percent at
+  0). They only move reward timing, early prices and prompts, never power,
+  odds or what Robux buys, and a cohort is the same for a player in every
+  server.
+- **Prestige, a battle pass and events wait** for after the beta, with the
+  open questions in [`docs/roadmap.md`](docs/roadmap.md); prestige's power
+  bonus needs an explicit balance decision first.
 
-- `EconomyService.grant(player, id, reason, coins, xp)` pays anything, once
-  per ID, with limits and a ledger entry; `spend` and `refund` for coins
-  out. A daily reward's ID should carry the day.
-- `DataService.defaults()` and `migrate` for new profile fields (a daily
-  streak, challenge progress, owned game passes); `SaveVersion` for a
-  change `migrate` must handle specially.
-- `ProgressionConfig.cosmetics` and `LoadoutService` for new cosmetics
-  (they apply at once, never change combat); `ShopService` for new things
-  to buy, with the same save-before-confirm rule.
-- The menu's Coming Soon entries (`UIConfig.comingSoon`: Rewards,
-  Leaderboard) are where the new screens go; `LockerController` shows how
-  a screen asks the server and shows its pending state.
-- `Telemetry` already samples coins per 10 minutes and unspent balances,
-  and counts purchases by weapon: the economy's baseline before
-  monetization.
+## Handoff to Phase 5: Launch and optimization
 
-Later phases: full-server testing, optimization and the public beta (5);
-new modes and maps, prestige and seasons (6). See
-[`CHANGELOG.md`](CHANGELOG.md) for what changed.
+Phase 5 is the beta: the scope freeze and test matrix, performance and
+networking, the store page, moderation and reliability, and the soft
+launch. The places it plugs into:
+
+- `Telemetry.snapshot()` (and `/fw stats`) for the live numbers, with
+  `retention.*`, `session.*`, `Store.*`, `social.*` and `exp.*` counters.
+- `FeatureFlags` and `ExperimentConfig` to switch systems and cohorts
+  without code changes.
+- `DataService.probe()` and `/fw selftest` for health checks;
+  `GameConfig.MODERATION` for kicks and bans.
+- [`docs/phase-4-checklist.md`](docs/phase-4-checklist.md) for the Studio
+  runs Phase 4 still needs (receipts with real products in particular).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for what changed.
