@@ -70,24 +70,63 @@ def trigger(b, y):
     b.box("Trim", (0.06, 0.07, 0.17), (0, y + 0.02, 0.1), bevel=0.02, rotation=(-15, 0, 0))
 
 
+def tube(b, role, points, radius):
+    """A bent tube (a hose) through `points` (Blender y, z at x = 0), one
+    rounded block per stretch."""
+    for (y0, z0), (y1, z1) in zip(points, points[1:]):
+        length = math.hypot(y1 - y0, z1 - z0) + radius
+        angle = math.degrees(math.atan2(z1 - z0, y1 - y0))
+        b.box(role, (2 * radius, length, 2 * radius), (0, (y0 + y1) / 2, (z0 + z1) / 2), bevel=radius * 0.9, rotation=(angle, 0, 0))
+
+
 def gas_blaster(b):
+    """The starter gun: a chunky toy blaster. A gas canister on top feeds
+    the barrel through a hose; a pressure gauge on the side; a ribbed
+    barrel with a pump grip under it, ending in a horn that glows with gas;
+    building-brick studs on the receiver."""
+    # The grip, with finger ridges and a pommel, angled back.
     b.box("Grip", (0.32, 0.42, 0.85), (0, -0.04, -0.15), bevel=0.1, rotation=(-15, 0, 0))
-    b.box("Body", (0.5, 1.5, 0.5), (0, 0.45, 0.45), bevel=0.13)
-    b.box("Body", (0.42, 0.38, 0.42), (0, -0.4, 0.43), bevel=0.12)
-    b.box("Metal", (0.18, 1.05, 0.08), (0, 0.42, 0.73), bevel=0.03)
-    b.cyl("Metal", 0.13, 0.8, (0, 1.55, 0.47))
-    b.ring("Trim", 0.15, 0.04, (0, 1.32, 0.47))
-    b.ring("Trim", 0.15, 0.04, (0, 1.72, 0.47))
-    b.cyl("Trim", 0.25, 0.22, (0, 2.03, 0.47), radius2=0.16)
-    b.cyl("Glass", 0.2, 0.74, (0, 0.3, 0.97))
-    b.cyl("Gas", 0.155, 0.66, (0, 0.3, 0.97), bevel=0)
-    b.cyl("Metal", 0.215, 0.08, (0, -0.09, 0.97))
-    b.cyl("Metal", 0.215, 0.08, (0, 0.69, 0.97))
-    b.box("Metal", (0.12, 0.1, 0.2), (0, 0.04, 0.8), bevel=0.02)
-    b.box("Metal", (0.12, 0.1, 0.2), (0, 0.56, 0.8), bevel=0.02)
-    b.cyl("Trim", 0.1, 0.06, (0.27, -0.05, 0.47), axis="X")
+    for y, z in ((0.215, -0.011), (0.15, -0.252), (0.085, -0.494)):
+        b.cyl("Grip", 0.065, 0.3, (0, y, z), axis="X", vertices=16)
+    b.box("Trim", (0.36, 0.48, 0.1), (0, -0.156, -0.6), bevel=0.04, rotation=(-15, 0, 0))
+    # The receiver: body, a stripe round it, the back cap and its disc.
+    b.box("Body", (0.52, 1.25, 0.52), (0, 0.35, 0.45), bevel=0.14)
+    b.box("Trim", (0.545, 0.86, 0.11), (0, 0.38, 0.33), bevel=0.04)
+    b.box("Body", (0.46, 0.3, 0.46), (0, -0.38, 0.45), bevel=0.12)
+    b.cyl("Trim", 0.15, 0.06, (0, -0.545, 0.45), vertices=24)
+    # Studs on top, in front of and behind the canister.
+    for y in (-0.19, 0.85):
+        for x in (-0.12, 0.12):
+            b.cyl("Body", 0.075, 0.08, (x, y, 0.735), axis="Z", vertices=16, bevel=0.015)
+    # The pressure gauge on the right: a dark rim, a bright face, the
+    # needle swung up towards the red.
+    b.cyl("Metal", 0.135, 0.06, (0.27, 0.12, 0.5), axis="X", vertices=24)
+    b.cyl("Trim", 0.105, 0.03, (0.3, 0.12, 0.5), axis="X", vertices=24, bevel=0)
+    b.box("Metal", (0.02, 0.022, 0.085), (0.318, 0.14, 0.53), bevel=0, rotation=(-35, 0, 0))
+    # The canister: glass with gas inside, caps, clamps, a rail under it,
+    # and the valve and hose down to the barrel.
+    b.box("Metal", (0.18, 0.9, 0.08), (0, 0.3, 0.75), bevel=0.03)
+    b.cyl("Glass", 0.21, 0.8, (0, 0.3, 0.98))
+    b.cyl("Gas", 0.16, 0.7, (0, 0.3, 0.98), bevel=0)
+    for y in (-0.1, 0.7):
+        b.cyl("Metal", 0.225, 0.09, (0, y, 0.98))
+    for y in (0.06, 0.54):
+        b.box("Metal", (0.12, 0.1, 0.2), (0, y, 0.8), bevel=0.02)
+    b.cyl("Trim", 0.07, 0.12, (0, 0.8, 0.98), vertices=16)
+    b.ring("Trim", 0.09, 0.025, (0, 0.86, 0.98))
+    tube(b, "Grip", [(0.86, 0.98), (0.98, 0.94), (1.05, 0.83), (1.06, 0.7)], 0.045)
+    # The barrel: a collar out of the body, cooling rings, the pump.
+    b.cyl("Trim", 0.22, 0.18, (0, 1.02, 0.47))
+    b.cyl("Metal", 0.12, 0.95, (0, 1.55, 0.47))
+    for y in (1.3, 1.5, 1.7):
+        b.ring("Trim", 0.13, 0.035, (0, y, 0.47))
+    b.box("Grip", (0.24, 0.5, 0.16), (0, 1.48, 0.27), bevel=0.06)
+    # The horn: flared, a rim, and gas glowing inside.
+    b.cyl("Trim", 0.3, 0.32, (0, 2.18, 0.47), radius2=0.13)
+    b.ring("Trim", 0.29, 0.035, (0, 2.34, 0.47))
+    b.cyl("Gas", 0.24, 0.02, (0, 2.347, 0.47), bevel=0)
     trigger(b, 0.12)
-    return (0, 2.15, 0.47)
+    return (0, 2.37, 0.47)
 
 
 def spritzer(b):

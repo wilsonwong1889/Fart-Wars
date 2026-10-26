@@ -14,6 +14,11 @@
 --     none of the rest; the tank glows
 --   * effects: muzzle particles in the gas colour, impacts where shots
 --     hit, explosion smoke and rings; a per-frame particle budget
+--   * shots: a bolt from the gun's muzzle (not the head) that flies on
+--     and goes into its target, a hot core in a glow; the muzzle's burst,
+--     facing down the barrel; a splat stuck flat to a wall it hits, never
+--     on a player; reduced effects keep only the bolt; the Blender meshes
+--     once imported (a sideways one is refused)
 --   * screens: the hotbar's 3D icons (kept between renders) and the
 --     locker's turning previews (still with reduce motion); selftest
 local Players = game:GetService("Players")
@@ -217,6 +222,143 @@ local impactAt = impacts.Impact1.WorldPosition
 Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -WeaponConfig.weapons.GasBlaster.range) })
 task.wait()
 check(impacts.Impact2.WorldPosition.Magnitude < 1e-3 and (impacts.Impact1.WorldPosition - impactAt).Magnitude < 1e-3, "a shot that hit nothing leaves no puff")
+
+-- The shots (ShotFx): a bolt from the muzzle, a burst, a splat.
+local ShotFx = require(Client.ShotFx)
+local ShotArt = require(Shared.Config.ShotArt)
+local SHOT = WeaponFx.SHOT
+local blaster = WeaponFx.weapons.GasBlaster.shot
+frames(1)
+local handle = adaTool:FindFirstChild("Handle") :: BasePart
+local muzzleAt = handle.CFrame * (handle:FindFirstChild("Muzzle") :: Attachment).CFrame
+local from = muzzleAt.Position + Vector3.new(0, 1.5, 0)
+local direction = Vector3.new(0, 0, -1)
+local bursts = 0
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = from, to = from + direction * WeaponConfig.weapons.GasBlaster.range })
+task.wait()
+local bolt: BasePart? = nil
+for _, part in ShotFx.tracers do
+	if part.Transparency == 0 then
+		bolt = part
+	end
+end
+check(bolt and bolt.Name == "Tracer" and bolt.Parent == workspace and bolt:GetAttribute("ArtSource") == "part", "a shot's bolt shows at once (a glowing part until the mesh is imported)")
+local boltPart = bolt :: BasePart
+local back = boltPart.Position - boltPart.CFrame.LookVector * boltPart.Size.Z / 2
+check((back - muzzleAt.Position).Magnitude < 0.05, "from the gun's muzzle, not the shooter's head")
+check(math.abs(boltPart.Size.Z - blaster.length) < 1e-3 and math.abs(boltPart.Size.X - blaster.width) < 1e-3, "the Gas Blaster's bolt: its width, and its length")
+local shotDirection = (from + direction * WeaponConfig.weapons.GasBlaster.range - muzzleAt.Position).Unit
+check(boltPart.CFrame.LookVector:Dot(shotDirection) > 0.999, "pointing where the shot went")
+local glow = boltPart:FindFirstChild("Glow") :: BasePart
+check(glow and math.abs(glow.Transparency - SHOT.GLOW_TRANSPARENCY) < 1e-3 and glow.Size.X > boltPart.Size.X * 2, "in a softer glow")
+local gas = WeaponArt.GasBlaster.roles.Gas.color
+-- (Someone else's shots are in their team's colour, or their tracer's.)
+check(boltPart.Color.R + boltPart.Color.G + boltPart.Color.B > glow.Color.R + glow.Color.G + glow.Color.B, "a hot core in the shot's colour")
+for _, part in ShotFx.bursts do
+	if part.Transparency < 1 then
+		bursts += 1
+		check((part.Position - muzzleAt.Position).Magnitude < 0.05, "the burst at the muzzle")
+		check(part.CFrame.LookVector:Dot(muzzleAt.UpVector) > 0.999, "facing down the barrel")
+		check(part.Color.G >= gas.G - 1e-3, "in the gas colour, lightened")
+	end
+end
+check(bursts == 1, "the muzzle bursts")
+local startedAt = boltPart.Position
+frames(0.05)
+check((boltPart.Position - startedAt):Dot(shotDirection) > blaster.speed * 0.04, "the bolt flies on")
+local _, shown = ShotFx.showing()
+frames(SHOT.BURST_SECONDS)
+local _, after = ShotFx.showing()
+check(after < shown, "the burst is gone in a moment")
+frames(WeaponConfig.weapons.GasBlaster.range / blaster.speed + 0.1)
+check(boltPart.Transparency == 1 and glow.Transparency == 1 and (ShotFx.showing()) == 0, "and the bolt, once it's gone into its target")
+
+-- A splat where it hits a wall, facing out of it; none on a player.
+local wall = Instance.new("Part")
+wall.Name = "TestWall"
+wall.Anchored = true
+wall.Size = Vector3.new(30, 30, 2)
+wall.CFrame = CFrame.new(0, 5, -41)
+wall.Parent = workspace
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+task.wait()
+local splat: BasePart? = nil
+for _, part in ShotFx.splats do
+	if part.Transparency < 1 then
+		splat = part
+	end
+end
+check(splat and splat:GetAttribute("ArtSource") == "part", "a splat where it hit the wall")
+local splatPart = splat :: BasePart
+check((splatPart.Position - Vector3.new(0, 5, -39.96)).Magnitude < 0.01, "on its face")
+check(math.abs(splatPart.CFrame.RightVector.Z) > 0.999, "flat to it (a disc, facing out)")
+check(splatPart.Color == gas, "in the gas colour")
+frames(SHOT.SPLAT_SECONDS * 0.5)
+check(splatPart.Transparency < 0.5, "it stays a moment")
+frames(SHOT.SPLAT_SECONDS * 0.6)
+check(splatPart.Transparency == 1, "then fades")
+local root = (me.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = root.Position + Vector3.new(0, 0, 20), to = root.Position + Vector3.new(0, 0, 0.9) })
+task.wait()
+local onPlayer = 0
+for _, part in ShotFx.splats do
+	onPlayer += if part.Transparency < 1 then 1 else 0
+end
+check(onPlayer == 0, "no splat on a player")
+frames(1)
+
+-- Reduced effects: no bursts or splats, but the bolt still shows.
+Settings.reducedEffects = true
+Fx.fired(ada.UserId)
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+task.wait()
+local flying, flashing = ShotFx.showing()
+check(flying == 1 and flashing == 0, "reduced effects: the bolt, nothing else")
+Settings.reducedEffects = false
+frames(1)
+
+-- The Blender meshes, once imported.
+local effectsFolder = assets:FindFirstChild("Effects")
+check(effectsFolder, "ReplicatedStorage.Assets.Effects is there for the imports")
+for name in ShotArt do
+	local found, why = WeaponModel.effect(name)
+	check(found == nil and why == "not imported", `{name}: not imported yet`)
+end
+for name, art in ShotArt do
+	local mesh = Instance.new("MeshPart")
+	mesh.Name = name
+	mesh.MeshSize = art.size * 2
+	mesh.Size = art.size * 2
+	mesh.Parent = effectsFolder
+end
+ShotFx.clear()
+Fx.fired(ada.UserId)
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+task.wait()
+local meshBolt, meshBurst, meshSplat
+for _, part in ShotFx.tracers do
+	meshBolt = if part.Transparency == 0 then part else meshBolt
+end
+for _, part in ShotFx.bursts do
+	meshBurst = if part.Transparency < 1 then part else meshBurst
+end
+for _, part in ShotFx.splats do
+	meshSplat = if part.Transparency < 1 then part else meshSplat
+end
+check(meshBolt and meshBolt:IsA("MeshPart") and meshBolt:GetAttribute("ArtSource") == "mesh", "the bolt is the Blender gas bolt")
+check(meshBolt.Size.X == blaster.width and meshBolt:FindFirstChild("Glow"):IsA("MeshPart"), "sized to the weapon, glow and all")
+check(meshBurst and meshBurst:IsA("MeshPart"), "the burst is the Blender burst")
+local burstFull = ShotArt.MuzzleBurst.size * (blaster.burst / ShotArt.MuzzleBurst.size.X)
+frames(SHOT.BURST_SECONDS * 0.6)
+check((meshBurst.Size - burstFull).Magnitude < 1e-3, "out to the weapon's burst size")
+check(meshSplat and meshSplat:IsA("MeshPart") and meshSplat.CFrame.LookVector.Z > 0.999, "the splat is the Blender splat, facing out of the wall")
+wall:Destroy()
+local sideways = effectsFolder:FindFirstChild("Splat") :: MeshPart
+sideways.MeshSize = Vector3.new(ShotArt.Splat.size.Z, ShotArt.Splat.size.Y, ShotArt.Splat.size.X)
+local none, sidewaysWhy = WeaponModel.effect("Splat")
+check(none == nil and string.find(sidewaysWhy, "wrong way round", 1, true), "an effect imported on its side: " .. sidewaysWhy)
+sideways.MeshSize = ShotArt.Splat.size
+frames(1)
 -- Rapid fire stacks, up to a cap.
 for _ = 1, 10 do
 	Fx.fired(ada.UserId)

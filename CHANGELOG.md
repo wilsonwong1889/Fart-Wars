@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0: the Gas Blaster remodelled, and new shooting graphics
+
+- The Gas Blaster, the starter gun, is remodelled in Blender: a gas
+  canister on top with a valve and a hose down to the barrel, a pressure
+  gauge on the side, a ribbed barrel with a pump grip under it, a horn
+  that glows with gas, finger ridges and a pommel on the grip, and
+  building-brick studs on the receiver. New icon and previews.
+- Shots, made in Blender (`art/blender/build_shots.py`): a cartoon muzzle
+  burst, the gas bolt a shot streaks as, and a splat for where it hits;
+  imported into `ReplicatedStorage.Assets.Effects`, with glowing parts
+  standing in until then.
+- `ShotFx`: each hitscan shot's bolt, a hot core in a softer glow, now
+  comes from the gun's muzzle (it came from the head) and flies to where
+  the shot stopped, then slides into its target; your own shots stop at
+  the first wall in the way instead of drawing through it. The muzzle
+  bursts, and a splat sticks to the wall or floor a shot hits (never a
+  player) and fades. Sizes per weapon (`WeaponFx`): thin and quick for
+  the Spritzer, fat for the Thunderclapper. Fixed pools; reduced effects
+  and reduce motion keep only the bolt.
+- `/fw selftest` reports the shot effects. Specs: `WeaponArt` covers the
+  bolt, burst, splat, reduced effects and the imported meshes.
+
 ## 0.10.0: a building-brick look
 
 - Brainrot Battlefield is repainted in bright toy colours (grass-green

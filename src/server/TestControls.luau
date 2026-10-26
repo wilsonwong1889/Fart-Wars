@@ -48,6 +48,7 @@ local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local ArtAssets = require(Shared.Config.ArtAssets)
 local WeaponModel = require(Shared.WeaponModel)
 local PropArt = require(Shared.Config.PropArt)
+local ShotArt = require(Shared.Config.ShotArt)
 local MapDressing = require(script.Parent.MapDressing)
 local Messages = require(script.Parent.Messages)
 local Health = require(script.Parent.Health)
@@ -388,6 +389,19 @@ function TestControls.selftest(player: Player?): (boolean, string)
 			images += if value ~= "" then 1 else 0
 		end
 	end
+	local shots, shotProblems, shotTotal = 0, {}, 0
+	for name in ShotArt do
+		shotTotal += 1
+		local found, reason = WeaponModel.effect(name)
+		if found then
+			shots += 1
+		elseif reason ~= "not imported" then
+			table.insert(shotProblems, reason)
+		end
+	end
+	expect(shots == shotTotal and #shotProblems == 0, "Shot effects", `all {shotTotal} imported`,
+		if #shotProblems > 0 then table.concat(shotProblems, "; ")
+			else `{shots} of {shotTotal} imported into ReplicatedStorage.Assets.Effects; glowing parts stand in (art/README.md)`, "WARN")
 	local props, propProblems, propTotal = 0, {}, 0
 	for prop in PropArt do
 		propTotal += 1

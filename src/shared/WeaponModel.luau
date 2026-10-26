@@ -10,6 +10,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local WeaponArt = require(script.Parent.Config.WeaponArt)
+local ShotArt = require(script.Parent.Config.ShotArt)
 
 local WeaponModel = {}
 
@@ -46,6 +47,30 @@ function WeaponModel.matches(meshSize: Vector3, size: Vector3): boolean
 		end
 	end
 	return true
+end
+
+-- A shot effect's imported mesh (Config/ShotArt: MuzzleBurst, GasBolt,
+-- Splat) from ReplicatedStorage.Assets.Effects, a MeshPart named after it
+-- or the Model the importer made with one inside; or nil and why not.
+function WeaponModel.effect(name: string): (MeshPart?, string)
+	local art = ShotArt[name]
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local effects = assets and assets:FindFirstChild("Effects")
+	local found = effects and effects:FindFirstChild(name)
+	if found and not found:IsA("MeshPart") then
+		found = found:FindFirstChildWhichIsA("MeshPart", true)
+		if not found then
+			return nil, `no MeshPart in {name}`
+		end
+	end
+	if not (art and found) then
+		return nil, "not imported"
+	end
+	local meshSize = (found :: any).MeshSize
+	if typeof(meshSize) == "Vector3" and meshSize.Magnitude > 0 and not WeaponModel.matches(meshSize, art.size) then
+		return nil, `{name} is the wrong way round (re-import with Forward -Z, Up +Y)`
+	end
+	return found :: MeshPart, "imported"
 end
 
 -- The imported MeshParts for `weaponId` by role, or nil and why not.

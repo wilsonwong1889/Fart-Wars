@@ -7,6 +7,8 @@
 --     camera kick
 --   * idle: the gas tank glows slowly
 --   * impacts: a puff and sparks where a shot hits something
+--   * the shots themselves (ShotFx): the bolt from the muzzle to where the
+--     shot stopped, the muzzle's burst, and a splat where it hit
 -- It all happens on each client from the shots the server announces (and
 -- your own as you fire), by moving the gun's grip weld locally; nothing
 -- here changes what the server sees. Reduce motion keeps a little recoil
@@ -24,6 +26,7 @@ local ArtAssets = require(Shared.Config.ArtAssets)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local Settings = require(Client.Settings)
+local ShotFx = require(Client.ShotFx)
 
 local WeaponFxController = {}
 
@@ -42,6 +45,8 @@ type State = {
 WeaponFxController.states = setmetatable({}, { __mode = "k" }) :: any
 -- Particles emitted (for budgets and tests).
 WeaponFxController.emitted = 0
+-- The shots' bolt pool (ShotFx).
+WeaponFxController.tracers = ShotFx.tracers
 
 local player = Players.LocalPlayer
 local frameParticles = 0
@@ -166,6 +171,12 @@ function WeaponFxController.fired(userId: number)
 			local sparks = emitter(muzzle, "MuzzleSparks", "spark", Color3.fromRGB(255, 240, 180), 0.35, 14, 0.2, 25, nil)
 			emit(sparks, fx.sparks)
 		end
+		local handle = muzzle.Parent
+		if handle and handle:IsA("BasePart") then
+			-- The burst, facing down the barrel (the muzzle's +Y).
+			local world = handle.CFrame * muzzle.CFrame
+			ShotFx.burst(CFrame.lookAt(world.Position, world.Position + world.UpVector), color, fx.shot.burst)
+		end
 		if fx.flash and not (Settings.reduceMotion or reducedEffects()) then
 			local light = muzzle:FindFirstChild("Flash") :: PointLight?
 			if not light then
@@ -194,8 +205,28 @@ function WeaponFxController.fired(userId: number)
 	end
 end
 
--- Where a shot hit something: a puff and a few sparks.
-function WeaponFxController.impact(position: Vector3, color: Color3)
+-- A shot's bolt: from `userId`'s muzzle when their gun is in their hands
+-- near `from` (where the server measured the shot from, the head), to
+-- `to`, drawn the way their weapon's shots look.
+function WeaponFxController.tracer(userId: number, from: Vector3, to: Vector3, color: Color3): BasePart?
+	local tool = heldBy(userId)
+	local weapon = if tool then tool:GetAttribute("Weapon") else nil
+	local fx = WeaponFx.weapons[weapon :: any] or WeaponFx.weapons.GasBlaster
+	local origin = from
+	local muzzle = tool and tool:FindFirstChild("Muzzle", true)
+	local handle = muzzle and muzzle.Parent
+	if muzzle and muzzle:IsA("Attachment") and handle and handle:IsA("BasePart") then
+		local at = (handle.CFrame * muzzle.CFrame).Position
+		if (at - from).Magnitude < 8 then
+			origin = at
+		end
+	end
+	return ShotFx.bolt(origin, to, color, fx.shot)
+end
+
+-- Where a shot hit something: a puff and a few sparks, and (given the
+-- way the shot came and the weapon's splat size) a splat on the surface.
+function WeaponFxController.impact(position: Vector3, color: Color3, direction: Vector3?, splat: number?)
 	local anchor = impactAnchor
 	if not anchor then
 		return
@@ -209,12 +240,16 @@ function WeaponFxController.impact(position: Vector3, color: Color3)
 	emit(puff, spec.count)
 	local sparks = emitter(attachment, "Sparks", "spark", Color3.fromRGB(255, 245, 200), 0.3, 12, 0.25, 180, 20)
 	emit(sparks, spec.sparks)
+	if direction and splat then
+		ShotFx.splat(position, direction, color, splat)
+	end
 end
 
 -- One frame: settle every gun, and the camera kick.
 function WeaponFxController.step(dt: number)
 	frameParticles = 0
 	clockTime += dt
+	ShotFx.step(dt)
 	local equipSeconds = WeaponFx.EQUIP.SECONDS
 	for tool, state in WeaponFxController.states do
 		if not tool.Parent then
@@ -299,7 +334,9 @@ local function onCombatEvent(event: { [string]: any })
 			local range = if weapon then weapon.range else math.huge
 			if (event.to - event.from).Magnitude < range - 0.5 then
 				local art = weapon and WeaponArt[weapon.id]
-				WeaponFxController.impact(event.to, if art and art.roles.Gas then art.roles.Gas.color else Color3.fromRGB(180, 255, 90))
+				local fx = weapon and WeaponFx.weapons[weapon.id]
+				local color = if art and art.roles.Gas then art.roles.Gas.color else Color3.fromRGB(180, 255, 90)
+				WeaponFxController.impact(event.to, color, event.to - event.from, if fx then fx.shot.splat else nil)
 			end
 		end
 	elseif event.kind == "lob" and type(event.shooter) == "number" and event.shooter ~= player.UserId then

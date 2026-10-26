@@ -26,7 +26,6 @@ local UIConfig = require(Shared.Config.UIConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
-local GameConfig = require(Shared.Config.GameConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
@@ -270,47 +269,10 @@ local function showCard(text: string, color: Color3)
 	flash(card, 2.5)
 end
 
--- Shot tracers come from a pool of GameConfig.BUDGET.MAX_TRACERS parts,
--- reused oldest first, so a server full of Spritzers costs a fixed number
--- of parts. A tracer shows for TRACER_SECONDS, then hides.
-local TRACER_SECONDS = 0.08
-local tracers: { BasePart } = {}
-local tracerNext = 0
-local tracerShown: { [BasePart]: number } = {}
-
-local function tracer(from: Vector3, to: Vector3, color: Color3)
-	local length = (to - from).Magnitude
-	if length < 0.5 then
-		return
-	end
-	tracerNext = tracerNext % GameConfig.BUDGET.MAX_TRACERS + 1
-	local beam = tracers[tracerNext]
-	if not beam or not beam.Parent then
-		beam = Instance.new("Part")
-		beam.Name = "Tracer"
-		beam.Anchored = true
-		beam.CanCollide = false
-		beam.CanQuery = false
-		beam.CanTouch = false
-		beam.CastShadow = false
-		beam.Material = Enum.Material.Neon
-		beam.Parent = workspace
-		tracers[tracerNext] = beam
-	end
-	beam.Color = color
-	beam.Transparency = 0
-	beam.Size = Vector3.new(0.15, 0.15, length)
-	beam.CFrame = CFrame.lookAt(from:Lerp(to, 0.5), to)
-	local shownAt = os.clock()
-	tracerShown[beam] = shownAt
-	task.delay(TRACER_SECONDS, function()
-		-- Unless it has been reused since.
-		if tracerShown[beam] == shownAt then
-			beam.Transparency = 1
-		end
-	end)
-end
-CombatController.tracers = tracers
+-- Shot tracers: the bolts WeaponFxController draws (ShotFx), from a pool
+-- of GameConfig.BUDGET.MAX_TRACERS, so a server full of Spritzers costs a
+-- fixed number of parts.
+CombatController.tracers = WeaponFxController.tracers
 
 -- Where the crosshair points, and the direction to it from the head.
 local function aim(): (Vector3?, Vector3?, Vector3?)
@@ -353,9 +315,16 @@ function CombatController.fire(): boolean
 	Audio.play(gun.fireSound)
 	-- The gun kicks at once (the server decides whether it hit).
 	WeaponFxController.fired(player.UserId)
-	-- A lob is drawn when the server says where it flies.
+	-- A lob is drawn when the server says where it flies. A shot's bolt
+	-- stops at the first thing in its way, as far as this screen can tell
+	-- (the server decides what it really hit).
 	if gun.projectile == "hitscan" then
-		tracer(from, from + direction * gun.range, tracerColorOf(player, gun.tracerColor))
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { player.Character :: Model }
+		local blocked = workspace:Raycast(from, direction * gun.range, params)
+		local stop = if blocked then blocked.Position else from + direction * gun.range
+		WeaponFxController.tracer(player.UserId, from, stop, tracerColorOf(player, gun.tracerColor))
 	end
 	return true
 end
@@ -473,7 +442,7 @@ local function onCombatEvent(event: { [string]: any })
 	if event.kind == "shot" then
 		if event.shooter ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.to) == "Vector3" then
 			local _, color = nameOf(event.shooter)
-			tracer(event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
+			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
 		end
 	elseif event.kind == "hit" then
 		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text

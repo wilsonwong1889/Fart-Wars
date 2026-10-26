@@ -182,6 +182,15 @@ turn it back off unless you're keeping it):
 - [ ] A second client sees the same on your gun.
 - [ ] Shots that hit walls puff and spark; explosions throw smoke and a
       ring.
+- [ ] Each shot streaks as a glowing bolt from the gun's muzzle (not your
+      head) and stops at the wall it hits, with a splat on the wall that
+      fades; the muzzle bursts as you fire. Others' shots look the same
+      from your screen, in their team's colour (or their tracer's).
+- [ ] Import the three shot effects ([`../art/README.md`](../art/README.md));
+      `/fw selftest` says **Shot effects: all 3 imported**, and the bolt,
+      burst and splat are the Blender shapes.
+- [ ] Settings → REDUCED EFFECTS: no bursts or splats; the bolt still
+      shows.
 - [ ] The hotbar shows the guns; the locker's weapon cards turn them.
 - [ ] Settings → REDUCE MOTION: the gun barely moves, no flash, no camera
       kick; the locker's guns stand still.

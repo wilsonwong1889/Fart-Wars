@@ -68,7 +68,9 @@ local CombatUI = require(Controllers.CombatController)
 local Effects = require(Controllers.EffectsController)
 Lifecycle.requestPlay(me, nil)
 task.wait(0.5)
-me.Character:PivotTo(CFrame.new(0, 3, 0))
+-- In the open (Porcelain Plaza, clear of the throne): the bolt stops at
+-- the first thing in its way.
+me.Character:PivotTo(CFrame.new(0, 3, -30))
 check(CombatUI.fire(), "I fire")
 local shown = 0
 for _, beam in CombatUI.tracers do

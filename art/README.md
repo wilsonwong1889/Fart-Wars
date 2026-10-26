@@ -17,6 +17,7 @@ match.
 | --- | --- |
 | `art/blender/build_weapons.py` | models the Gas Blaster, Spritzer, Thunderclapper and Stink Lobber |
 | `art/blender/build_effects.py` | the particle textures: puff, cloud, spark, ring, droplet |
+| `art/blender/build_shots.py` | the shots' meshes: the muzzle burst, the gas bolt a shot streaks as, and the splat where it hits |
 | `art/blender/build_props.py` | the map: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean; the walls (two heights), the studded wall-top plates, the plaza's tiles, the spawn floors and the spawn pads |
 | `scripts/map_layout.py` | writes `art/export/props/layout.txt`: the map as the game builds it, dressed (run on the spec harness), for the map renders |
 | `art/blender/kit.py` | shared helpers (axes, materials, rendering) |
@@ -25,6 +26,7 @@ match.
 | `art/export/weapons/<Weapon>.png`, `all.png` | preview renders |
 | `art/export/icons/<Weapon>.png` | hotbar icons, 512×512 |
 | `art/export/effects/<name>.png` | particle textures, white (the game tints them) |
+| `art/export/effects/MuzzleBurst.fbx`, `GasBolt.fbx`, `Splat.fbx`, `shots.png` | the shots' meshes for Roblox, and a render of the three |
 | `art/export/weapons/manifest.json` | every part's size and place, which the game reads (through `WeaponArt.luau`) |
 | `art/export/props/<Prop>.fbx` | each mesh for Roblox: a prop the exact size of the map part it dresses, or a wall or floor module the game repeats along its part |
 | `art/export/props/Props.blend`, `<Prop>.png`, `all.png` | every mesh in one Blender scene; previews (modules shown repeated) |
@@ -52,6 +54,17 @@ the rest.
 
 The hotbar shows each weapon's 3D model until its icon is uploaded, and
 the locker's weapon cards turn the model slowly.
+
+The shots (`ShotFx`, sizes per weapon in `WeaponFx`): each hitscan shot
+streaks as a glowing gas bolt, a hot core in a softer glow, from the gun's
+muzzle to where it stopped (your own shots stop at the first wall in the
+way, as far as your screen can tell), and slides into its target. The
+muzzle flashes a cartoon burst, and a splat sticks for a moment to the
+wall or floor a shot hits (never to a player). They're in the shot's
+colour: the shooter's team, or their tracer cosmetic. Reduced effects and
+reduce motion leave out the bursts and splats; the bolt always shows.
+
+![The shot effects](export/effects/shots.png)
 
 The map's props dress the parts the map is built from (`MapDressing`,
 `Config/MapArt.luau` says which prop goes on which part):
@@ -106,6 +119,17 @@ The map's props dress the parts the map is built from (`MapDressing`,
 Rojo leaves `ReplicatedStorage.Assets` alone, so the imports stay when you
 sync. Save the place in Studio to keep them. To keep them in Git too,
 right-click **Weapons** → **Save to File** → `art/export/Weapons.rbxm`.
+
+## Import the shot effects (once)
+
+1. **Import 3D** `art/export/effects/MuzzleBurst.fbx`, `GasBolt.fbx` and
+   `Splat.fbx` (forward **-Z**, up **+Y**).
+2. Drag each into **ReplicatedStorage → Assets → Effects**, keeping its
+   name.
+3. `/fw selftest`: **Shot effects: all 3 imported**.
+
+Until then each shot is drawn with glowing parts in the same places: a
+block for the bolt, a ball for the burst, a disc for the splat.
 
 ## Import the map props (once)
 

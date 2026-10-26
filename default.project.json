@@ -76,6 +76,10 @@
         "Props": {
           "$className": "Folder",
           "$ignoreUnknownInstances": true
+        },
+        "Effects": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
         }
       }
     },
