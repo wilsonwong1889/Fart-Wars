@@ -1,5 +1,24 @@
 # Changelog
 
+## Phase 4, part 1: daily rewards, gifts and free spins
+
+- `RewardsService` and `RewardsConfig`: a seven-day track, one claim per
+  UTC day (100 to 500 coins; a free spin on days 3 and 6; the Stink
+  Sparkle tracer on day 7, or coins if owned). It loops, and a missed day
+  doesn't reset it. A free spin for every 10 minutes of active play (AFK
+  and the home screen don't count), 6 a day, banked up to 10. The spin
+  draws on the server by published weights. Every claim is recorded
+  before it pays, through unique grant IDs; unsaved sessions can't claim.
+- Client: the Daily Rewards screen (opens by itself on the home screen
+  when a claim is waiting; ticks, today, CLAIM, the exact countdown to the
+  reset), the spin screen with every chance shown, and SPIN / DAILY
+  buttons top right. The home screen's Rewards opens the daily screen.
+- Retention: `retention.newPlayers`, `retention.nextDay`, `retention.D1`,
+  `retention.D7`, `Rewards.dailyClaims`, `Rewards.gifts`, `Rewards.spins`.
+- New cosmetics Stink Sparkle and Lucky Lime; `FeatureFlags.REWARDS`;
+  the `RewardsRequest` remote; `/fw daily` and `/fw spins`.
+- New spec: `Rewards`.
+
 ## A new look, and a weapon in your hands
 
 - Your equipped weapon is held in your avatar's hand: a Tool built from

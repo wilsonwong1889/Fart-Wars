@@ -12,7 +12,7 @@
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
---   /fw selftest
+--   /fw selftest   /fw daily   /fw spins 3
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -35,6 +35,7 @@ local BarrelService = require(Services.BarrelService)
 local DataService = require(Services.DataService)
 local EconomyService = require(Services.EconomyService)
 local LoadoutService = require(Services.LoadoutService)
+local RewardsService = require(Services.RewardsService)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local TeamConfig = require(Shared.Config.TeamConfig)
@@ -158,6 +159,28 @@ function TestControls.weapon(player: Player, id: string): (boolean, string)
 	return false, `no weapon "{id}"`
 end
 
+-- Rewards: today's daily claim open again, or free spins.
+function TestControls.daily(player: Player): (boolean, string)
+	if not (TestControls.allowed(nil) and DataService.update(player, function(d)
+		d.LastDailyDay = 0
+	end)) then
+		return false, "no profile yet"
+	end
+	RewardsService.publish(player)
+	return true, `{player.Name} can claim a daily reward again`
+end
+
+function TestControls.spins(player: Player, count: number?): (boolean, string)
+	local n = math.clamp(math.floor(count or 1), 1, 10)
+	if not (TestControls.allowed(nil) and DataService.update(player, function(d)
+		d.Spins += n
+	end)) then
+		return false, "no profile yet"
+	end
+	RewardsService.publish(player)
+	return true, `{player.Name} gets {n} free spin{if n == 1 then "" else "s"}`
+end
+
 -- Unlocks and equips a Q ability.
 function TestControls.ability(player: Player, id: string): (boolean, string)
 	if not TestControls.allowed(nil) then
@@ -247,6 +270,7 @@ local REMOTES = {
 	UseAbility = "RemoteEvent",
 	ShopRequest = "RemoteFunction",
 	ProfileUpdate = "RemoteEvent",
+	RewardsRequest = "RemoteFunction",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
@@ -284,7 +308,7 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		end
 	end
 	table.sort(missing)
-	expect(#missing == 0, "Remotes", "all 14 present", `missing or wrong: {table.concat(missing, ", ")}`)
+	expect(#missing == 0, "Remotes", "all 15 present", `missing or wrong: {table.concat(missing, ", ")}`)
 	local teamsOk = true
 	for _, id in TeamConfig.order do
 		teamsOk = teamsOk and game:GetService("Teams"):FindFirstChild(TeamConfig.teams[id].name) ~= nil
@@ -366,7 +390,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, selftest, stats"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -395,6 +419,10 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.xp(player, tonumber(words[3]))
 	elseif command == "profile" then
 		ok, message = TestControls.profile(player)
+	elseif command == "daily" then
+		ok, message = TestControls.daily(player)
+	elseif command == "spins" then
+		ok, message = TestControls.spins(player, tonumber(words[3]))
 	elseif command == "selftest" then
 		ok, message = TestControls.selftest(player)
 	elseif command == "stats" then

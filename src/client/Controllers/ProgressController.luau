@@ -269,6 +269,9 @@ local function onEvent(event: any)
 			else ProgressController.nextGoal(event.level)
 		banner(if event.repeated then "LEVEL 50 BONUS!" else `LEVEL {event.level}!`, detail)
 		Audio.play("levelUp")
+	elseif event.kind == "gift" then
+		ProgressController.line("🎡 A free spin for playing! Open it top right.", Color3.fromRGB(200, 160, 255), 5)
+		Audio.play("coins")
 	elseif event.kind == "mastery" then
 		ProgressController.line(`{event.badge} mastery: {event.eliminations} eliminations`, C.accent)
 	end

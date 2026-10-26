@@ -59,6 +59,9 @@ local ProgressionConfig = {
 	cosmetics = table.freeze({
 		GoldenGas = table.freeze({ id = "GoldenGas", name = "Golden Gas", tracerColor = Color3.fromRGB(255, 200, 40) }),
 		RainbowRot = table.freeze({ id = "RainbowRot", name = "Rainbow Rot", tracerColor = Color3.fromRGB(200, 90, 255) }),
+		-- From the daily track (day 7) and the free spin (rare).
+		StinkSparkle = table.freeze({ id = "StinkSparkle", name = "Stink Sparkle", tracerColor = Color3.fromRGB(255, 120, 200) }),
+		LuckyLime = table.freeze({ id = "LuckyLime", name = "Lucky Lime", tracerColor = Color3.fromRGB(170, 255, 120) }),
 	}),
 
 	-- Sanity limits on any one transaction, and how many recent ones each

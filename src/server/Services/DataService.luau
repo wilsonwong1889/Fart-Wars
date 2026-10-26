@@ -65,6 +65,15 @@ export type Data = {
 	Sessions: number,
 	FirstSeen: number,
 	LastSeen: number,
+	-- Rewards (Phase 4): the daily track's position and last claim (a UTC
+	-- day number), free spins banked and used, today's ten-minute gifts.
+	DailyTrack: number,
+	LastDailyDay: number,
+	DailyClaims: number,
+	Spins: number,
+	SpinsUsed: number,
+	GiftDay: number,
+	GiftsToday: number,
 }
 export type Profile = {
 	data: Data,
@@ -111,6 +120,13 @@ function DataService.defaults(): Data
 		Sessions = 0,
 		FirstSeen = 0,
 		LastSeen = 0,
+		DailyTrack = 0,
+		LastDailyDay = 0,
+		DailyClaims = 0,
+		Spins = 0,
+		SpinsUsed = 0,
+		GiftDay = 0,
+		GiftsToday = 0,
 	}
 end
 
@@ -414,6 +430,19 @@ local function onJoin(player: Player)
 		if data.Sessions > 0 then
 			Telemetry.count("session.returning")
 			Telemetry.sample("daysSinceLastVisit", (at - data.LastSeen) / 86400)
+			-- Day-1 and day-7 retention: back the day after joining, or a
+			-- week after (UTC days), over retention.newPlayers.
+			local today, firstDay, lastDay = at // 86400, data.FirstSeen // 86400, data.LastSeen // 86400
+			if today - lastDay == 1 then
+				Telemetry.count("retention.nextDay")
+			end
+			if today - firstDay == 1 and lastDay < today then
+				Telemetry.count("retention.D1")
+			elseif today - firstDay == 7 and lastDay < today then
+				Telemetry.count("retention.D7")
+			end
+		else
+			Telemetry.count("retention.newPlayers")
 		end
 		data.Sessions += 1
 		data.FirstSeen = if data.FirstSeen > 0 then data.FirstSeen else at

@@ -17,6 +17,7 @@
 --   EconomyService        coins, XP, levels, unlocks, mastery, stats
 --   LoadoutService        equipped weapon, ability and cosmetic; applied on spawn
 --   ShopService           buying and equipping (ShopRequest)
+--   RewardsService        the daily track, ten-minute gifts, free spins
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
 --   TestControls          test-only commands (Studio / allow-list)
@@ -50,6 +51,7 @@ local ProjectileService = require(Services.ProjectileService)
 local EconomyService = require(Services.EconomyService)
 local LoadoutService = require(Services.LoadoutService)
 local ShopService = require(Services.ShopService)
+local RewardsService = require(Services.RewardsService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
@@ -72,6 +74,7 @@ ProjectileService.start()
 EconomyService.start()
 LoadoutService.start()
 ShopService.start()
+RewardsService.start()
 RoundService.start()
 TestControls.start()
 

@@ -18,6 +18,9 @@ return table.freeze({
 	-- count, and saving still runs): for playtests of the combat alone.
 	PROGRESSION = true,
 
+	-- The daily track, ten-minute gifts and free spins (needs PROGRESSION).
+	REWARDS = true,
+
 	-- A few seconds of protection after each spawn; firing ends it early.
 	SPAWN_PROTECTION = true,
 

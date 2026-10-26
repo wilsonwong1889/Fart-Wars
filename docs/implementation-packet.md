@@ -94,6 +94,7 @@ reason.
 | `FireWeapon` | client → server | `direction: Vector3` (unit, from the head toward the crosshair), `shotId: number` (an integer, counting up per shot) |
 | `FartDash` | client → server | `direction: Vector3` (horizontal) |
 | `UseAbility` | client → server | none (the equipped Q ability) |
+| `RewardsRequest` | client → server (RemoteFunction) | `action: "status" \| "claimDaily" \| "spin"`; returns `{ ok, reason, message, ... }` (status: `day`, `ready`, `spins`, `giftsLeft`, `nextGiftSeconds`, `secondsToReset`, `saving`; a claim: `day`, `coins`, `spins?`, `cosmetic?`; a spin: `prize`, `label`, `coins`, `xp`, `cosmetic?`) |
 | `ShopRequest` | client → server (RemoteFunction) | `action: "buy" \| "equip" \| "profile"`, `kind: "weapon" \| "ability" \| "cosmetic" \| "all"`, `id: string?` (40 characters at most); returns `{ ok, reason, message, profile? }` |
 | `RoundSnapshot` | client → server (RemoteFunction) | none; returns the snapshot below |
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
@@ -190,6 +191,8 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `CapRewards` | number | repeat rewards paid past level 50 |
 | `Ledger` | { { id, reason, coins, xp, at } } | the last 20 transactions |
 | `Sessions`, `FirstSeen`, `LastSeen` | number | visits (os.time), for the return rate |
+| `DailyTrack`, `LastDailyDay`, `DailyClaims` | number | the daily track's position (claims so far), the UTC day of the last claim |
+| `Spins`, `SpinsUsed`, `GiftDay`, `GiftsToday` | number | free spins banked and used (the spin's grant ID), today's gifts |
 | `Lock` | { Job, At }? | the server holding the profile; absent when free |
 
 A new field gets a default in `DataService.defaults()`; `migrate` fills it

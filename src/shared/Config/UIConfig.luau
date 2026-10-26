@@ -36,6 +36,8 @@ local UIConfig = {
 		levelCap = "Level 50",
 		levelCapRepeat = "Level 50 bonus",
 		mastery = "Mastery",
+		daily = "Daily reward",
+		spin = "Free spin",
 		test = "Test",
 	}),
 	rewardSeconds = 2.5,
@@ -53,7 +55,7 @@ local UIConfig = {
 	-- The locker's tabs, on the home screen and in the M menu.
 	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Settings" }),
 	-- Entries that arrive in later phases.
-	comingSoon = table.freeze({ "Rewards", "Leaderboard" }),
+	comingSoon = table.freeze({ "Leaderboard" }),
 
 	keys = table.freeze({
 		dash = Enum.KeyCode.LeftShift,

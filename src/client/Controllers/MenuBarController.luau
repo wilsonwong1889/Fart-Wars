@@ -1,6 +1,8 @@
--- The top-right corner while playing: your coins (+ opens the shop) and
--- the menu's sections as big buttons: Shop (weapons), Abilities, Levels
--- (progression) and Settings, each opening that page of the locker.
+-- The top-right corner while playing: your coins (+ opens the shop), the
+-- menu's sections as big buttons: Shop (weapons), Abilities, Levels
+-- (progression) and Settings, each opening that page of the locker; and
+-- below them the free spin (how many, or the time to the next) and the
+-- daily reward (lit when one is waiting).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,6 +12,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local LockerController = require(script.Parent.LockerController)
+local RewardsController = require(script.Parent.RewardsController)
 
 local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 205, 50)
@@ -41,7 +44,7 @@ local function build()
 		Name = "Corner",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -16, 0, 52),
-		Size = UDim2.new(0, 300, 0, 130),
+		Size = UDim2.new(0, 300, 0, 184),
 		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = screen,
@@ -98,6 +101,31 @@ local function build()
 		BackgroundTransparency = 1,
 		Parent = corner,
 	}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Right) })
+	-- Free spin and daily reward.
+	local extras = UI.new("Frame", {
+		Name = "Rewards",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 138),
+		Size = UDim2.new(0, 300, 0, 44),
+		BackgroundTransparency = 1,
+		Parent = corner,
+	}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Right) })
+	p.spin = UI.button("🎡 SPIN", Color3.fromRGB(150, 90, 230), {
+		Name = "Spin",
+		LayoutOrder = 1,
+		Size = UDim2.new(0, 140, 0, 42),
+		TextSize = 18,
+		Parent = extras,
+	})
+	UI.onClick(p.spin, RewardsController.openSpin)
+	p.daily = UI.button("🎁 DAILY", Color3.fromRGB(230, 170, 30), {
+		Name = "Daily",
+		LayoutOrder = 2,
+		Size = UDim2.new(0, 140, 0, 42),
+		TextSize = 18,
+		Parent = extras,
+	})
+	UI.onClick(p.daily, RewardsController.openDaily)
 	p.buttons = {}
 	for i, entry in BUTTONS do
 		local button = UI.new("TextButton", {
@@ -130,6 +158,13 @@ local function refresh()
 	local coins = player:GetAttribute("Coins")
 	p.coins.Text = commas(if type(coins) == "number" then coins else 0)
 	p.corner.Visible = ClientState.isActive()
+	local spins = tonumber(player:GetAttribute("Spins")) or 0
+	local nextGift = player:GetAttribute("NextGiftSeconds")
+	p.spin.Text = if spins > 0
+		then `🎡 SPIN ×{spins}`
+		elseif type(nextGift) == "number" then `🎡 {nextGift // 60}:{string.format("%02d", nextGift % 60)}`
+		else "🎡 SPIN"
+	p.daily.Text = if player:GetAttribute("DailyReady") == true then "🎁 CLAIM!" else "🎁 DAILY"
 end
 MenuBarController.refresh = refresh
 
@@ -140,7 +175,9 @@ function MenuBarController.start()
 	started = true
 	build()
 	refresh()
-	player:GetAttributeChangedSignal("Coins"):Connect(refresh)
+	for _, name in { "Coins", "Spins", "NextGiftSeconds", "DailyReady" } do
+		player:GetAttributeChangedSignal(name):Connect(refresh)
+	end
 	ClientState.StateChanged:Connect(refresh)
 end
 

@@ -57,13 +57,14 @@ local remotes = {
 	UseAbility = "RemoteEvent",
 	ShopRequest = "RemoteFunction",
 	ProfileUpdate = "RemoteEvent",
+	RewardsRequest = "RemoteFunction",
 }
 local present = 0
 for _, child in ReplicatedStorage.Remotes:GetChildren() do
 	check(remotes[child.Name] == child.ClassName, `{child.Name} is a planned {remotes[child.Name] or "?"}`)
 	present += 1
 end
-check(present == 14, "all fourteen remotes, nothing else")
+check(present == 15, "all fifteen remotes, nothing else")
 
 local FeatureFlags = require(shared.Config.FeatureFlags)
 check(FeatureFlags.MATCH_MODE == "Rounds", "5-minute rounds by default")

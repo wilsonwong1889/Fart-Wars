@@ -111,9 +111,9 @@ end
 check(onView, "from one of the map's fixed views")
 check(me.Character == nil, "no avatar on the home screen")
 
-local rewards = home.home:FindFirstChild("Rewards", true) :: TextButton
-click(rewards)
-check(home.comingSoon.Enabled and home.soonTitle.Text == "REWARDS", "Rewards: Coming Soon")
+local leaderboard = home.home:FindFirstChild("Leaderboard", true) :: TextButton
+click(leaderboard)
+check(home.comingSoon.Enabled and home.soonTitle.Text == "LEADERBOARD", "Leaderboard: Coming Soon")
 click(home.comingSoon:FindFirstChild("Close", true))
 check(not home.comingSoon.Enabled, "and closes")
 

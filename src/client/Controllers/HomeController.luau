@@ -26,6 +26,7 @@ local UI = require(Client.UI)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
+local RewardsController = require(script.Parent.RewardsController)
 
 local C = UIConfig.colors
 local Phase = States.Phase
@@ -68,6 +69,14 @@ local function sectionButtons(parent: Instance, width: number)
 			LockerController.open(section)
 		end)
 	end
+	local rewards = UI.button("REWARDS", Color3.fromRGB(230, 170, 30), {
+		Name = "Rewards",
+		LayoutOrder = 19,
+		Size = UDim2.new(0, width, 0, 40),
+		TextSize = 18,
+		Parent = parent,
+	})
+	UI.onClick(rewards, RewardsController.openDaily)
 	for i, section in UIConfig.comingSoon do
 		local button = UI.button(string.upper(section), C.panelLight, {
 			Name = section,
@@ -151,7 +160,7 @@ local function build()
 		Name = "Sections",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -28, 0.5, 0),
-		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon) * 48),
+		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon + 1) * 48),
 		BackgroundTransparency = 1,
 		Parent = home,
 	}, { UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Right) })

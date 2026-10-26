@@ -69,6 +69,8 @@ repository holds credentials or API keys, and nothing should.
 | Levels | 1 to 50 on a rising curve (100 XP for level 2). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
 | Mastery | 25 / 75 / 150 / 300 eliminations with a weapon: a badge and 100 / 250 / 500 / 1,000 coins each, once |
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
+| Daily rewards | a 7-day track (100 to 500 coins, a free spin on days 3 and 6, the Stink Sparkle tracer on day 7), one claim per UTC day; it loops, and a missed day doesn't reset it |
+| Free spins | one for every 10 minutes of active play (6 a day, banked up to 10), plus the daily ones; every prize's chance is on the spin screen |
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
 Q ability (once unlocked), 1-4 pick a weapon from the hotbar, Space jump,
@@ -138,6 +140,7 @@ else.
 | `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry; spending and refunds |
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
+| `RewardsService` | `RewardsRequest`: the daily track, ten-minute gifts (active play only, capped per day), free spins drawn by published weights; every claim recorded before it pays |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
 | Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `HomeController` (home screen, Choose a Team): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
@@ -208,6 +211,8 @@ Chat (`/fw` or `!fw`):
 /fw xp 1000              XP the same way (level-ups, unlocks)
 /fw profile              your saved progress, and whether it's saving
 /fw selftest             checks this server: settings, map, remotes, teams, DataStores, chat
+/fw daily                today's daily reward claimable again
+/fw spins 3              free spins
 /fw stats                shots, hits, eliminations a minute, barrel and chain kills,
                          spawn deaths, dashes, gas recovered, coins and XP granted,
                          temporary profiles, save failures, rejected requests, errors
@@ -245,6 +250,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
 | `Data` | saving against a stand-in DataStore: defaults, autosave, leave and rejoin, session locks (waiting, taking a stuck or stale one, losing one), outages, newer saves, migrations, failed writes, leaving mid-load, rejoining mid-save, shutdown, ten joins at once |
 | `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
+| `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
