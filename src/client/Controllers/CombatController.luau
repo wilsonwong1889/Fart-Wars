@@ -1,10 +1,12 @@
 -- Combat on the client: it shows and it asks, the server decides.
 --   * a crosshair that follows the mouse (centred in first person)
---   * left click fires the equipped weapon toward the crosshair at its fire
---     interval, with an instant local tracer; the server's verdict comes
---     back as a hit marker
+--   * left click fires the Gas Blaster toward the crosshair at its fire
+--     interval, numbering each shot, with an instant local tracer; the
+--     server's verdict comes back as a hit marker (bigger for a headshot)
+--   * your gas meter and its stage, the countdown when you're about to
+--     blow, and your current streak
 --   * other players' shots as tracers, a red marker pointing at whoever
---     hit you, a kill feed, and "ELIMINATED" / "ELIMINATED BY" cards
+--     hit you, a kill feed (with assists), and "EXPLODED" cards
 --   * Shift: Fart Dash (on the ground, off cooldown); the client moves the
 --     avatar and the server checks it
 --   * teammates outlined in the team colour
@@ -15,7 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local GameConfig = require(Shared.Config.GameConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
@@ -23,10 +25,20 @@ local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local Audio = require(Client.Audio)
 local InputController = require(script.Parent.InputController)
 
 local C = UIConfig.colors
-local DASH = GameConfig.FART_DASH
+local DASH = AbilityConfig.FartDash
+-- Gas stage names, 0-4.
+local STAGES = { "FRESH", "BLOATED", "SWOLLEN", "CRITICAL", "KABOOM" }
+local STAGE_COLORS = {
+	Color3.fromRGB(150, 220, 90),
+	Color3.fromRGB(200, 220, 70),
+	Color3.fromRGB(240, 190, 60),
+	Color3.fromRGB(240, 110, 50),
+	Color3.fromRGB(240, 60, 50),
+}
 
 local CombatController = {}
 
@@ -35,6 +47,9 @@ CombatController.parts = {} :: { [string]: any }
 local player = Players.LocalPlayer
 local lastShot = -math.huge
 local lastDash = -math.huge
+local shotId = 0
+local streak = 0
+local lastStage = 0
 local firing = false
 local started = false
 
@@ -53,9 +68,14 @@ local function humanoid(): Humanoid?
 	return if found and found.Health > 0 then found else nil
 end
 
+local function exploding(): boolean
+	local character = player.Character
+	return character ~= nil and character:GetAttribute("ExplodesAt") ~= nil
+end
+
 -- Whether the player may fire or dash right now.
 local function canAct(): boolean
-	return ClientState.isActive() and not InputController.menuOpen and humanoid() ~= nil
+	return ClientState.isActive() and not InputController.menuOpen and humanoid() ~= nil and not exploding()
 end
 
 local function nameOf(userId: number): (string, Color3)
@@ -130,6 +150,40 @@ local function build()
 		Parent = screen,
 	}, { UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Right) })
 
+	local meter = UI.new("Frame", {
+		Name = "GasMeter",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -100),
+		Size = UDim2.new(0, 300, 0, 26),
+		BackgroundColor3 = C.panel,
+		BackgroundTransparency = 0.15,
+		Visible = false,
+		Parent = screen,
+	}, { UI.corner(8), UI.stroke(C.stroke, 3) })
+	p.gasMeter = meter
+	p.gasFill = UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = STAGE_COLORS[1],
+		BorderSizePixel = 0,
+		Parent = meter,
+	}, { UI.corner(8) })
+	p.gasText = UI.label("GAS 0%  FRESH", 15, {
+		Name = "Text",
+		Size = UDim2.new(1, 0, 1, 0),
+		ZIndex = 2,
+		Parent = meter,
+	})
+	p.streak = UI.label("", 16, {
+		Name = "Streak",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -130),
+		Size = UDim2.new(0, 300, 0, 22),
+		TextColor3 = Color3.fromRGB(255, 221, 26),
+		Visible = false,
+		Parent = screen,
+	})
+
 	p.dash = UI.label("", 16, {
 		Name = "Dash",
 		AnchorPoint = Vector2.new(0.5, 1),
@@ -201,7 +255,7 @@ local function aim(): (Vector3?, Vector3?, Vector3?)
 end
 
 function CombatController.fire(): boolean
-	if not (FeatureFlags.PLACEHOLDER_BLASTER and canAct()) then
+	if not (FeatureFlags.GAS_COMBAT and canAct()) then
 		return false
 	end
 	local gun = weapon()
@@ -214,7 +268,9 @@ function CombatController.fire(): boolean
 		return false
 	end
 	lastShot = at
-	ClientState.send("FireWeapon", direction)
+	shotId += 1
+	ClientState.send("FireWeapon", direction, shotId)
+	Audio.play(gun.fireSound)
 	tracer(from, from + direction * gun.range, gun.tracerColor)
 	return true
 end
@@ -239,7 +295,7 @@ function CombatController.dash(): boolean
 	if not (FeatureFlags.FART_DASH and canAct() and h and root and root:IsA("BasePart")) then
 		return false
 	end
-	if h.FloorMaterial == Enum.Material.Air or clock() - lastDash < DASH.COOLDOWN_SECONDS then
+	if h.FloorMaterial == Enum.Material.Air or clock() - lastDash < DASH.cooldownSeconds then
 		return false
 	end
 	local direction = h.MoveDirection
@@ -261,25 +317,32 @@ function CombatController.dash(): boolean
 	push.RelativeTo = Enum.ActuatorRelativeTo.World
 	push.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
 	push.LineDirection = direction
-	push.LineVelocity = DASH.SPEED
+	push.LineVelocity = DASH.speed
 	push.MaxForce = math.huge
 	push.Parent = root
-	Debris:AddItem(push, DASH.SECONDS)
-	Debris:AddItem(attachment, DASH.SECONDS)
+	Debris:AddItem(push, DASH.durationSeconds)
+	Debris:AddItem(attachment, DASH.durationSeconds)
+	Audio.play("dash")
 	ClientState.send("FartDash", direction)
 	return true
 end
 
-local function feedLine(killer: number, victim: number)
+local function feedLine(killer: number?, victim: number, assists: number)
 	local feed = CombatController.parts.feed
-	local killerName, killerColor = nameOf(killer)
-	local victimName = nameOf(victim)
-	local line = UI.label(`{killerName}  ✕  {victimName}`, 16, {
+	local victimName, victimColor = nameOf(victim)
+	local text = `💥 {victimName}`
+	local color = victimColor
+	if killer then
+		local killerName, killerColor = nameOf(killer)
+		text = `{killerName}{if assists > 0 then ` +{assists}` else ""}  💥  {victimName}`
+		color = killerColor
+	end
+	local line = UI.label(text, 16, {
 		Name = "Line",
 		LayoutOrder = -math.floor(clock() * 100),
 		Size = UDim2.new(1, 0, 0, 22),
 		Font = UIConfig.bodyFont,
-		TextColor3 = killerColor,
+		TextColor3 = color,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Parent = feed,
 	})
@@ -310,8 +373,12 @@ local function onCombatEvent(event: { [string]: any })
 			tracer(event.from, event.to, color)
 		end
 	elseif event.kind == "hit" then
-		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.health or 0) <= 0 then C.warning else C.text
+		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text
+		p.hitMarker.TextSize = if event.headshot then 36 else 26
 		flash(p.hitMarker, 0.15)
+		if not event.blocked then
+			Audio.play("hit")
+		end
 	elseif event.kind == "damaged" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root and typeof(event.from) == "Vector3" then
@@ -322,14 +389,24 @@ local function onCombatEvent(event: { [string]: any })
 			p.damageArrow.Rotation = math.deg(math.atan2(toward:Dot(right), toward:Dot(Vector3.new(forward.X, 0, forward.Z))))
 			flash(p.damageArrow, 0.6)
 		end
-	elseif event.kind == "elimination" then
-		feedLine(event.killer, event.victim)
+	elseif event.kind == "elimination" and type(event.victim) == "number" then
+		local assists = if type(event.assists) == "table" then event.assists else {}
+		feedLine(event.killer, event.victim, #assists)
 		if event.killer == player.UserId then
+			streak += 1
 			local name, color = nameOf(event.victim)
-			showCard(`ELIMINATED {string.upper(name)}`, color)
+			showCard(`EXPLODED {string.upper(name)}`, color)
 		elseif event.victim == player.UserId then
-			local name, color = nameOf(event.killer)
-			showCard(`ELIMINATED BY {string.upper(name)}`, color)
+			streak = 0
+			if event.killer then
+				local name, color = nameOf(event.killer)
+				showCard(`EXPLODED BY {string.upper(name)}`, color)
+			else
+				showCard("KABOOM", C.warning)
+			end
+		elseif table.find(assists, player.UserId) then
+			local name, color = nameOf(event.victim)
+			showCard(`ASSIST ON {string.upper(name)}`, color)
 		end
 	end
 end
@@ -370,9 +447,34 @@ local function render()
 		p.crosshair.Position = UDim2.new(0, mouse.X, 0, mouse.Y)
 	end
 	p.dash.Visible = aiming and FeatureFlags.FART_DASH
-	local cooldownLeft = DASH.COOLDOWN_SECONDS - (clock() - lastDash)
+	local cooldownLeft = DASH.cooldownSeconds - (clock() - lastDash)
 	p.dash.Text = if cooldownLeft > 0 then `FART DASH {math.ceil(cooldownLeft)}s` else "FART DASH READY (SHIFT)"
 	p.dash.TextColor3 = if cooldownLeft > 0 then C.muted else C.accent
+
+	-- Gas meter.
+	local character = player.Character
+	local active = ClientState.isActive() and character ~= nil
+	p.gasMeter.Visible = active and FeatureFlags.GAS_COMBAT
+	p.streak.Visible = active and streak > 0
+	p.streak.Text = `STREAK {streak}`
+	if active then
+		local gas = math.clamp(tonumber((character :: Model):GetAttribute("Gas")) or 0, 0, 100)
+		local stage = tonumber((character :: Model):GetAttribute("GasStage")) or 0
+		local explodesAt = (character :: Model):GetAttribute("ExplodesAt")
+		if type(explodesAt) == "number" then
+			stage = 4
+			gas = 100
+		end
+		p.gasFill.Size = UDim2.new(gas / 100, 0, 1, 0)
+		p.gasFill.BackgroundColor3 = STAGE_COLORS[stage + 1]
+		p.gasText.Text = if type(explodesAt) == "number"
+			then `KABOOM IN {string.format("%.1f", math.max(0, explodesAt - workspace:GetServerTimeNow()))}`
+			else `GAS {math.floor(gas)}%  {STAGES[stage + 1]}`
+		if stage > lastStage then
+			Audio.play(if stage >= 3 then "critical" else "inflate")
+		end
+		lastStage = stage
+	end
 end
 CombatController.render = render
 
@@ -396,6 +498,7 @@ function CombatController.start()
 	end)
 	player.CharacterAdded:Connect(function()
 		lastDash = -math.huge
+		lastStage = 0
 	end)
 	-- Teammate outlines follow team changes and new avatars; a slow sweep
 	-- catches anything missed.

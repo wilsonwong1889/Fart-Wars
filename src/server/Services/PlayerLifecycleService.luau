@@ -55,8 +55,11 @@ PlayerLifecycleService.StateChanged = Signal.new()
 -- (player, character): a fresh avatar is on its pad.
 PlayerLifecycleService.Spawned = Signal.new()
 -- (player, character): an active player's avatar died. Per-life state
--- (streaks, cooldowns, later gas) resets on this.
+-- (streaks, cooldowns, gas) resets on this.
 PlayerLifecycleService.Died = Signal.new()
+-- (player, character?): an ACTIVE player is about to lose their slot and
+-- avatar (spectating, AFK or leaving), while both still exist.
+PlayerLifecycleService.Leaving = Signal.new()
 
 local runtimes: { [Player]: Runtime } = {}
 local limiter = RateLimit.new(GameConfig.REQUEST_COOLDOWN_SECONDS)
@@ -250,6 +253,7 @@ function PlayerLifecycleService.toSpectator(player: Player, state: string): bool
 		return false
 	end
 	if runtime.state == PlayerState.ACTIVE then
+		PlayerLifecycleService.Leaving:Fire(player, player.Character)
 		TeamService.release(player)
 	elseif runtime.state == state then
 		return false
@@ -381,6 +385,9 @@ local function onLeave(player: Player)
 		return
 	end
 	runtime.spawnToken += 1
+	if runtime.state == PlayerState.ACTIVE then
+		PlayerLifecycleService.Leaving:Fire(player, player.Character)
+	end
 	TeamService.release(player)
 	removeCharacter(player)
 	runtimes[player] = nil

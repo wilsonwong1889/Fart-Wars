@@ -51,7 +51,7 @@ task.wait(0.1)
 run(game.StarterPlayer.StarterPlayerScripts.Client.ClientBootstrap)
 task.wait(0.5)
 check(me:GetAttribute("State") == "ACTIVE" and me:GetAttribute("TeamId") ~= nil, "joining puts me on a team")
-check(me.Character and me:GetAttribute("Weapon") == "StarterBlaster", "with an avatar and the starter weapon")
+check(me.Character and me:GetAttribute("Weapon") == "GasBlaster", "with an avatar and the Gas Blaster")
 local client = game.StarterPlayer.StarterPlayerScripts.Client
 local HUD = require(client.Controllers.HUDController)
 local Home = require(client.Controllers.HomeController)

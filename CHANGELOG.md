@@ -1,5 +1,28 @@
 # Changelog
 
+## Phase 2, milestone 1: gas and eliminations
+
+- The Gas Blaster replaces the placeholder: 20% gas a body hit, 25% to the
+  head. Shots are numbered; repeats are refused. Suspicious accuracy and
+  impossible movement between shots are logged.
+- `GasService`: the gas meter replaces health. Stages at 25 / 50 / 75%,
+  clamped at 100, then a one-second countdown (no firing or dashing) and
+  the explosion. Recovery after 5 seconds without gas, at 5% a second.
+- `EliminationService`: each death credited once with an event ID; the last
+  enemy to add gas is the killer, others from the last 10 seconds assist.
+  Leaving or spectating mid-countdown explodes at once and still credits
+  the killer.
+- Streaks: five eliminations without dying calls "BRO IS THE ALPHA FART!"
+  to the whole server, once; announcements are spaced 3 seconds apart.
+- `AbilityConfig` (Fart Dash by the masterplan's ability contract; no
+  dashing while exploding) and `AudioConfig` (empty sound slots).
+- Client: gas meter, streak, headshot markers, "EXPLODED" cards, kill feed
+  with assists; `EffectsController` for gas bellies, the critical outline,
+  pooled explosion bursts, dash puffs and the alpha banner. Effects thin out
+  at low graphics quality.
+- Test command `/fw gas <n>`; `/fw resetgas` empties the meter.
+- Specs: `Combat` rewritten for gas, new `Gas` and `Streak`.
+
 ## Phase 1 aligned with the masterplan
 
 - Placeholder Starter Blaster: left click, mouse aim, server-cast hitscan,

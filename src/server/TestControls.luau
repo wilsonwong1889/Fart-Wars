@@ -3,12 +3,12 @@
 --   local T = require(game.ServerScriptService.Server.TestControls)
 --   T.score("Stinkers", 3)   T.endPhase(5)   T.reloadMap()   T.idle(player, 44)
 --   T.spawn(player)   T.team(player, "sharters")   T.resetGas(player)
---   T.weapon(player, "StarterBlaster")   T.stats()
+--   T.gas(player, 95)   T.weapon(player, "GasBlaster")   T.stats()
 -- or as chat commands from a player who may use them (anyone in Studio; in
 -- live servers only GameConfig.TEST_CONTROLS.USER_IDS), with /fw or !fw:
 --   /fw score stinkers 3   /fw end 5   /fw reloadmap   /fw idle 44
---   /fw spawn   /fw team sharters   /fw resetgas   /fw weapon starterblaster
---   /fw stats
+--   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
+--   /fw weapon gasblaster   /fw stats
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -26,6 +26,7 @@ local MapService = require(Services.MapService)
 local TeamService = require(Services.TeamService)
 local PlayerLifecycleService = require(Services.PlayerLifecycleService)
 local CombatService = require(Services.CombatService)
+local GasService = require(Services.GasService)
 local Messages = require(script.Parent.Messages)
 local Telemetry = require(script.Parent.Telemetry)
 
@@ -107,13 +108,24 @@ function TestControls.team(player: Player, team: string): (boolean, string)
 	return true, `{player.Name} is on {id}`
 end
 
--- Clears the combat meter: full health now, an empty gas meter from Phase 2.
+-- Empties a player's gas meter.
 function TestControls.resetGas(player: Player): (boolean, string)
 	if not TestControls.allowed(nil) then
 		return false, "test controls are off"
 	end
-	CombatService.reset(player)
-	return true, `{player.Name} reset`
+	GasService.reset(player)
+	return true, `{player.Name}'s gas is empty`
+end
+
+-- Sets a player's gas (100 starts their countdown, with no killer).
+function TestControls.gas(player: Player, value: number?): (boolean, string)
+	if not (TestControls.allowed(nil) and value) then
+		return false, "usage: gas <0-100>"
+	end
+	if not GasService.testSetGas(player, value) then
+		return false, `can't set {player.Name}'s gas (playing? exploding?)`
+	end
+	return true, `{player.Name} has {math.clamp(value, 0, 100)}% gas`
 end
 
 function TestControls.weapon(player: Player, id: string): (boolean, string)
@@ -144,7 +156,7 @@ function TestControls.stats(): (boolean, string)
 	local counters = snapshot.counters
 	print("[FW] stats", game:GetService("HttpService"):JSONEncode(snapshot))
 	return true,
-		`shots {counters["Combat.shots"] or 0}, hits {counters["Combat.hits"] or 0}, eliminations {counters["Combat.elimination"] or 0}, rejected {rejected}, errors {errored}`
+		`shots {counters["Combat.shots"] or 0}, hits {counters["Combat.hits"] or 0}, eliminations {counters["Elimination.elimination"] or 0}, rejected {rejected}, errors {errored}`
 end
 
 -- Runs one chat command; returns what happened, or nil if it wasn't one.
@@ -154,7 +166,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, weapon <id>, stats"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, stats"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -169,6 +181,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.team(player, words[3])
 	elseif command == "resetgas" then
 		ok, message = TestControls.resetGas(player)
+	elseif command == "gas" then
+		ok, message = TestControls.gas(player, tonumber(words[3]))
 	elseif command == "weapon" and words[3] then
 		ok, message = TestControls.weapon(player, words[3])
 	elseif command == "stats" then

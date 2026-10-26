@@ -16,6 +16,8 @@ src/
       TeamConfig.luau           the two teams
       MapConfig.luau            maps: template, spawns, bounds, modes, theme
       WeaponConfig.luau         weapons by the masterplan's contract
+      AbilityConfig.luau        abilities by the masterplan's contract (Fart Dash)
+      AudioConfig.luau          sound asset IDs by name (empty = silent)
       UIConfig.luau             palette, words, key bindings, controls card
     Interfaces/
       MapBase.luau              the map contract and its validator
@@ -37,7 +39,8 @@ src/
     ClientBootstrap.client.luau starts the client
     ClientState.luau            snapshot, counts, state, messages
     UI.luau                     UI building helpers
-    Controllers/                Input, Camera, Combat, HUD, Home
+    Audio.luau                  plays AudioConfig sounds
+    Controllers/                Input, Camera, Combat, Effects, HUD, Home
 tests/                          specs + the Roblox stand-in harness
 scripts/run_specs.py            runs the specs on the Luau CLI
 ```
@@ -53,10 +56,12 @@ Services start in this order and never require one that starts later.
 | `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `testSetTeam(player, team)`, signal `Changed` |
 | `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
-| `CombatService` | `start()`, `fire(player, direction)`, `damage(victim, attacker, amount) -> boolean`, `weaponOf(player)`, `setWeapon(player, id)`, `streakOf(player)`, `reset(player)`, signal `Eliminated(victim, killer)` |
+| `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signal `Eliminated(victim, killer?, assists, cause, eventId)` |
+| `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth? }) -> boolean`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
+| `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signal `PartHit(shooter, part, weapon, from)` |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
-| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `snapshot()` |
+| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `snapshot()` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
 | `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores? }) -> (team?, why)`, `bestTeams`, `preferenceAllowed`, `canSwitch`, `canStart`, `spread`, `spreadAfterJoin` |
@@ -72,19 +77,21 @@ reason.
 | `RequestPlay` | client → server | `preferredTeam: string?` (`"Stinkers"` / `"Sharters"`; anything else is ignored) |
 | `RequestTeam` | client → server | `team: string?`: on the home screen, the choice for PLAY (nil = auto); in a match, a switch |
 | `RequestSpectate` | client → server | none |
-| `FireWeapon` | client → server | `direction: Vector3` (unit, from the head toward the crosshair) |
+| `FireWeapon` | client → server | `direction: Vector3` (unit, from the head toward the crosshair), `shotId: number` (an integer, counting up per shot) |
 | `FartDash` | client → server | `direction: Vector3` (horizontal) |
 | `RoundSnapshot` | client → server (RemoteFunction) | none; returns the snapshot below |
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
-| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, health, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "elimination", killer, victim, team }` (all); players as user IDs |
+| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
-`tooFast`, `cooldown`, `tooFar`, `disabled`.
+`tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
+`disabled`.
 
 Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
-`Weapon`. Character attribute: `ProtectedUntil` (server time).
+`Weapon`. Character attributes: `ProtectedUntil`, `Gas` (0-100),
+`GasStage` (0-4), `ExplodesAt` (server time).
 
 ## Feature flags
 
@@ -93,7 +100,7 @@ Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `MATCH_MODE` | `"Rounds"` | `"Rounds"`: 5-minute rounds, 15-second results. `"Continuous"`: one endless match, joining is PLAY |
-| `PLACEHOLDER_BLASTER` | on | left-click attack |
+| `GAS_COMBAT` | on | the Gas Blaster, gas meter and explosions |
 | `FART_DASH` | on | Shift dash (unlocks arrive in Phase 3) |
 | `SPAWN_PROTECTION` | on | 3 seconds after each spawn, ended by firing |
 | `TEAMMATE_HIGHLIGHTS` | on | teammates outlined |
@@ -108,7 +115,9 @@ it proves.
 
 | Spec | Masterplan / Phase 1 plan items |
 | --- | --- |
-| `Combat` | 1.3 respawn rules, friendly fire, spawn protection; 1.4 remote validation, rate limits, line of sight, observability, test commands; 1.5 two clients fight, no spawn kills, respawn after repeated deaths |
+| `Combat` | 1.3 respawn rules, friendly fire, spawn protection; 1.4 remote validation, rate limits, line of sight, observability, test commands; 1.5 two clients fight, no spawn kills, respawn after repeated deaths; 2.1 server-validated hits, duplicate packets; 2.5 hit registration, cooldown exploits, team immunity |
+| `Gas` | 2.2 stages, clamping, recovery and interruption, 99 to 100, simultaneous hits, disconnects mid-countdown; 2.3 one kill per explosion, killer and assists |
+| `Streak` | 2.4 the five-kill call, once, reset on death, rate-limited; inflation visuals and the effect pool |
 | `Continuous` | 1.1 continuous core loop behind its flag |
 | `Lifecycle` | 1.3 joining, spawning, churn without duplicate avatars or bad counts |
 | `QAMatrix` | the Phase 1 plan's QA matrix |
@@ -123,13 +132,11 @@ it proves.
 - No lag compensation: the server casts shots against where players are
   now, so a high-ping shooter can miss a fast mover they had on target.
   Phase 5 covers network fairness.
-- The placeholder damage uses Roblox health, which the default character
-  slowly regenerates. Phase 2's gas meter replaces it.
 - The spec harness casts rays against bounding boxes, so round cover is a
   little "boxier" in the specs than in Studio.
 - Chat test commands use `Player.Chatted`; if TextChatService doesn't
   deliver them, use the command bar.
-- Fart Dash has no trail or sound yet (Phase 2).
+- Sounds are empty `AudioConfig` slots until real assets are uploaded.
 - Third-person aim follows the free mouse cursor; a shoulder camera may
   feel better and is worth trying in playtests.
 - Not yet verified in Studio: everything above passes in the spec harness

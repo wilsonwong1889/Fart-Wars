@@ -25,16 +25,33 @@ local GameConfig = {
 	-- (network jitter) before the server drops it.
 	FIRE_INTERVAL_TOLERANCE = 0.85,
 
-	-- Shift. The client pushes the avatar at SPEED for SECONDS; the server
-	-- checks the cooldown and, CHECK_SECONDS later, that it didn't travel
-	-- further than a dash plus walking allows (or puts it back).
-	FART_DASH = table.freeze({
-		COOLDOWN_SECONDS = 3,
-		SPEED = 70,
-		SECONDS = 0.2,
-		CHECK_SECONDS = 0.5,
-		MAX_TRAVEL_STUDS = 30,
+	-- The gas meter, which replaces health. Hits fill it; at 100 a short
+	-- countdown, then the player explodes. Percentages throughout.
+	GAS = table.freeze({
+		-- 0-24 normal, then slight inflation, obvious inflation, critical
+		-- warning; 100 explodes.
+		STAGES = table.freeze({ 25, 50, 75, 100 }),
+		-- No recovery until this long after the last gas taken; then it
+		-- drains at this rate. Taking gas stops it again.
+		RECOVERY_DELAY_SECONDS = 5,
+		RECOVERY_PER_SECOND = 5,
+		EXPLOSION_COUNTDOWN_SECONDS = 1,
+		-- Enemies who added gas this recently (besides the killer) assist.
+		ASSIST_WINDOW_SECONDS = 10,
+		TICK_SECONDS = 0.1,
 	}),
+
+	-- Eliminations in a row without dying. At ALPHA_AT the whole server
+	-- hears ALPHA_TEXT, once; announcements are at least ANNOUNCE_GAP apart.
+	STREAK = table.freeze({
+		ALPHA_AT = 5,
+		ALPHA_TEXT = "BRO IS THE ALPHA FART!",
+		ANNOUNCE_GAP_SECONDS = 3,
+	}),
+
+	-- Shooting is suspicious (logged, not punished) above this accuracy over
+	-- at least SHOTS shots in a minute.
+	SUSPICIOUS_ACCURACY = table.freeze({ SHOTS = 30, RATIO = 0.9 }),
 
 	-- A player with more rejected requests than this in a minute is logged
 	-- as abnormal (a broken client or an exploit).

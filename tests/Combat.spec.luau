@@ -1,19 +1,20 @@
--- Phase 1 combat, through the real Bootstrap and remotes (masterplan 1.3,
--- 1.4 and 1.5):
---   * two players on opposite teams can shoot each other with the
---     placeholder blaster; the server casts every shot itself
---   * nobody can be hurt during the 3 seconds of spawn protection, and
+-- Gas Blaster combat, through the real Bootstrap and remotes (masterplan
+-- 1.3-1.5, 2.1 and 2.5):
+--   * two players on opposite teams can shoot each other; the server casts
+--     every shot itself: 20% gas a body hit, 25% to the head
+--   * nobody takes gas during the 3 seconds of spawn protection, and
 --     firing gives up your own
 --   * friendly fire is off; walls stop shots; spectators can't fire
---   * shots faster than the fire interval, and junk payloads, are refused
---     and counted; a flood of them flags the player as abnormal
---   * four hits eliminate: one point for the shooter's team, once, however
---     many more shots land on the body; respawn works after repeated deaths
+--   * shots faster than the fire interval, repeated shot numbers and junk
+--     payloads are refused and counted; a flood of them flags the player
+--   * 100% gas: a one-second countdown (no firing or dashing in it), then
+--     the explosion: one point for the shooter's team, once, however many
+--     more shots land; respawn works after repeated deaths
 --   * a death resets the streak and the dash cooldown
---   * Fart Dash: refused during the cooldown, and an avatar that travels
---     too far is put back
---   * the test commands for spawning, teams, resetting and weapons work,
---     and Telemetry records first shots, hits and eliminations
+--   * Fart Dash: refused during the cooldown and while exploding, and an
+--     avatar that travels too far is put back
+--   * the test commands for spawning, teams, gas and weapons work, and
+--     Telemetry records first shots, hits and eliminations
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local checks = 0
@@ -29,8 +30,9 @@ do
 	setfenv(run, setmetatable({ script = server.Bootstrap }, { __index = getfenv() }))
 	run()
 end
-local Combat = require(server.Services.CombatService)
 local Dash = require(server.Services.DashService)
+local Gas = require(server.Services.GasService)
+local Eliminations = require(server.Services.EliminationService)
 local Lifecycle = require(server.Services.PlayerLifecycleService)
 local Scores = require(server.Services.MatchScoreService)
 local RoundService = require(server.Services.RoundService)
@@ -81,17 +83,35 @@ end
 local function place(player: Player, x: number, z: number)
 	player.Character:PivotTo(CFrame.new(x, 3, z))
 end
-local function health(player: Player): number
-	return player.Character.Humanoid.Health
+local function gas(player: Player): number
+	return Gas.gasOf(player)
 end
-local NORTH, SOUTH = Vector3.new(0, 0, 1), Vector3.new(0, 0, -1)
--- A clear stretch of the Gas Gutter lane: x = 53 from z = -14 to 14.
+local function alive(player: Player): boolean
+	return player.Character ~= nil and player.Character.Humanoid.Health > 0
+end
+-- Across a clear stretch of the Gas Gutter lane (x = 53, z = -14 to 14):
+-- level with the head, or down at the body.
+local HEAD = Vector3.new(0, 0, 1)
+local BODY = Vector3.new(0, -1.5, 28).Unit
+local SOUTH_BODY = Vector3.new(0, -1.5, -28).Unit
 local function lineUp(shooter: Player, target: Player)
 	place(shooter, 53, -14)
 	place(target, 53, 14)
 end
-local function shoot(player: Player, direction: any)
-	Remotes.FireWeapon.OnServerEvent:Fire(player, direction)
+local shots: { [Player]: number } = {}
+local function shoot(player: Player, direction: any, id: any?)
+	shots[player] = (shots[player] or 0) + 1
+	Remotes.FireWeapon.OnServerEvent:Fire(player, direction, if id ~= nil then id else shots[player])
+end
+-- Body hits until `target` is counting down (each a fire interval apart).
+local function inflate(shooter: Player, target: Player, aim: Vector3)
+	for _ = 1, 6 do
+		if target.Character:GetAttribute("ExplodesAt") then
+			return
+		end
+		shoot(shooter, aim)
+		task.wait(0.31)
+	end
 end
 
 local ada = join("Ada")
@@ -100,79 +120,94 @@ local adaTeam, boTeam = ada:GetAttribute("TeamId"), bo:GetAttribute("TeamId")
 check(adaTeam and boTeam and adaTeam ~= boTeam, "two players on opposite teams")
 task.wait(0.5)
 check(RoundService.phase() == "ACTIVE", "a round is on")
-check(ada:GetAttribute("Weapon") == "StarterBlaster", "everyone spawns with the starter weapon")
+check(ada:GetAttribute("Weapon") == "GasBlaster", "everyone spawns with the Gas Blaster")
+check(bo.Character:GetAttribute("Gas") == 0 and bo.Character:GetAttribute("GasStage") == 0, "with an empty gas meter")
 
 -- Spawn protection.
 lineUp(ada, bo)
 check(Lifecycle.isProtected(bo) and bo.Character:FindFirstChild("SpawnProtection"), "a fresh spawn is protected (with a ForceField)")
-shoot(ada, NORTH)
-check(health(bo) == 100 and last(ada, "hit") and last(ada, "hit").blocked, "a protected player takes nothing")
-check(not Lifecycle.isProtected(ada) and not ada.Character:FindFirstChild("SpawnProtection"), "firing ended Ada's own protection")
+shoot(ada, BODY)
+check(gas(bo) == 0 and last(ada, "hit") and last(ada, "hit").blocked, "a protected player takes no gas")
+check(not Lifecycle.isProtected(ada), "firing ended Ada's own protection")
 task.wait(3.1)
-check(not Lifecycle.isProtected(bo) and not bo.Character:FindFirstChild("SpawnProtection"), "protection ends after 3 seconds")
+check(not Lifecycle.isProtected(bo), "protection ends after 3 seconds")
 
 -- Hits.
-shoot(ada, NORTH)
-check(health(bo) == 75, "a hit takes 25")
-check(last(ada, "hit").health == 75 and not last(ada, "hit").blocked, "the shooter gets a hit marker")
+shoot(ada, BODY)
+check(gas(bo) == 20 and bo.Character:GetAttribute("Gas") == 20, "a body hit: 20% gas")
+check(last(ada, "hit").gas == 20 and not last(ada, "hit").headshot, "the shooter gets a hit marker")
 check(last(bo, "damaged") and last(bo, "damaged").attacker == ada.UserId, "the victim learns who hit them, and from where")
 check(last(bo, "shot") and last(bo, "shot").shooter == ada.UserId, "everyone sees the shot")
+task.wait(0.31)
+shoot(ada, HEAD)
+check(gas(bo) == 45 and last(ada, "hit").headshot, "a headshot: 25%")
+check(bo.Character:GetAttribute("GasStage") == 1, "45%: slightly inflated")
 local tooFast = rejects("FireWeapon", "tooFast")
-shoot(ada, NORTH)
-check(health(bo) == 75 and rejects("FireWeapon", "tooFast") == tooFast + 1, "a shot inside the fire interval is refused")
+shoot(ada, BODY)
+check(gas(bo) == 45 and rejects("FireWeapon", "tooFast") == tooFast + 1, "a shot inside the fire interval is refused")
+task.wait(0.31)
+shoot(ada, BODY, shots[ada] - 1)
+check(gas(bo) == 45 and rejects("FireWeapon", "duplicate") == 1, "a repeated shot number is refused")
 task.wait(0.31)
 shoot(ada, nil)
 for _, junk in { "north", 7, { 0, 0, 1 }, Vector3.new(0 / 0, 0, 1), Vector3.new(0, 0, 9), Vector3.zero } do
 	task.wait(0.31)
 	shoot(ada, junk)
 end
-check(health(bo) == 75 and rejects("FireWeapon", "badPayload") >= 7, "junk aim is refused, never trusted")
-check(next(Telemetry.snapshot().errors) == nil, "and never breaks the server")
+task.wait(0.31)
+shoot(ada, BODY, "1")
+task.wait(0.31)
+shoot(ada, BODY, 1.5)
+check(gas(bo) == 45 and rejects("FireWeapon", "badPayload") >= 9, "junk aim or shot numbers are refused, never trusted")
+check(next(Telemetry.snapshot().errors) == nil, "and never break the server")
 
--- Elimination, once.
+-- The explosion, once.
 local before = Scores.getScores()[adaTeam]
-for _ = 1, 3 do
-	task.wait(0.31)
-	shoot(ada, NORTH)
-end
-check(health(bo) == 0, "four hits eliminate")
+task.wait(0.31)
+inflate(ada, bo, BODY)
+check(gas(bo) == 100 and type(bo.Character:GetAttribute("ExplodesAt")) == "number", "100%: the countdown starts")
+check(alive(bo) and Gas.isExploding(bo), "Bo is still standing for a moment")
+local exploding = rejects("FireWeapon", "exploding")
+shoot(bo, SOUTH_BODY)
+check(rejects("FireWeapon", "exploding") == exploding + 1, "no firing in the countdown")
+check(not Dash.dash(bo, HEAD) and rejects("FartDash", "prohibited") == 1, "no dashing either")
+task.wait(1.05)
+check(not alive(bo), "then Bo explodes")
 check(Scores.getScores()[adaTeam] == before + 1, "one point for Ada's team")
 local elimination = last(ada, "elimination")
-check(elimination and elimination.killer == ada.UserId and elimination.victim == bo.UserId, "everyone hears about it")
-check(Combat.streakOf(ada) == 1, "Ada's streak is 1")
+check(elimination and elimination.killer == ada.UserId and elimination.victim == bo.UserId and elimination.cause == "shot", "everyone hears about it")
+check(last(ada, "explosion") and typeof(last(ada, "explosion").position) == "Vector3", "and sees where")
+check(Eliminations.streakOf(ada) == 1, "Ada's streak is 1")
 for _ = 1, 3 do
 	task.wait(0.31)
-	shoot(ada, NORTH)
+	shoot(ada, BODY)
 end
 check(Scores.getScores()[adaTeam] == before + 1 and count(ada, "elimination") == 1, "shooting the body scores nothing more")
 
--- Respawn after repeated deaths, protected every time.
+-- Respawn after repeated deaths, protected every time, with a fresh meter.
 for life = 1, 3 do
 	task.wait(3.2)
-	check(bo.Character and health(bo) == 100 and Lifecycle.isProtected(bo), `respawn {life}: fresh and protected`)
+	check(alive(bo) and gas(bo) == 0 and bo.Character:GetAttribute("Gas") == 0 and Lifecycle.isProtected(bo), `respawn {life}: fresh and protected`)
 	lineUp(ada, bo)
 	task.wait(0.31)
-	shoot(ada, NORTH)
-	check(health(bo) == 100, `respawn {life}: no spawn kill`)
+	shoot(ada, BODY)
+	check(gas(bo) == 0, `respawn {life}: no spawn kill`)
 	task.wait(3.1)
-	for _ = 1, 4 do
-		shoot(ada, NORTH)
-		task.wait(0.31)
-	end
-	check(health(bo) == 0, `life {life} ends`)
+	inflate(ada, bo, BODY)
+	task.wait(1.05)
+	check(not alive(bo), `life {life} ends`)
 end
-check(Combat.streakOf(ada) == 4 and Scores.getScores()[adaTeam] == before + 4, "four eliminations, four points")
+check(Eliminations.streakOf(ada) == 4 and Scores.getScores()[adaTeam] == before + 4, "four eliminations, four points")
 
 -- A death resets the streak.
 task.wait(3.2)
 place(bo, 53, -14)
 place(ada, 53, 14)
 task.wait(3.1)
-for _ = 1, 4 do
-	shoot(bo, NORTH)
-	task.wait(0.31)
-end
-check(health(ada) == 0 and Combat.streakOf(ada) == 0 and Combat.streakOf(bo) == 1, "Ada's death resets her streak")
+inflate(bo, ada, BODY)
+task.wait(1.05)
+check(not alive(ada) and Eliminations.streakOf(ada) == 0 and Eliminations.streakOf(bo) == 1, "Ada's death resets her streak")
+check(Eliminations.bestStreakOf(ada) == 4, "her best stays 4")
 task.wait(3.2)
 
 -- Friendly fire, walls, spectators.
@@ -182,56 +217,56 @@ local mate = if cyTeam == adaTeam then ada else bo
 task.wait(3.1)
 lineUp(mate, cy)
 task.wait(0.31)
-shoot(mate, NORTH)
-check(health(cy) == 100, "no friendly fire")
+shoot(mate, BODY)
+check(gas(cy) == 0, "no friendly fire")
 local enemy = if cyTeam == adaTeam then bo else ada
 place(enemy, 0, -40)
 place(cy, 0, -66) -- inside the Stinkers' spawn room, behind its front wall
 task.wait(0.31)
-shoot(enemy, SOUTH)
-check(health(cy) == 100, "walls stop shots")
+shoot(enemy, Vector3.new(0, 0, -1))
+check(gas(cy) == 0, "walls stop shots")
 Remotes.RequestSpectate.OnServerEvent:Fire(cy)
 task.wait(0.6)
 local notActive = rejects("FireWeapon", "notActive")
-shoot(cy, NORTH)
+shoot(cy, BODY)
 check(rejects("FireWeapon", "notActive") == notActive + 1, "spectators can't fire")
 
 -- Fart Dash.
 task.wait(0.6)
-check(Dash.dash(ada, NORTH), "a dash is accepted")
-check(not Dash.dash(ada, NORTH) and rejects("FartDash", "cooldown") >= 1, "a second inside the cooldown isn't")
+check(Dash.dash(ada, HEAD), "a dash is accepted")
+check(last(bo, "dash") and last(bo, "dash").player == ada.UserId, "everyone sees the trail")
+check(not Dash.dash(ada, HEAD) and rejects("FartDash", "cooldown") >= 1, "a second inside the cooldown isn't")
 task.wait(3.1)
 local start = ada.Character.HumanoidRootPart.Position
-check(Dash.dash(ada, NORTH), "after the cooldown, another")
+check(Dash.dash(ada, HEAD), "after the cooldown, another")
 place(ada, start.X, start.Z + 60) -- far more than a dash allows
 task.wait(0.6)
 check((ada.Character.HumanoidRootPart.Position - start).Magnitude < 1 and rejects("FartDash", "tooFar") == 1, "too far: put back")
-check(Dash.dash(bo, NORTH), "Bo dashes")
+check(Dash.dash(bo, HEAD), "Bo dashes")
 place(bo, 53, -14)
 place(ada, 53, 14)
 task.wait(0.31)
-for _ = 1, 4 do
-	shoot(ada, SOUTH)
-	task.wait(0.31)
-end
-check(health(bo) == 0, "Bo is eliminated mid-cooldown")
+inflate(ada, bo, SOUTH_BODY)
+task.wait(1.05)
+check(not alive(bo), "Bo is eliminated mid-cooldown")
 task.wait(3.2)
-check(Dash.dash(bo, NORTH), "a new life, a fresh dash")
+check(Dash.dash(bo, HEAD), "a new life, a fresh dash")
 
 -- Test commands.
 check(TestControls.team(ada, if adaTeam == "Stinkers" then "sharters" else "stinkers"), "/fw team moves a player")
 check(ada:GetAttribute("TeamId") ~= adaTeam and TeamService.teamOf(ada) ~= adaTeam, "and the team follows")
 check(TestControls.spawn(ada), "/fw spawn respawns")
-ada.Character.Humanoid.Health = 40
-check(TestControls.resetGas(ada) and health(ada) == 100, "/fw resetgas clears the meter")
-check(TestControls.weapon(ada, "starterblaster") and not TestControls.weapon(ada, "bazooka"), "/fw weapon gives known weapons only")
+check(TestControls.gas(ada, 60) and gas(ada) == 60 and ada.Character:GetAttribute("GasStage") == 2, "/fw gas sets the meter")
+check(TestControls.resetGas(ada) and gas(ada) == 0, "/fw resetgas empties it")
+check(TestControls.weapon(ada, "gasblaster") and not TestControls.weapon(ada, "bazooka"), "/fw weapon gives known weapons only")
 local ok, summary = TestControls.stats()
-check(ok and string.find(summary, "shots %d+, hits %d+, eliminations 6"), "/fw stats sums it up: " .. summary)
+check(ok and string.find(summary, "eliminations 6"), "/fw stats sums it up: " .. summary)
 
 -- Telemetry.
-local firsts = Telemetry.snapshot().firsts
-check(firsts.shot and firsts.hit and firsts.elimination, "first shot, hit and elimination are timed")
-check(firsts.shot.players >= 2 and firsts.elimination.players == 2, "per player, once each")
+local snapshot = Telemetry.snapshot()
+check(snapshot.firsts.shot and snapshot.firsts.hit and snapshot.firsts.elimination, "first shot, hit and elimination are timed")
+check(snapshot.firsts.shot.players >= 2 and snapshot.firsts.elimination.players == 2, "per player, once each")
+check(snapshot.firsts.timeToExplosion and snapshot.firsts.timeToExplosion.players == 6, "and time to explosion")
 local spammer = join("Spammer")
 for _ = 1, 40 do
 	shoot(spammer, "junk")

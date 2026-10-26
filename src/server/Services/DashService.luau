@@ -1,22 +1,25 @@
--- Fart Dash (Shift). The client moves its own avatar, as Roblox characters
--- are client-driven, and tells the server (FartDash, with the direction).
--- The server checks the cooldown, and CHECK_SECONDS later that the avatar
--- didn't travel further than a dash plus walking allows; one that did is
--- put back where it started. Too-early dashes are refused and logged. The
--- cooldown resets with each life.
+-- Fart Dash (Shift), by its AbilityConfig entry. The client moves its own
+-- avatar, as Roblox characters are client-driven, and tells the server
+-- (FartDash, with the direction). The server checks the player's state,
+-- that they aren't exploding, and the cooldown; `checkSeconds` later it
+-- checks that the avatar didn't travel further than a dash plus walking
+-- allows, and puts back one that did. Refused dashes are logged. The
+-- cooldown resets with each life. Everyone else sees the trail:
+--   CombatEvent { kind = "dash", player, from, direction }
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
-local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
+local GasService = require(script.Parent.GasService)
 
-local DASH = GameConfig.FART_DASH
+local DASH = AbilityConfig.FartDash
 
 local DashService = {}
 
@@ -40,24 +43,31 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		reject(player, "disabled")
 		return false
 	end
-	if typeof(direction) ~= "Vector3" or (direction :: Vector3).Magnitude ~= (direction :: Vector3).Magnitude then
+	local aim = if typeof(direction) == "Vector3" then direction :: Vector3 else nil
+	if not aim or aim.Magnitude ~= aim.Magnitude then
 		reject(player, "badPayload")
 		return false
 	end
-	if PlayerLifecycleService.stateOf(player) ~= States.Player.ACTIVE then
+	if not table.find(DASH.allowedStates, PlayerLifecycleService.stateOf(player) or "") then
 		reject(player, "notActive")
 		return false
 	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not (humanoid and humanoid.Health > 0 and root and root:IsA("BasePart")) then
+	if not (character and humanoid and humanoid.Health > 0 and root and root:IsA("BasePart")) then
 		reject(player, "dead")
+		return false
+	end
+	if (DASH.blockedWhileExploding and GasService.isExploding(player))
+		or (not DASH.allowedWhileProtected and PlayerLifecycleService.isProtected(player))
+	then
+		reject(player, "prohibited")
 		return false
 	end
 	local at = now()
 	local previous = lastDash[player]
-	if previous and at - previous < DASH.COOLDOWN_SECONDS * GameConfig.FIRE_INTERVAL_TOLERANCE then
+	if previous and at - previous < DASH.cooldownSeconds * GameConfig.FIRE_INTERVAL_TOLERANCE then
 		reject(player, "cooldown")
 		return false
 	end
@@ -66,16 +76,24 @@ function DashService.dash(player: Player, direction: unknown): boolean
 	Telemetry.count("Dash.dashes")
 
 	local start = root.CFrame
-	local life = character
-	task.delay(DASH.CHECK_SECONDS, function()
-		if player.Character ~= life or not root.Parent then
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
+	local flat = horizontal(aim)
+	combatEvent:FireAllClients({
+		kind = "dash",
+		player = player.UserId,
+		from = start.Position,
+		direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zero,
+	})
+	task.delay(DASH.checkSeconds, function()
+		if player.Character ~= character or not root.Parent then
 			return
 		end
 		local travelled = horizontal(root.Position - start.Position).Magnitude
-		local allowed = DASH.MAX_TRAVEL_STUDS + GameConfig.WALK_SPEED * DASH.CHECK_SECONDS
+		local allowed = DASH.maxTravelStuds + GameConfig.WALK_SPEED * DASH.checkSeconds
 		if travelled > allowed then
 			reject(player, "tooFar")
-			life:PivotTo(start)
+			character:PivotTo(start)
 		end
 	end)
 	return true

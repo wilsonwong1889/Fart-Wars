@@ -7,9 +7,9 @@ return table.freeze({
 	-- no results screen (the masterplan's alternative baseline).
 	MATCH_MODE = "Rounds" :: "Rounds" | "Continuous",
 
-	-- The Phase 1 placeholder attack (left click). Phase 2's Gas Blaster
-	-- replaces it.
-	PLACEHOLDER_BLASTER = true,
+	-- Gas combat: the Gas Blaster (left click), the gas meter, inflation and
+	-- explosions.
+	GAS_COMBAT = true,
 
 	-- Shift: Fart Dash. On for everyone until Phase 3 adds unlocks.
 	FART_DASH = true,

@@ -1,0 +1,286 @@
+-- What gas looks like, on every client:
+--   * inflation: each avatar carries a gas belly (a local, non-colliding
+--     ball) that grows and changes colour with its gas stage, so the
+--     hitbox and camera never change; at the critical stage and during the
+--     countdown the avatar gets a slow red outline pulse (well under three
+--     flashes a second)
+--   * explosions: a burst and a lingering cloud, from a small pool so a
+--     chain of explosions never piles up parts
+--   * Fart Dash puffs behind other players' dashes
+--   * "BRO IS THE ALPHA FART!" across the screen when someone hits the
+--     streak, with its sound
+-- Effects thin out (no clouds or puffs) at Roblox graphics quality 3 or
+-- lower.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.Config.GameConfig)
+local TeamConfig = require(Shared.Config.TeamConfig)
+local UIConfig = require(Shared.Config.UIConfig)
+local Client = script.Parent.Parent
+local ClientState = require(Client.ClientState)
+local UI = require(Client.UI)
+local Audio = require(Client.Audio)
+local CameraController = require(script.Parent.CameraController)
+local InputController = require(script.Parent.InputController)
+
+local C = UIConfig.colors
+
+local EffectsController = {}
+
+EffectsController.parts = {} :: { [string]: any }
+
+-- Belly diameter and colour per gas stage (0-4).
+local BELLY = {
+	{ size = 0, color = Color3.fromRGB(150, 220, 90) },
+	{ size = 2.6, color = Color3.fromRGB(150, 220, 90) },
+	{ size = 3.6, color = Color3.fromRGB(200, 220, 70) },
+	{ size = 4.6, color = Color3.fromRGB(240, 150, 60) },
+	{ size = 5.6, color = Color3.fromRGB(240, 70, 50) },
+}
+local POOL_SIZE = 8
+local EXPLOSION_RADIUS = 14
+
+local player = Players.LocalPlayer
+local pool: { BasePart } = {}
+local poolNext = 0
+local started = false
+
+-- Whether to hold back on effects (Roblox graphics quality 1-3).
+function EffectsController.reduced(): boolean
+	local ok, level = pcall(function()
+		return (UserSettings():GetService("UserGameSettings") :: any).SavedQualityLevel
+	end)
+	if not ok or typeof(level) ~= "EnumItem" or level == Enum.SavedQualitySetting.Automatic then
+		return false
+	end
+	return level.Value <= 3
+end
+
+local function effectPart(name: string): BasePart
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Shape = Enum.PartType.Ball
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Transparency = 1
+	return p
+end
+
+-- The next pooled burst (the oldest is reused when all are busy).
+local function pooled(): BasePart
+	poolNext = poolNext % POOL_SIZE + 1
+	local p = pool[poolNext]
+	if not p then
+		p = effectPart("Burst")
+		p.Parent = workspace
+		pool[poolNext] = p
+	end
+	return p
+end
+EffectsController.pool = pool
+
+function EffectsController.explosion(position: Vector3)
+	Audio.play("explosion")
+	local burst = pooled()
+	burst.Color = Color3.fromRGB(150, 230, 60)
+	burst.Size = Vector3.one * 2
+	burst.CFrame = CFrame.new(position)
+	burst.Transparency = 0.2
+	TweenService:Create(burst, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.one * EXPLOSION_RADIUS * 2,
+		Transparency = 1,
+	}):Play()
+	if EffectsController.reduced() then
+		return
+	end
+	local cloud = effectPart("GasCloud")
+	cloud.Material = Enum.Material.SmoothPlastic
+	cloud.Color = Color3.fromRGB(120, 170, 60)
+	cloud.Size = Vector3.one * EXPLOSION_RADIUS * 1.4
+	cloud.CFrame = CFrame.new(position)
+	cloud.Transparency = 0.6
+	cloud.Parent = workspace
+	TweenService:Create(cloud, TweenInfo.new(1.5), { Transparency = 1 }):Play()
+	Debris:AddItem(cloud, 1.6)
+end
+
+function EffectsController.dashPuff(from: Vector3, direction: Vector3)
+	Audio.play("dash")
+	if EffectsController.reduced() then
+		return
+	end
+	for i = 0, 2 do
+		local puff = effectPart("DashPuff")
+		puff.Material = Enum.Material.SmoothPlastic
+		puff.Color = Color3.fromRGB(170, 200, 90)
+		puff.Size = Vector3.one * (2.4 - i * 0.5)
+		puff.CFrame = CFrame.new(from + direction * i * 4 + Vector3.new(0, -1, 0))
+		puff.Transparency = 0.4
+		puff.Parent = workspace
+		TweenService:Create(puff, TweenInfo.new(0.6), { Transparency = 1, Size = puff.Size * 1.8 }):Play()
+		Debris:AddItem(puff, 0.7)
+	end
+end
+
+-- Inflation: one belly per avatar, following its gas stage.
+local function bellyFor(character: Model): BasePart?
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return nil
+	end
+	local existing = character:FindFirstChild("GasBelly")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+	local belly = effectPart("GasBelly")
+	belly.Anchored = false
+	belly.Massless = true
+	belly.Material = Enum.Material.SmoothPlastic
+	belly.Size = Vector3.one * 0.1
+	belly.CFrame = root.CFrame * CFrame.new(0, 0, -0.6)
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = belly
+	weld.Parent = belly
+	belly.Parent = character
+	return belly
+end
+
+local function renderGas(character: Model)
+	local stage = tonumber(character:GetAttribute("GasStage")) or 0
+	local exploding = character:GetAttribute("ExplodesAt") ~= nil
+	if exploding then
+		stage = 4
+	end
+	local look = BELLY[math.clamp(stage, 0, 4) + 1]
+	local belly = bellyFor(character)
+	if belly then
+		local hidden = look.size == 0 or (character == player.Character and CameraController.firstPerson)
+		belly.Color = look.color
+		TweenService:Create(belly, TweenInfo.new(0.25), {
+			Size = Vector3.one * math.max(look.size, 0.1),
+			Transparency = if hidden then 1 else 0.15,
+		}):Play()
+	end
+	local outline = character:FindFirstChild("GasWarning")
+	local critical = stage >= 3
+	if critical and not outline then
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "GasWarning"
+		highlight.FillColor = Color3.fromRGB(240, 70, 50)
+		highlight.OutlineColor = Color3.fromRGB(255, 110, 80)
+		highlight.FillTransparency = 0.75
+		highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		highlight.Adornee = character
+		highlight.Parent = character
+		-- A slow pulse: one cycle a second at most.
+		TweenService:Create(highlight, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			FillTransparency = 0.4,
+		}):Play()
+	elseif outline and not critical then
+		outline:Destroy()
+	end
+end
+EffectsController.renderGas = renderGas
+
+local function watchCharacter(character: Model)
+	for _, name in { "GasStage", "ExplodesAt" } do
+		character:GetAttributeChangedSignal(name):Connect(function()
+			renderGas(character)
+		end)
+	end
+	renderGas(character)
+end
+
+local function watchPlayer(other: Player)
+	other.CharacterAdded:Connect(watchCharacter)
+	if other.Character then
+		watchCharacter(other.Character)
+	end
+end
+
+local function build()
+	local p = EffectsController.parts
+	local screen = UI.screen("Announcements", 15)
+	p.screen = screen
+	local banner = UI.new("Frame", {
+		Name = "Alpha",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.22, 0),
+		Size = UDim2.new(0, 760, 0, 120),
+		BackgroundColor3 = Color3.fromRGB(60, 40, 10),
+		BackgroundTransparency = 0.1,
+		Visible = false,
+		Parent = screen,
+	}, { UI.corner(18), UI.stroke(C.accent, 4) })
+	p.alpha = banner
+	p.alphaText = UI.label(GameConfig.STREAK.ALPHA_TEXT, 54, {
+		Name = "Text",
+		Position = UDim2.new(0, 0, 0, 8),
+		Size = UDim2.new(1, 0, 0, 62),
+		TextColor3 = Color3.fromRGB(255, 221, 26),
+		Parent = banner,
+	})
+	p.alphaName = UI.label("", 24, { Name = "Player", Position = UDim2.new(0, 0, 0, 74), Parent = banner })
+end
+
+function EffectsController.alpha(userId: number, text: string)
+	local p = EffectsController.parts
+	local other = Players:GetPlayerByUserId(userId)
+	local team = other and other:GetAttribute("TeamId")
+	p.alphaText.Text = text
+	p.alphaName.Text = if other then string.upper(other.DisplayName) else ""
+	p.alphaName.TextColor3 = if team and TeamConfig.teams[team] then TeamConfig.teams[team].color else C.text
+	Audio.play("alpha")
+	local token = (p.alpha:GetAttribute("Shown") or 0) + 1
+	p.alpha:SetAttribute("Shown", token)
+	p.alpha.Visible = true
+	task.delay(4, function()
+		if p.alpha:GetAttribute("Shown") == token then
+			p.alpha.Visible = false
+		end
+	end)
+end
+
+function EffectsController.start()
+	if started then
+		return
+	end
+	started = true
+	build()
+	for _, other in Players:GetPlayers() do
+		watchPlayer(other)
+	end
+	Players.PlayerAdded:Connect(watchPlayer)
+	-- Your own belly hides in first person.
+	InputController.CameraToggled:Connect(function()
+		task.defer(function()
+			if player.Character then
+				renderGas(player.Character)
+			end
+		end)
+	end)
+	local combatEvent = ClientState.remote("CombatEvent") :: RemoteEvent
+	combatEvent.OnClientEvent:Connect(function(event)
+		if type(event) ~= "table" then
+			return
+		end
+		if event.kind == "explosion" and typeof(event.position) == "Vector3" then
+			EffectsController.explosion(event.position)
+		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
+			EffectsController.dashPuff(event.from, event.direction)
+		elseif event.kind == "alpha" and type(event.player) == "number" then
+			EffectsController.alpha(event.player, if type(event.text) == "string" then event.text else GameConfig.STREAK.ALPHA_TEXT)
+		end
+	end)
+end
+
+return EffectsController

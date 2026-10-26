@@ -28,7 +28,8 @@ return GameModeBase.new({
 		if not (killer and victim) or killer == victim then
 			return false
 		end
-		local killerTeam, victimTeam = context.teamOf(killer), context.teamOf(victim)
+		local killerTeam = event.killerTeam or context.teamOf(killer)
+		local victimTeam = event.victimTeam or context.teamOf(victim)
 		return killerTeam == event.team and victimTeam ~= nil and victimTeam ~= killerTeam
 	end,
 })

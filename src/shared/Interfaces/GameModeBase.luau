@@ -9,6 +9,9 @@ export type ScoreEvent = {
 	source: string, -- "elimination", or "test" from the test-only controls
 	killer: Player?,
 	victim: Player?,
+	-- Teams when it happened; a mode uses these over the current ones.
+	killerTeam: string?,
+	victimTeam: string?,
 }
 export type Context = {
 	roundId: number,

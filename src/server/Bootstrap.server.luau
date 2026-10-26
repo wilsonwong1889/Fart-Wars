@@ -5,7 +5,9 @@
 --   TeamService           active team slots and balancing
 --   PlayerLifecycleService  join, PLAY, spawn, spectate, leave
 --   AFKService            idle warning and AFK spectating
---   CombatService         the placeholder blaster, hits and eliminations
+--   EliminationService    each death credited once; streaks; the alpha call
+--   GasService            the gas meter, recovery, countdowns, explosions
+--   CombatService         the Gas Blaster: shots and hits
 --   DashService           Fart Dash checks
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
@@ -26,6 +28,8 @@ local MatchScoreService = require(Services.MatchScoreService)
 local TeamService = require(Services.TeamService)
 local PlayerLifecycleService = require(Services.PlayerLifecycleService)
 local AFKService = require(Services.AFKService)
+local EliminationService = require(Services.EliminationService)
+local GasService = require(Services.GasService)
 local CombatService = require(Services.CombatService)
 local DashService = require(Services.DashService)
 local RoundService = require(Services.RoundService)
@@ -36,6 +40,8 @@ MatchScoreService.reset()
 TeamService.start()
 PlayerLifecycleService.start()
 AFKService.start()
+EliminationService.start()
+GasService.start()
 CombatService.start()
 DashService.start()
 RoundService.start()

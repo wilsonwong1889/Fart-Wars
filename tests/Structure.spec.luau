@@ -3,8 +3,8 @@
 --     module that requires itself through others, as Roblox does)
 --   * GameConfig holds the plan's numbers
 --   * ReplicatedStorage.Remotes holds exactly the planned remotes
---   * the feature flags default to 5-minute rounds with Phase 1 combat on,
---     and the weapon config keeps the masterplan's weapon contract
+--   * the feature flags default to 5-minute rounds with gas combat on, and
+--     the weapon and ability configs keep the masterplan's contracts
 --   * the configured mode and map exist and fit their contracts, and every
 --     map lists only modes that exist
 --   * the teams are the Skibidi Stinkers (green) and Sigma Sharters (yellow)
@@ -62,15 +62,30 @@ check(present == 10, "all ten remotes, nothing else")
 
 local FeatureFlags = require(shared.Config.FeatureFlags)
 check(FeatureFlags.MATCH_MODE == "Rounds", "5-minute rounds by default")
-check(FeatureFlags.PLACEHOLDER_BLASTER and FeatureFlags.FART_DASH and FeatureFlags.SPAWN_PROTECTION, "Phase 1 combat is on")
+check(FeatureFlags.GAS_COMBAT and FeatureFlags.FART_DASH and FeatureFlags.SPAWN_PROTECTION, "gas combat is on")
 check(table.isfrozen(FeatureFlags), "flags can't change at runtime")
 local WeaponConfig = require(shared.Config.WeaponConfig)
 check(WeaponConfig.weapons[WeaponConfig.default], "the default weapon exists")
 for id, weapon in WeaponConfig.weapons do
-	check(weapon.id == id and weapon.damage > 0 and weapon.fireInterval > 0 and weapon.range > 0, `{id} has damage, interval and range`)
+	check(weapon.id == id and weapon.gasPerHit > 0 and weapon.headshotGas >= weapon.gasPerHit, `{id} has gas per hit (more to the head)`)
+	check(weapon.fireInterval > 0 and weapon.range > 0, `{id} has an interval and a range`)
 	check(weapon.projectile == "hitscan" and weapon.unlock ~= nil and typeof(weapon.tracerColor) == "Color3", `{id} has projectile, unlock and effects`)
 end
+check(WeaponConfig.weapons.GasBlaster.gasPerHit == 20 and WeaponConfig.weapons.GasBlaster.headshotGas == 25, "20% a body hit, 25% to the head")
 check(GameConfig.SPAWN_PROTECTION_SECONDS == 3, "3 seconds of spawn protection")
+local GAS = GameConfig.GAS
+check(table.concat(GAS.STAGES, ",") == "25,50,75,100", "four stages before the explosion at 100%")
+check(GAS.RECOVERY_DELAY_SECONDS == 5 and GAS.RECOVERY_PER_SECOND == 5, "recovery: 5 seconds, then 5% a second")
+check(GameConfig.STREAK.ALPHA_AT == 5 and GameConfig.STREAK.ALPHA_TEXT == "BRO IS THE ALPHA FART!", "the five-kill call, exactly")
+local AbilityConfig = require(shared.Config.AbilityConfig)
+for id, ability in AbilityConfig do
+	check(ability.id == id and typeof(ability.input) == "EnumItem" and ability.durationSeconds > 0 and ability.cooldownSeconds > 0, `{id} has input, duration and cooldown`)
+	check(#ability.allowedStates > 0 and #ability.effects > 0 and ability.ownership ~= nil, `{id} has states, effects and ownership`)
+end
+local AudioConfig = require(shared.Config.AudioConfig)
+for _, key in { "blaster", "hit", "explosion", "dash", "alpha" } do
+	check(type(AudioConfig[key]) == "string", `a sound slot for {key}`)
+end
 
 local GameModeBase = require(shared.Interfaces.GameModeBase)
 local MapBase = require(shared.Interfaces.MapBase)

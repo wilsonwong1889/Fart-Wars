@@ -3,14 +3,14 @@
 **Fart Wars** is a Roblox team game: the **Skibidi Stinkers** (toxic green)
 against the **Sigma Sharters** (bright yellow) on the Brainrot Battlefield.
 
-This repository holds **Phase 1**: the foundation and the first playable
-internal prototype, aligned with the six-phase masterplan. Two or more
-players join a running server, press PLAY, land on balanced teams, move
-around a symmetrical three-lane map, fight with a placeholder blaster, play
-a five-minute round, see a win or draw, wait out a 15-second intermission
-and go straight into the next round, with no server restart. Continuous
-play (no rounds) is one setting away. Gas, inflation, explosions, coins,
-the shop and the rest arrive in later phases.
+This repository holds **Phase 1** (the foundation) and **Phase 2** (combat
+and chaos) of the six-phase masterplan. Two or more players join a running
+server, press PLAY, land on balanced teams, and blast each other with the
+Gas Blaster on a symmetrical three-lane map until someone inflates and
+explodes. Five-minute rounds end in a win or draw, a 15-second intermission
+follows, and the next round starts with no server restart. Continuous play
+(no rounds) is one setting away. Coins, levels, the shop and the rest
+arrive in later phases.
 
 ## Getting started
 
@@ -42,7 +42,9 @@ repository holds credentials or API keys, and nothing should.
 | Camera | third person; V toggles first person |
 | Home screen | the live battlefield behind the menu; you spectate until PLAY |
 | Result | most validated eliminations wins; level scores are a draw |
-| Combat | placeholder Starter Blaster: 25 damage, four hits, 0.3 s between shots; friendly fire off |
+| Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off |
+| Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
+| Eliminations | the last enemy to add gas scores; others from the last 10 seconds assist. Five in a row without dying: the whole server hears "BRO IS THE ALPHA FART!" |
 | Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
 
@@ -94,7 +96,9 @@ else.
 | `AFKService` | the 45/60-second warning and spectator move, judged on the server |
 | `MapService` | loads the map template, checks it against `MapBase`, picks safe spawns; ready for map rotation |
 | `MatchScoreService` | this round's scores, frozen the moment a round ends; the test-only elimination input |
-| `CombatService` | the placeholder blaster: checks each shot, casts it on the server, applies damage to enemies only, records eliminations once |
+| `CombatService` | the Gas Blaster: checks each shot (state, interval, shot numbers, payload), casts it on the server, sends hits to GasService; logs suspicious accuracy and movement |
+| `GasService` | the gas meter: enemy-only gas, protection, recovery, the countdown and the explosion, killer and assists |
+| `EliminationService` | each death credited exactly once, with an event ID; streaks and the alpha announcement |
 | `DashService` | Fart Dash: cooldown and travel checks |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, time to first shot / hit / elimination |
 | Client controllers | `InputController`, `CameraController`, `CombatController`, `HUDController`, `HomeController`: render, capture input, switch camera, fire and dash; they never decide teams, hits or results |
@@ -153,8 +157,9 @@ Chat (`/fw` or `!fw`):
 /fw idle 44              count yourself as idle for 44 seconds (to see the AFK warning)
 /fw spawn                respawn (or PLAY from the home screen)
 /fw team sharters        move to a team whatever the balance, and respawn
-/fw resetgas             clear your combat meter (full health until gas exists)
-/fw weapon starterblaster equip a weapon by id
+/fw resetgas             empty your gas meter
+/fw gas 95               set your gas (100 starts your countdown)
+/fw weapon gasblaster    equip a weapon by id
 /fw stats                shots, hits, eliminations, rejected requests, errors
 ```
 
@@ -163,7 +168,7 @@ Or the server command bar in Studio:
 ```lua
 local T = require(game.ServerScriptService.Server.TestControls)
 T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
-T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.weapon(p, "StarterBlaster"); T.stats()
+T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.stats()
 ```
 
 ## Tests
@@ -183,7 +188,9 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | Spec | Covers |
 | --- | --- |
 | `QAMatrix` | the plan's QA matrix, row by row, on one 20-player server |
-| `Combat` | the masterplan's Phase 1 acceptance: two players fight, no spawn kills, repeated deaths, friendly fire, walls, refused shots, Fart Dash, test commands, telemetry |
+| `Combat` | two players fight with the Gas Blaster: body and head hits, no spawn kills, the countdown and explosion, repeated deaths, friendly fire, walls, refused and duplicate shots, Fart Dash, test commands, telemetry |
+| `Gas` | gas stages, clamping, recovery and its interruption, 99 to 100, simultaneous hits, assists, leaving or spectating mid-countdown, no double kills |
+| `Streak` | "BRO IS THE ALPHA FART!" once at five, resets, two at once; the client's banner, inflation and effect pool |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
@@ -211,9 +218,6 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **5-minute rounds by default.** The masterplan made continuous play the
   baseline and the earlier Phase 1 plan made rounds it; rounds are the
   default (your call), and continuous play is `FeatureFlags.MATCH_MODE`.
-- **A placeholder attack, not the Gas Blaster.** Phase 1 needs players to
-  fight, so the Starter Blaster takes Roblox health. Phase 2 swaps health
-  for the gas meter without changing how hits are checked or scored.
 - **Shift is Fart Dash**, open to everyone until Phase 3 adds unlocks.
   There's no sprint.
 - **Ties go the same way every time**: to the team behind on score, then
@@ -236,19 +240,38 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **The map is code.** That keeps it reviewable in Git; a Studio model with
   the same name replaces it.
 
+## Phase 2 decisions
+
+- **Inflation is a belly, not a bigger avatar.** Each client gives every
+  avatar a gas belly that grows with its stage. The real body (and so the
+  hitbox and camera) never changes size.
+- **A one-second countdown at 100%**, in which the player can't fire or
+  dash; then the explosion.
+- **The last enemy to add gas is the killer**; anyone else who added gas
+  in the last 10 seconds assists.
+- **Leaving, spectating or going AFK mid-countdown explodes you on the
+  spot**, so nobody can dodge giving the killer the point. A killer who
+  leaves before the bang scores nothing.
+- **Fart Dash works while spawn-protected**: it's movement, not an attack.
+- **Shots are numbered** by the client; a repeated or out-of-order number
+  is refused as a duplicate packet.
+- **Sounds are empty slots** (`AudioConfig`) until the game's own sounds
+  are uploaded.
+- **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
+  puffs). There's no separate settings screen yet.
+
 ## Handoff to Phase 2: Combat & Chaos
 
 Phase 2 adds the Gas Blaster, gas and inflation, explosions and chain
 reactions, explosive barrels, the Fart Dash trail and sound, and the 5-kill
 "BRO IS THE ALPHA FART!" announcement. The places it plugs into:
 
-- `CombatService.damage` is the one damage path (friendly fire and spawn
-  protection are checked there); gas replaces the health it takes.
-  Eliminations already go through
-  `MatchScoreService.recordElimination({ team, source = "elimination", killer, victim })`,
-  once per life.
-- `CombatService.streakOf(player)` counts eliminations without dying; the
-  announcement hangs off `CombatService.Eliminated`.
+- `GasService.add(victim, amount, { attacker, cause })` is the one damage
+  path (friendly fire and spawn protection are checked there).
+  Eliminations go through `EliminationService.eliminate`, once per life,
+  into `MatchScoreService.recordElimination`.
+- `EliminationService.streakOf(player)` counts eliminations without dying;
+  `EliminationService.Eliminated` fires for each one.
 - `PlayerLifecycleService.Died` is where per-life state (gas, debuffs,
   ability cooldowns, streaks) resets.
 - `WeaponConfig` holds weapons by the masterplan's contract.

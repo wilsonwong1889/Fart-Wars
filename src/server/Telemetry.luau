@@ -122,6 +122,14 @@ function Telemetry.first(player: Player, kind: string)
 	timing.total += now() - started
 end
 
+-- Adds one measurement of `kind` (seconds) to its running average.
+function Telemetry.time(kind: string, seconds: number)
+	local timing = timings[kind] or { count = 0, total = 0 }
+	timings[kind] = timing
+	timing.count += 1
+	timing.total += seconds
+end
+
 function Telemetry.left(player: Player)
 	local started = joinedAt[player]
 	if started then
@@ -135,7 +143,8 @@ function Telemetry.left(player: Player)
 end
 
 -- Everything so far, as plain tables: counters, errors, rejects, and the
--- average seconds to each first (with how many players got there).
+-- average seconds of each timing (firsts per session, time to explosion,
+-- session length) with how many there were.
 function Telemetry.snapshot(): { [string]: any }
 	local averages = {}
 	for kind, timing in timings do
