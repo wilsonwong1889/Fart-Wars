@@ -1,0 +1,86 @@
+-- The project's shape (plan sections 1-3):
+--   * every ModuleScript loads, with no require cycles (the harness fails a
+--     module that requires itself through others, as Roblox does)
+--   * GameConfig holds the plan's numbers
+--   * ReplicatedStorage.Remotes holds exactly the planned remotes
+--   * the configured mode and map exist and fit their contracts, and every
+--     map lists only modes that exist
+--   * the teams are the Skibidi Stinkers (green) and Sigma Sharters (yellow)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local checks = 0
+local function check(value, message)
+	checks += 1
+	assert(value, message)
+end
+
+local roots = {
+	ReplicatedStorage.Shared,
+	game.ServerScriptService.Server,
+	ServerStorage.Maps,
+	game.StarterPlayer.StarterPlayerScripts.Client,
+}
+local loaded = 0
+for _, root in roots do
+	for _, item in root:GetDescendants() do
+		if item:IsA("ModuleScript") then
+			local ok, err = pcall(require, item)
+			check(ok, `{item:GetFullName()} loads: {err}`)
+			loaded += 1
+		end
+	end
+end
+check(loaded >= 25, "every module was tried")
+
+local shared = ReplicatedStorage.Shared
+local GameConfig = require(shared.Config.GameConfig)
+check(GameConfig.ROUND_SECONDS == 300 and GameConfig.INTERMISSION_SECONDS == 15, "5-minute rounds, 15-second intermission")
+check(GameConfig.MIN_ACTIVE_PLAYERS == 2 and GameConfig.MAX_TEAM_SIZE == 10 and GameConfig.MAX_PLAYERS == 20, "2 to start, 10 a team, 20 a server")
+check(GameConfig.AFK_WARNING_SECONDS == 45 and GameConfig.AFK_SPECTATE_SECONDS == 60, "AFK at 45 and 60 seconds")
+check(table.isfrozen(GameConfig), "the config can't be changed at runtime")
+
+local remotes = {
+	RequestPlay = "RemoteEvent",
+	RequestTeam = "RemoteEvent",
+	RequestSpectate = "RemoteEvent",
+	RoundSnapshot = "RemoteFunction",
+	RoundUpdate = "RemoteEvent",
+	TeamUpdate = "RemoteEvent",
+	UIMessage = "RemoteEvent",
+}
+local present = 0
+for _, child in ReplicatedStorage.Remotes:GetChildren() do
+	check(remotes[child.Name] == child.ClassName, `{child.Name} is a planned {remotes[child.Name] or "?"}`)
+	present += 1
+end
+check(present == 7, "all seven remotes, nothing else")
+
+local GameModeBase = require(shared.Interfaces.GameModeBase)
+local MapBase = require(shared.Interfaces.MapBase)
+local MapConfig = require(shared.Config.MapConfig)
+local modes = game.ServerScriptService.Server.Modes
+local mode = require(modes:FindFirstChild(GameConfig.DEFAULT_MODE))
+check(mode.id == GameConfig.DEFAULT_MODE and type(mode.computeResult) == "function", "the default mode keeps the contract")
+check(GameModeBase.mostPointsWins({ Stinkers = 1, Sharters = 0 }, { "Stinkers", "Sharters" }).winner == "Stinkers", "and the base works")
+check(MapConfig[GameConfig.DEFAULT_MAP], "the default map has a MapConfig entry")
+for id, entry in MapConfig do
+	check(entry.id == id, `{id}'s entry names itself`)
+	local template = ServerStorage.Maps:FindFirstChild(entry.template)
+	check(template, `{id} has a template in ServerStorage.Maps`)
+	if template and template:IsA("ModuleScript") then
+		check(MapBase.isDefinition(require(template)), `{id}'s module returns a MapDefinition`)
+	end
+	for _, modeId in entry.modes do
+		check(modes:FindFirstChild(modeId), `{id} supports {modeId}, which exists`)
+	end
+	check(entry.bounds.size.X == 160 and entry.bounds.size.Z == 160, `{id} is 160 x 160`)
+end
+
+local TeamConfig = require(shared.Config.TeamConfig)
+check(#TeamConfig.order == 2, "two teams")
+local green, yellow = TeamConfig.teams.Stinkers, TeamConfig.teams.Sharters
+check(green.name == "Skibidi Stinkers" and yellow.name == "Sigma Sharters", "the team names")
+check(green.color.G > 0.9 and green.color.R < 0.5, "Stinkers are toxic green")
+check(yellow.color.R > 0.9 and yellow.color.G > 0.8 and yellow.color.B < 0.3, "Sharters are bright yellow")
+
+return { status = "PASS", checks = checks, modules = loaded }

@@ -1,0 +1,16 @@
+# Place and model files built or saved locally
+/*.rbxl
+/*.rbxlx
+/*.rbxm
+/*.rbxmx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Rojo
+sourcemap.json
+
+# macOS
+.DS_Store
+
+# luau-lsp Roblox definitions, if downloaded here
+globalTypes.d.luau

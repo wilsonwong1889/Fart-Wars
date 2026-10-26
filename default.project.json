@@ -1,0 +1,69 @@
+{
+  "name": "FartWars",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      },
+      "Remotes": {
+        "$className": "Folder",
+        "RequestPlay": {
+          "$className": "RemoteEvent"
+        },
+        "RequestTeam": {
+          "$className": "RemoteEvent"
+        },
+        "RequestSpectate": {
+          "$className": "RemoteEvent"
+        },
+        "RoundSnapshot": {
+          "$className": "RemoteFunction"
+        },
+        "RoundUpdate": {
+          "$className": "RemoteEvent"
+        },
+        "TeamUpdate": {
+          "$className": "RemoteEvent"
+        },
+        "UIMessage": {
+          "$className": "RemoteEvent"
+        }
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "ServerStorage": {
+      "Maps": {
+        "$path": "src/maps"
+      }
+    },
+    "StarterPlayer": {
+      "$properties": {
+        "EnableMouseLockOption": false,
+        "CameraMinZoomDistance": 6,
+        "CameraMaxZoomDistance": 24,
+        "CharacterWalkSpeed": 16
+      },
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false,
+        "RespawnTime": 3
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    }
+  }
+}
