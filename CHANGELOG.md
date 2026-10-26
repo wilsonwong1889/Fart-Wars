@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.0: the map's props, made in Blender
+
+- The map's props are modelled in Blender (`art/blender/build_props.py`):
+  the throne's toilet tank (with its flush lever), lid, bowl and seat; the
+  bean can (rims, ridges, a ring pull) and its label; the gas barrel
+  (rolling hoops, a bung) and its glowing band; the crate (posts, rails,
+  braces); the capped cover wall; and Bean Rain's bean. Each is modelled
+  at the exact size of the map part it dresses and exported as FBX, with
+  a Blender scene, previews and a render of Porcelain Plaza dressed.
+- `MapDressing`: once a prop is imported into
+  `ReplicatedStorage.Assets.Props`, every part `MapArt` names gets the
+  mesh drawn over it in the part's colour and material. The part stays as
+  the invisible hitbox, so collisions, shots, blasts and sightlines are
+  unchanged; the mesh is never in the way. The throne's mirrored toilet
+  turns round to face its bowl and the Gas Gutter's toilet turns to face
+  its bowl. Until a prop is imported, its parts show as before.
+- Gas barrels keep their art through the blast and the respawn (the
+  hitbox stays invisible and solid, the mesh never solid). Bean Rain's
+  beans use the bean mesh.
+- `/fw selftest` reports the props (a sideways import is left out and
+  named). Docs: [`art/README.md`](art/README.md), Studio sign-off section
+  9. New spec: `MapArt`.
+
 ## 0.7.0: the weapons, made in Blender
 
 - The four weapons are modelled in Blender (`art/blender/build_weapons.py`):

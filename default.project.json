@@ -72,6 +72,10 @@
         "Weapons": {
           "$className": "Folder",
           "$ignoreUnknownInstances": true
+        },
+        "Props": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
         }
       }
     },

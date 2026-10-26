@@ -47,6 +47,8 @@ local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local ArtAssets = require(Shared.Config.ArtAssets)
 local WeaponModel = require(Shared.WeaponModel)
+local PropArt = require(Shared.Config.PropArt)
+local MapDressing = require(script.Parent.MapDressing)
 local Messages = require(script.Parent.Messages)
 local Health = require(script.Parent.Health)
 local Profiler = require(script.Parent.Profiler)
@@ -386,6 +388,19 @@ function TestControls.selftest(player: Player?): (boolean, string)
 			images += if value ~= "" then 1 else 0
 		end
 	end
+	local props, propProblems, propTotal = 0, {}, 0
+	for prop in PropArt do
+		propTotal += 1
+		local found, reason = MapDressing.imported(prop)
+		if found then
+			props += 1
+		elseif reason ~= "not imported" then
+			table.insert(propProblems, reason)
+		end
+	end
+	expect(props == propTotal and #propProblems == 0, "Map props", `all {propTotal} imported`,
+		if #propProblems > 0 then table.concat(propProblems, "; ")
+			else `{props} of {propTotal} imported into ReplicatedStorage.Assets.Props; the map's plain parts stand in (art/README.md)`, "WARN")
 	expect(images == total, "Art images", `all {total} uploaded`, `{images} of {total} icons and effect textures uploaded; Roblox's own textures stand in (art/README.md)`, "WARN")
 	local running = {}
 	for _, experiment in ExperimentConfig.experiments do

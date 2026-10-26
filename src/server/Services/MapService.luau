@@ -13,6 +13,7 @@ local MapConfig = require(Shared.Config.MapConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local Signal = require(Shared.Signal)
+local MapDressing = require(script.Parent.Parent.MapDressing)
 
 local MapService = {}
 
@@ -72,6 +73,9 @@ function MapService.load(mapId: string): Model
 		model:Destroy()
 		error(`map "{mapId}" breaks the MapBase contract:\n  ` .. table.concat(problems, "\n  "))
 	end
+	-- The Blender props over the parts they dress; the parts stay as the
+	-- hitboxes, so play is the same with or without them.
+	MapDressing.dress(model)
 
 	if current then
 		current:Destroy()

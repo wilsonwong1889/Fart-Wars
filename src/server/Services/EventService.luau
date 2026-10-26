@@ -13,10 +13,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local EventConfig = require(Shared.Config.EventConfig)
+local MapArt = require(Shared.Config.MapArt)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local MapDressing = require(Server.MapDressing)
 local MapService = require(script.Parent.MapService)
 local RoundService = require(script.Parent.RoundService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
@@ -157,15 +159,19 @@ function EventService.spot(): Vector3?
 	return nil
 end
 
-local function makePart(name: string, size: Vector3, frame: CFrame, color: Color3, transparency: number, shape: Enum.PartType): BasePart
-	local part = Instance.new("Part")
+-- `prop`: the Blender prop to use instead of a plain part, when imported.
+local function makePart(name: string, size: Vector3, frame: CFrame, color: Color3, transparency: number, shape: Enum.PartType, prop: string?): BasePart
+	local mesh = if prop then MapDressing.copy(prop) else nil
+	local part: BasePart = mesh or Instance.new("Part")
 	part.Name = name
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
 	part.CastShadow = false
-	part.Shape = shape
+	if not mesh then
+		(part :: Part).Shape = shape
+	end
 	part.Material = Enum.Material.Neon
 	part.Color = color
 	part.Transparency = transparency
@@ -193,7 +199,7 @@ end
 local function land(bean: Bean)
 	local position = bean.part.Position
 	bean.part:Destroy()
-	bean.part = makePart("Bean", Vector3.new(2.4, 1.6, 1.6), CFrame.new(position.X, 1.2, position.Z), Color3.fromRGB(196, 92, 40), 0, Enum.PartType.Ball)
+	bean.part = makePart("Bean", Vector3.new(2.4, 1.6, 1.6), CFrame.new(position.X, 1.2, position.Z), Color3.fromRGB(196, 92, 40), 0, Enum.PartType.Ball, MapArt.BEAN)
 	bean.landed = true
 end
 

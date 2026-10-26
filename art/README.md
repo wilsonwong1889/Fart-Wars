@@ -1,16 +1,20 @@
 # Fart Wars art (Blender)
 
-The four weapons, their hotbar icons and the effect textures are made in
-Blender, from scripts in `art/blender`. The scripts are the source: change
-a weapon there and run them again, and the game's copy of the model
-(`src/shared/Config/WeaponArt.luau`) is regenerated to match.
+The four weapons, their hotbar icons, the effect textures and the map's
+props are made in Blender, from scripts in `art/blender`. The scripts are
+the source: change a weapon or a prop there and run them again, and the
+game's copy of the measurements (`src/shared/Config/WeaponArt.luau`,
+`PropArt.luau`) is regenerated to match.
 
 ![The four weapons](export/weapons/all.png)
+
+![Porcelain Plaza, dressed with the props](export/props/plaza.png)
 
 | Folder | What's in it |
 | --- | --- |
 | `art/blender/build_weapons.py` | models the Gas Blaster, Spritzer, Thunderclapper and Stink Lobber |
 | `art/blender/build_effects.py` | the particle textures: puff, cloud, spark, ring, droplet |
+| `art/blender/build_props.py` | the map's props: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean |
 | `art/blender/kit.py` | shared helpers (axes, materials, rendering) |
 | `art/export/weapons/<Weapon>.fbx` | the model for Roblox: one mesh per part of the gun (Body, Metal, Grip, Trim, Glass, Gas, and the Stink Lobber's Bomb) |
 | `art/export/weapons/<Weapon>.blend` | the same model as a Blender scene, to edit by hand |
@@ -18,6 +22,9 @@ a weapon there and run them again, and the game's copy of the model
 | `art/export/icons/<Weapon>.png` | hotbar icons, 512×512 |
 | `art/export/effects/<name>.png` | particle textures, white (the game tints them) |
 | `art/export/weapons/manifest.json` | every part's size and place, which the game reads (through `WeaponArt.luau`) |
+| `art/export/props/<Prop>.fbx` | each prop for Roblox: one mesh, the exact size of the map part it dresses |
+| `art/export/props/Props.blend`, `<Prop>.png`, `all.png`, `plaza.png` | every prop in one Blender scene; previews; Porcelain Plaza laid out as in the map |
+| `art/export/props/manifest.json` | each prop's size and the part it was modelled on (`PropArt.luau`) |
 
 ## What the game does with it
 
@@ -41,6 +48,21 @@ the rest.
 The hotbar shows each weapon's 3D model until its icon is uploaded, and
 the locker's weapon cards turn the model slowly.
 
+The map's props dress the parts the map is built from (`MapDressing`,
+`Config/MapArt.luau` says which prop goes on which part):
+
+- **Before you import anything**, the map is its plain blocks and
+  cylinders, as before.
+- **Once a prop is imported**, every part it dresses gets the mesh drawn
+  exactly over it, in the part's own colour and material. The part stays
+  where it is, invisible, as the hitbox: it's still what players bump
+  into, what shots hit and what stops a blast, and the mesh can't be hit,
+  touched or collided with. So cover, sightlines and barrels play exactly
+  the same with or without the art.
+- The throne's two toilets face their own bowls, the Gas Gutter's sideways
+  toilet turns to face its bowl, and a gas barrel's mesh goes and comes
+  back with the barrel. Bean Rain's beans use the bean mesh.
+
 ## Import the meshes into Studio (once)
 
 1. Open the place in Studio, with Rojo connected.
@@ -61,6 +83,25 @@ the locker's weapon cards turn the model slowly.
 Rojo leaves `ReplicatedStorage.Assets` alone, so the imports stay when you
 sync. Save the place in Studio to keep them. To keep them in Git too,
 right-click **Weapons** → **Save to File** → `art/export/Weapons.rbxm`.
+
+## Import the map props (once)
+
+1. **Import 3D** each FBX in `art/export/props` (ToiletTank, TankLid,
+   ToiletBowl, ToiletSeat, BeanCan, BeanLabel, GasBarrel, BarrelBand,
+   Crate, CoverWall, Bean), with the same orientation as the weapons
+   (forward **-Z**, up **+Y**).
+2. Drag each one into **ReplicatedStorage → Assets → Props** and keep its
+   name. A MeshPart on its own or the Model the importer makes around it
+   are both fine.
+3. Optional, for performance: select them all and set
+   **CollisionFidelity** to **Box** (the meshes never collide; the parts
+   under them do).
+4. Play, and `/fw selftest`: **Map props: all 11 imported**. A prop that's
+   "the wrong way round" is left off the map (its parts show as before);
+   import it again.
+
+Save the place to keep them; to keep them in Git too, right-click
+**Props** → **Save to File** → `art/export/Props.rbxm`.
 
 ## Upload the images (once)
 
@@ -83,6 +124,7 @@ You need Blender 4.2 or newer, or just its Python module:
 pip install bpy==5.2.3          # Python 3.13
 python art/blender/build_weapons.py
 python art/blender/build_effects.py
+python art/blender/build_props.py
 ```
 
 or, with Blender installed:
@@ -90,6 +132,7 @@ or, with Blender installed:
 ```
 blender --background --python art/blender/build_weapons.py
 blender --background --python art/blender/build_effects.py
+blender --background --python art/blender/build_props.py
 ```
 
 Each weapon is a short function in `build_weapons.py` (`gas_blaster`,
@@ -99,3 +142,11 @@ Blender's +Y and the top is +Z. The colours are at the top of the file.
 After a change, run the specs (`python3 scripts/run_specs.py`), check the
 renders, and import the changed FBX into Studio again (replace the old
 model in Assets → Weapons).
+
+Each prop is a function in `build_props.py` (`toilet_tank`, `bean_can`,
+...), modelled at the exact size of the map part named in `PROPS`, so it
+isn't stretched in the game. Cylinder props (bowl, seat, can, label,
+barrel, band) are turned shapes around Blender's X, the axis a Roblox
+cylinder part runs along; the map stands them up. A prop whose front
+matters faces Blender +Y. The spec `MapArt` checks every prop still fits
+its part. To dress another part, add it to `Config/MapArt.luau`.

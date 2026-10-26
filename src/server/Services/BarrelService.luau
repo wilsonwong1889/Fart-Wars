@@ -41,15 +41,20 @@ local function now(): number
 	return workspace:GetServerTimeNow()
 end
 
+-- Hides or shows every part of the barrel. Shown, each part is as it was
+-- first found (an invisible hitbox under the Blender mesh stays invisible,
+-- and the mesh never collides).
 local function setVisible(model: Model, visible: boolean)
 	for _, item in model:GetDescendants() do
 		if item:IsA("BasePart") then
-			if item:GetAttribute("Transparency") == nil then
-				item:SetAttribute("Transparency", item.Transparency)
+			for _, key in { "Transparency", "CanCollide", "CanQuery" } do
+				if item:GetAttribute(key) == nil then
+					item:SetAttribute(key, (item :: any)[key])
+				end
 			end
 			item.Transparency = if visible then item:GetAttribute("Transparency") :: number else 1
-			item.CanCollide = visible
-			item.CanQuery = visible
+			item.CanCollide = visible and item:GetAttribute("CanCollide") == true
+			item.CanQuery = visible and item:GetAttribute("CanQuery") == true
 		end
 	end
 end

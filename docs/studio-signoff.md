@@ -1,8 +1,9 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 31 specs, including a 20-player, 20-minute soak).
-Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6.
+scripts/run_specs.py`, 32 specs, including a 20-player, 20-minute soak).
+Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6;
+sections 8 and 9 are the Blender art (the weapons, the map props).
 What's left needs real Roblox: physics, rendering, sound, the real network
 and real DataStores. This is one session, in order, about an hour. Tick
 each box; anything that doesn't match, note what you saw (a screenshot and
@@ -184,6 +185,24 @@ turn it back off unless you're keeping it):
 - [ ] The hotbar shows the guns; the locker's weapon cards turn them.
 - [ ] Settings → REDUCE MOTION: the gun barely moves, no flash, no camera
       kick; the locker's guns stand still.
+
+## 9. The map props (Blender art)
+
+- [ ] Import the eleven FBX files in `art/export/props` into
+      **ReplicatedStorage → Assets → Props**
+      ([`../art/README.md`](../art/README.md)); `/fw selftest` says
+      **Map props: all 11 imported**.
+- [ ] Play: the throne is two toilets back to back, each tank facing its
+      own bowl; the Gas Gutter's sideways toilet faces its bowl; bean cans
+      wear their labels; the cover walls, crates and gas barrels are the
+      Blender shapes, all in the map's colours.
+- [ ] Nothing plays differently: you bump into each prop where you did
+      before and shots and blasts stop at the same places. Where a mesh is
+      narrower than its part (the bowl's foot, the barrel's ends) you stop
+      at the part's edge, as before.
+- [ ] Shoot a barrel until it blows: the whole barrel goes and comes back
+      after its respawn time, and you still can't walk through it.
+- [ ] With `EVENTS = true`, Bean Rain's beans are the bean mesh.
 
 ## Before any public release
 
