@@ -25,6 +25,7 @@ local GameModeBase = require(Shared.Interfaces.GameModeBase)
 local RoundClock = require(Shared.RoundClock)
 local Server = script.Parent.Parent
 local Health = require(Server.Health)
+local Telemetry = require(Server.Telemetry)
 local TeamService = require(script.Parent.TeamService)
 local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
@@ -232,6 +233,7 @@ function RoundService.start()
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local roundSnapshot = remotes:WaitForChild("RoundSnapshot") :: RemoteFunction
 	roundSnapshot.OnServerInvoke = function()
+		Telemetry.count("remote.in.RoundSnapshot")
 		return RoundService.snapshot()
 	end
 	MatchScoreService.Changed:Connect(publishSoon)

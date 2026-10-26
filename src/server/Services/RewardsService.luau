@@ -364,6 +364,7 @@ function RewardsService.start()
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local rewardsRequest = remotes:WaitForChild("RewardsRequest") :: RemoteFunction
 	rewardsRequest.OnServerInvoke = function(player, action)
+		Telemetry.count("remote.in.RewardsRequest")
 		return RewardsService.request(player, action)
 	end
 	Health.loop("Rewards", 1, RewardsService.tick)

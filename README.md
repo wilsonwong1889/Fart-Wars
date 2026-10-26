@@ -109,7 +109,7 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport` |
-| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence` |
+| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code |
@@ -143,6 +143,7 @@ else.
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
+| `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
 | `SocialService` | playing with friends: the squad bonus (a friend on your team), the one-time newcomer welcome, co-play counts |
 | `RewardsService` | `RewardsRequest`: the daily track, ten-minute gifts (active play only, capped per day), free spins drawn by published weights; every claim recorded before it pays |
@@ -259,6 +260,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
+| `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
 | `Release` | the version and channel on every screen; health (every loop watched, a stopped loop FAILING and recovering, a tick's error counted and the loop going on, an error burst, saving's check, `/fw health`); client reports (averaged, junk and spam refused); player reports (reasons, not yourself, once each, the session cap, three reporters flag once); the Players screen (block, hide emotes, report and the answer) |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
@@ -443,22 +446,35 @@ Where the plans left room, or disagreed, Phase 1 does this:
   is the path to Roblox moderation, and the Players screen says so.
 - **Blocking is Roblox's** (its prompt, which also mutes chat); hiding
   someone's emotes is this player's choice for this session.
-- **Clients report a few numbers** (frame rate, ping, errors, graphics
-  quality) about once a minute, and nothing else.
+- **Clients report a few numbers** (frame rate, render spikes, ping, menu
+  latency, errors, graphics quality) about once a minute, and nothing else.
+- **Budgets are fixed numbers** (`GameConfig.BUDGET`): 16 stink clouds on
+  the server, 24 tracers and 120 effect parts on each client; past them
+  the oldest goes first, so a chaotic fight costs the same as a busy one.
+- **Shots stay server-authoritative under lag.** A late shot is checked
+  against where players are when it arrives; a lost one leaves a gap the
+  server accepts; a late, out-of-order one is dropped.
+- **Metrics are split by segment**: new or returning, paying or free, the
+  same split in our counters and in what goes to Roblox's analytics. Only
+  segments go to Roblox, never anything personal.
 
-## Handoff to Phase 5: Launch and optimization
+## Handoff to Phase 6: Expansion and live operations
 
-Phase 5 is the beta: the scope freeze and test matrix, performance and
-networking, the store page, moderation and reliability, and the soft
-launch. The places it plugs into:
+Phase 6 comes after the beta has proven itself (the decision gates in
+[`docs/release.md`](docs/release.md)): more modes and maps, long-term
+progression, seasons and events, accessibility, and running the game week
+to week. The places it plugs into:
 
-- `Telemetry.snapshot()` (and `/fw stats`) for the live numbers, with
-  `retention.*`, `session.*`, `Store.*`, `social.*` and `exp.*` counters.
-- `FeatureFlags` and `ExperimentConfig` to switch systems and cohorts
-  without code changes.
-- `DataService.probe()` and `/fw selftest` for health checks;
-  `GameConfig.MODERATION` for kicks and bans.
-- [`docs/phase-4-checklist.md`](docs/phase-4-checklist.md) for the Studio
-  runs Phase 4 still needs (receipts with real products in particular).
+- `GameModeBase` and `src/server/Modes` for a mode with its own
+  objective; `MapBase` and `MapConfig` for a new arena; `FeatureFlags` to
+  keep any of it off the default queue until it's ready.
+- [`docs/roadmap.md`](docs/roadmap.md) for prestige, the battle pass and
+  events, and the decisions they need first.
+- `Telemetry`, `MetricsService` and `ExperimentService` for the evidence
+  an expansion needs; `Health` and `/fw perf` for its cost.
+- [`docs/phase-4-checklist.md`](docs/phase-4-checklist.md) and
+  [`docs/phase-5-checklist.md`](docs/phase-5-checklist.md) for the Studio
+  and live runs still owed (real purchases, the test matrix, the soft
+  launch).
 
 See [`CHANGELOG.md`](CHANGELOG.md) for what changed.

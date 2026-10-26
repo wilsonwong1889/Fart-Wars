@@ -110,6 +110,7 @@ function Moderation.start()
 	end
 	local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ReportPlayer") :: RemoteFunction
 	remote.OnServerInvoke = function(player: Player, targetUserId: unknown, reason: unknown)
+		Telemetry.count("remote.in.ReportPlayer")
 		local ok, result = pcall(Moderation.report, player, targetUserId, reason)
 		if not ok then
 			Telemetry.error("Moderation", result)

@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local Telemetry = require(script.Parent.Telemetry)
 local RateLimit = require(script.Parent.RateLimit)
+local Profiler = require(script.Parent.Profiler)
 
 local Health = {}
 
@@ -47,6 +48,8 @@ export type Report = {
 	memoryMb: number?,
 	errorsPerMinute: number,
 	saving: string,
+	-- The costliest server paths so far (Profiler).
+	costs: { Profiler.Cost },
 	at: number,
 }
 
@@ -77,8 +80,10 @@ function Health.loop(name: string, every: number, tick: (number) -> ())
 	task.spawn(function()
 		while true do
 			local dt = task.wait(every)
-			loops[name].last = os.clock()
+			local beganAt = os.clock()
+			loops[name].last = beganAt
 			local ok, err = pcall(tick, dt)
+			Profiler.record(`loop.{name}`, os.clock() - beganAt)
 			if not ok then
 				Telemetry.error(name, err)
 				task.spawn(error, `[FW] {name} loop: {tostring(err)}`, 0)
@@ -172,6 +177,7 @@ function Health.check(): Report
 		memoryMb = memoryMb,
 		errorsPerMinute = math.floor(perMinute * 10) / 10,
 		saving = probeDetail,
+		costs = { table.unpack(Profiler.costs(), 1, 5) },
 		at = os.time(),
 	}
 	Telemetry.count(`health.{status}`)
@@ -215,7 +221,8 @@ local function number(value: unknown, low: number, high: number): number?
 	return value
 end
 
--- One client's report: { fps, ping, errors, quality }, each optional.
+-- One client's report: { fps, spikes, ping, uiLatency, errors, quality },
+-- each optional.
 function Health.clientReport(player: Player, payload: unknown)
 	if type(payload) ~= "table" then
 		Telemetry.reject("ClientReport", player, "badPayload")
@@ -230,6 +237,8 @@ function Health.clientReport(player: Player, payload: unknown)
 	local ping = number(data.ping, 0, 10)
 	local errors = number(data.errors, 0, 10000)
 	local quality = number(data.quality, 0, 21)
+	local spikes = number(data.spikes, 0, 100000)
+	local latency = number(data.uiLatency, 0, 60)
 	if fps then
 		Telemetry.sample("client.fps", fps)
 		if fps < 30 then
@@ -247,6 +256,12 @@ function Health.clientReport(player: Player, payload: unknown)
 	end
 	if quality then
 		Telemetry.sample("client.graphicsQuality", quality)
+	end
+	if spikes then
+		Telemetry.sample("client.spikesPerReport", spikes)
+	end
+	if latency then
+		Telemetry.sample("client.uiLatencyMs", latency * 1000)
 	end
 	Telemetry.count("client.reports")
 end
@@ -270,12 +285,24 @@ function Health.start(options: { probe: (() -> (boolean, string))? }?)
 		end
 	end)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	-- Remote volume: every client event counted as it arrives
+	-- (remote.in.<name>; RemoteFunctions count themselves).
+	for _, remote in remotes:GetChildren() do
+		if remote:IsA("RemoteEvent") then
+			local key = `remote.in.{remote.Name}`
+			remote.OnServerEvent:Connect(function()
+				Telemetry.count(key)
+			end)
+		end
+	end
 	local report = remotes:WaitForChild("ClientReport") :: RemoteEvent
 	report.OnServerEvent:Connect(Telemetry.guard("ClientReport", Health.clientReport))
 	Players.PlayerRemoving:Connect(function(player)
 		clientLimit:forget(player)
 	end)
 	task.spawn(function()
+		-- The first check once the server has settled.
+		task.wait(5)
 		while true do
 			Health.probe()
 			task.wait(Health.PROBE_SECONDS)

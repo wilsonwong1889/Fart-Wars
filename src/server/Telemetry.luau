@@ -16,6 +16,9 @@ local Telemetry = {}
 -- (player, reason, detail): something worth a moderator's look. The
 -- Moderation module decides what, if anything, to do about it.
 Telemetry.Flagged = Signal.new()
+-- Fires the first time in a session a player does something
+-- (Telemetry.first): (player, kind, seconds into the session).
+Telemetry.FirstDone = Signal.new()
 
 local counters: { [string]: number } = {}
 local errors: { [string]: number } = {}
@@ -140,6 +143,7 @@ function Telemetry.first(player: Player, kind: string)
 	timings[kind] = timing
 	timing.count += 1
 	timing.total += now() - started
+	Telemetry.FirstDone:Fire(player, kind, now() - started)
 end
 
 -- Adds one measurement of `kind` (seconds) to its running average.

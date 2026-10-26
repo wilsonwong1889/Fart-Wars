@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0: Phase 5, part 2: performance, networking and live metrics
+
+- Budgets (`GameConfig.BUDGET`): at most 16 stink clouds on the server
+  (a new one ends the oldest), and on each client a pool of 24 shot
+  tracers and at most 120 short-lived effect parts.
+- `Profiler`: every service loop's tick, shot checks and saves timed;
+  remote volume counted; `/fw perf` lists the costliest paths and the
+  busiest remotes. The explosion and projectile loops run through
+  `Health` too.
+- Hits by the shooter's ping (`Combat.hitsBy.lowPing` / `midPing` /
+  `highPing`), to watch high-ping fairness.
+- Settings: LOW DETAIL (no shadows, fewer effects) and VOLUME in quarter
+  steps; clients also report render spikes and how long menus wait on the
+  server.
+- `MetricsService`: segments (new or returning, paying or free); the
+  onboarding funnel (also sent to Roblox's); eliminations and deaths by
+  segment (the free-to-paid check); session length buckets, minutes and
+  early leavers by segment; concurrent players; coin sources and sinks
+  sent to Roblox's economy events. A failing analytics call is counted
+  and never breaks the game.
+- Docs: [`docs/store-page.md`](docs/store-page.md) (title, description,
+  thumbnails, icon, creative testing, the first funnel) and the Phase 5
+  checklist.
+- New specs: `Network`, `Metrics`.
+
 ## 0.5.0: Phase 5, part 1: release, health and player safety
 
 - Version `0.5.0` (`ReleaseConfig`), and a channel from the place ID

@@ -17,6 +17,7 @@ local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
@@ -128,11 +129,8 @@ function ExplosionService.start()
 			})
 		end
 	end)
-	task.spawn(function()
-		while true do
-			task.wait(EXPLOSION.TICK_SECONDS)
-			ExplosionService.step()
-		end
+	Health.loop("Explosions", EXPLOSION.TICK_SECONDS, function()
+		ExplosionService.step()
 	end)
 end
 

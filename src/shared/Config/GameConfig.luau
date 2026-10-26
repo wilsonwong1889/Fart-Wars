@@ -48,6 +48,16 @@ local GameConfig = {
 	-- a clear line to them), which can set off more players and barrels:
 	-- a chain, cut off after CHAIN_MAX_DEPTH steps. At most PER_TICK blasts
 	-- resolve every TICK_SECONDS, so a big chain spreads over a few frames.
+	-- Performance budgets (masterplan 5.2). At most MAX_CLOUDS stink clouds
+	-- at once on the server (a new one ends the oldest early); on each
+	-- client, at most MAX_TRACERS shot tracers and MAX_EFFECT_PARTS other
+	-- effect parts at once (the oldest goes first).
+	BUDGET = table.freeze({
+		MAX_CLOUDS = 16,
+		MAX_TRACERS = 24,
+		MAX_EFFECT_PARTS = 120,
+	}),
+
 	EXPLOSION = table.freeze({
 		RADIUS = 14,
 		CHAIN_GAS = 40,

@@ -22,6 +22,7 @@ local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local Profiler = require(Server.Profiler)
 
 local DataService = {}
 
@@ -413,7 +414,14 @@ end
 -- was written (never for a temporary profile).
 function DataService.save(player: Player): boolean
 	local profile = profiles[player]
-	return profile ~= nil and write(player.UserId, profile, false)
+	if not profile then
+		return false
+	end
+	-- Save calls and how long they take, waiting for the DataStore included.
+	local started = os.clock()
+	local ok = write(player.UserId, profile, false)
+	Profiler.record("Data.save", os.clock() - started)
+	return ok
 end
 
 -- The last save of a session: the profile is dropped first, so it's only

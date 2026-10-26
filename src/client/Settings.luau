@@ -3,8 +3,12 @@
 return {
 	-- Fewer puffs and clouds (stink clouds that gas you always show).
 	reducedEffects = false,
-	-- The game's sound effects.
+	-- The game's sound effects, and their volume (0 to 1, on top of
+	-- Roblox's own volume).
 	sound = true,
+	volume = 1,
+	-- Low detail: no shadows and fewer effects, for slower PCs.
+	lowDetail = false,
 	-- Contextual tips (the "tips" experiment can start them off).
 	tips = true,
 	-- Players whose emotes are hidden (the Players screen), by user ID.

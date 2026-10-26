@@ -262,7 +262,7 @@ check(counter("social.leftWithFriend") >= 1, "sessions with friends counted as t
 -- Settings win over the experiment.
 Locker.open("Settings")
 task.wait(0.1)
-local button = Locker.parts.content:FindFirstChild("Tips")
+local button = Locker.parts.content.TipsRow:FindFirstChild("Tips")
 check(button and button.Text == "TIPS: OFF", "the Settings screen shows tips off")
 Locker.close()
 Settings.tips = true

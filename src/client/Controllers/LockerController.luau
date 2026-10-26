@@ -31,6 +31,8 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local Detail = require(Client.Detail)
+local HealthController = require(script.Parent.HealthController)
 local Signal = require(Shared.Signal)
 local ProgressController = require(script.Parent.ProgressController)
 
@@ -94,7 +96,9 @@ function LockerController.request(action: string, kind: string, id: string?)
 	render()
 	task.spawn(function()
 		local remote = ClientState.remote("ShopRequest") :: RemoteFunction
+		local sentAt = os.clock()
 		local ok, answer = pcall(remote.InvokeServer, remote, action, kind, id)
+		HealthController.noteLatency(os.clock() - sentAt)
 		LockerController.busy = false
 		if ok and type(answer) == "table" then
 			setStatus(tostring(answer.message), if answer.ok then C.accent else C.warning)
@@ -413,33 +417,82 @@ local function storeTab(content: Frame)
 	})
 end
 
+local VOLUME_STEP = 0.25
+
 local function settingsTab(content: Frame)
 	UI.list(Enum.FillDirection.Vertical, 6).Parent = content
 	local toggles = {
 		{ key = "reducedEffects", name = "ReducedEffects", label = "REDUCED EFFECTS", note = "Fewer puffs and clouds (stink clouds that gas you always show)." },
+		{ key = "lowDetail", name = "LowDetail", label = "LOW DETAIL", note = "No shadows and fewer effects, for slower PCs." },
 		{ key = "sound", name = "Sound", label = "SOUND EFFECTS", note = "The game's sounds (Roblox's own volume still applies)." },
 		{ key = "tips", name = "Tips", label = "TIPS", note = "A short hint now and then, never mid-fight." },
 	}
+	local function row(name: string, order: number): Frame
+		return UI.new("Frame", {
+			Name = name .. "Row",
+			LayoutOrder = order,
+			Size = UDim2.new(1, 0, 0, 38),
+			BackgroundTransparency = 1,
+			Parent = content,
+		})
+	end
+	local function note(parent: Instance, value: string)
+		UI.label(value, 13, {
+			Name = "Note",
+			Position = UDim2.new(0, 312, 0, 0),
+			Size = UDim2.new(1, -312, 1, 0),
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = C.muted,
+			Font = UIConfig.bodyFont,
+			Parent = parent,
+		})
+	end
 	for i, toggle in toggles do
+		local holder = row(toggle.name, i)
 		local on = (Settings :: any)[toggle.key]
 		local button = UI.button(`{toggle.label}: {if on then "ON" else "OFF"}`, C.panelLight, {
 			Name = toggle.name,
-			LayoutOrder = i * 2 - 1,
-			Size = UDim2.new(0, 320, 0, 38),
+			Size = UDim2.new(0, 300, 0, 38),
 			TextSize = 17,
-			Parent = content,
+			Parent = holder,
 		})
 		UI.onClick(button, function()
 			(Settings :: any)[toggle.key] = not (Settings :: any)[toggle.key]
 			Settings.chosen[toggle.key] = true
+			if toggle.key == "lowDetail" then
+				Detail.apply()
+			end
 			render()
 		end)
-		text(content, toggle.note, 13, i * 2, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.muted })
+		note(holder, toggle.note)
 	end
+	-- Volume, in quarter steps.
+	local holder = row("Volume", #toggles + 1)
+	local function step(by: number)
+		Settings.volume = math.clamp(Settings.volume + by, 0, 1)
+		Settings.chosen.volume = true
+		render()
+	end
+	local down = UI.button("-", C.panelLight, { Name = "VolumeDown", Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+	UI.onClick(down, function()
+		step(-VOLUME_STEP)
+	end)
+	UI.label(`VOLUME {math.floor(Settings.volume * 100 + 0.5)}%`, 17, {
+		Name = "Volume",
+		Position = UDim2.new(0, 50, 0, 0),
+		Size = UDim2.new(0, 200, 1, 0),
+		Parent = holder,
+	})
+	local up = UI.button("+", C.panelLight, { Name = "VolumeUp", Position = UDim2.new(0, 256, 0, 0), Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+	UI.onClick(up, function()
+		step(VOLUME_STEP)
+	end)
+	note(holder, "The game's sound effects, on top of Roblox's own volume.")
 	text(content, "CONTROLS", 18, 10, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	local controls = {}
-	for _, row in UIConfig.controls do
-		table.insert(controls, `{row[1]} {row[2]}`)
+	for _, entry in UIConfig.controls do
+		table.insert(controls, `{entry[1]} {entry[2]}`)
 	end
 	text(content, table.concat(controls, "  ·  "), 14, 11, {
 		TextXAlignment = Enum.TextXAlignment.Left,

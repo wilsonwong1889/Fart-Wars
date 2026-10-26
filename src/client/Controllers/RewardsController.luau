@@ -18,6 +18,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
+local HealthController = require(script.Parent.HealthController)
 
 local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 205, 50)
@@ -37,7 +38,9 @@ local started = false
 
 local function ask(action: string): { [string]: any }?
 	local remote = ClientState.remote("RewardsRequest") :: RemoteFunction
+	local sentAt = os.clock()
 	local ok, answer = pcall(remote.InvokeServer, remote, action)
+	HealthController.noteLatency(os.clock() - sentAt)
 	return if ok and type(answer) == "table" then answer else nil
 end
 

@@ -12,7 +12,7 @@
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
---   /fw selftest   /fw daily   /fw spins 3   /fw health
+--   /fw selftest   /fw daily   /fw spins 3   /fw health   /fw perf
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -46,6 +46,7 @@ local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local Messages = require(script.Parent.Messages)
 local Health = require(script.Parent.Health)
+local Profiler = require(script.Parent.Profiler)
 local Telemetry = require(script.Parent.Telemetry)
 
 local TestControls = {}
@@ -388,6 +389,32 @@ function TestControls.health(): (boolean, string)
 	return report.status ~= "FAILING", summary
 end
 
+-- What the server spends its time on, and how many requests arrive.
+function TestControls.perf(): (boolean, string)
+	local costs = Profiler.costs()
+	local snapshot = Telemetry.snapshot()
+	local minutes = math.max(snapshot.uptimeSeconds / 60, 1 / 60)
+	local remotes = {}
+	for key, n in snapshot.counters do
+		local name = string.match(key, "^remote%.in%.(.+)$")
+		if name then
+			table.insert(remotes, { name = name, perMinute = n / minutes })
+		end
+	end
+	table.sort(remotes, function(a, b)
+		return a.perMinute > b.perMinute
+	end)
+	print("[FW] perf", game:GetService("HttpService"):JSONEncode({ costs = costs, remotesPerMinute = remotes }))
+	local top = {}
+	for i = 1, math.min(4, #costs) do
+		local cost = costs[i]
+		table.insert(top, `{cost.name} {cost.averageMs}ms avg, {cost.maxMs}ms max`)
+	end
+	local busiest = remotes[1]
+	local requests = if busiest then `; busiest remote {busiest.name} {math.floor(busiest.perMinute)}/min` else ""
+	return true, `{table.concat(top, " | ")}{requests}`
+end
+
 function TestControls.stats(): (boolean, string)
 	local snapshot = Telemetry.snapshot()
 	local rejected, errored = 0, 0
@@ -427,7 +454,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -466,6 +493,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.stats()
 	elseif command == "health" then
 		ok, message = TestControls.health()
+	elseif command == "perf" then
+		ok, message = TestControls.perf()
 	end
 	Messages.send(player, "test", (if ok then "TEST: " else "TEST failed: ") .. message)
 	return message

@@ -21,6 +21,7 @@
 --   RewardsService        the daily track, ten-minute gifts, free spins
 --   SocialService         playing with friends: squad bonus, welcomes
 --   MonetizationService   the store: coin packs (receipts) and passes
+--   MetricsService        live metrics by segment, the onboarding funnel
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
 --   TestControls          test-only commands (Studio / allow-list)
@@ -59,6 +60,7 @@ local ShopService = require(Services.ShopService)
 local RewardsService = require(Services.RewardsService)
 local SocialService = require(Services.SocialService)
 local MonetizationService = require(Services.MonetizationService)
+local MetricsService = require(Services.MetricsService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
@@ -88,6 +90,7 @@ ShopService.start()
 RewardsService.start()
 SocialService.start()
 MonetizationService.start()
+MetricsService.start()
 RoundService.start()
 TestControls.start()
 

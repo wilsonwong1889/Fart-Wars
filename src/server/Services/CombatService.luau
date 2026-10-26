@@ -24,6 +24,7 @@ local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Profiler = require(Server.Profiler)
 local Cadence = require(Server.Cadence)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
@@ -188,6 +189,9 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	AFKService.markActive(player)
 	Telemetry.first(player, "shot")
 	Telemetry.count("Combat.shots")
+	-- Hit rates by the shooter's ping: is high ping still fair?
+	local band = CombatService.pingBand(player)
+	Telemetry.count(`Combat.shotsBy.{band}`)
 
 	local from = head.Position
 	local unit = aim / length
@@ -220,6 +224,7 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		table.insert(entry.hits, at)
 		Telemetry.first(player, "hit")
 		Telemetry.count("Combat.hits")
+		Telemetry.count(`Combat.hitsBy.{band}`)
 		if headshot then
 			Telemetry.count("Combat.headshots")
 		end
@@ -235,6 +240,23 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	})
 end
 
+-- The player's network ping in seconds (nil if Roblox can't say).
+-- Replaceable in tests.
+CombatService.pingOf = function(player: Player): number?
+	local ok, ping = pcall(player.GetNetworkPing, player)
+	return if ok and type(ping) == "number" then ping else nil
+end
+
+-- "lowPing" (under 100 ms), "midPing" (under 200 ms), "highPing", or
+-- "unknownPing".
+function CombatService.pingBand(player: Player): string
+	local ping = CombatService.pingOf(player)
+	if not ping then
+		return "unknownPing"
+	end
+	return if ping < 0.1 then "lowPing" elseif ping < 0.2 then "midPing" else "highPing"
+end
+
 function CombatService.start()
 	if started then
 		return
@@ -242,7 +264,7 @@ function CombatService.start()
 	started = true
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local fireWeapon = remotes:WaitForChild("FireWeapon") :: RemoteEvent
-	fireWeapon.OnServerEvent:Connect(Telemetry.guard("Combat", CombatService.fire))
+	fireWeapon.OnServerEvent:Connect(Telemetry.guard("Combat", Profiler.wrap("Combat.fire", CombatService.fire)))
 	PlayerLifecycleService.Spawned:Connect(function(player)
 		local entry = shooter(player)
 		entry.lastShotAt = nil

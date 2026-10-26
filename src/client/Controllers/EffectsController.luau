@@ -61,7 +61,7 @@ local started = false
 -- Whether to hold back on effects (Settings, or Roblox graphics quality
 -- 1-3). Clouds that gas you are gameplay, so they always show.
 function EffectsController.reduced(): boolean
-	if Settings.reducedEffects then
+	if Settings.reducedEffects or Settings.lowDetail then
 		return true
 	end
 	local ok, level = pcall(function()
@@ -85,6 +85,32 @@ local function effectPart(name: string): BasePart
 	p.Material = Enum.Material.Neon
 	p.Transparency = 1
 	return p
+end
+
+-- Short-lived effect parts (puffs, clouds, arcs, rings), at most
+-- GameConfig.BUDGET.MAX_EFFECT_PARTS at once: past that the oldest goes.
+local live: { BasePart } = {}
+local liveNext = 0
+local function transient(name: string): BasePart
+	local p = effectPart(name)
+	liveNext = liveNext % GameConfig.BUDGET.MAX_EFFECT_PARTS + 1
+	local old = live[liveNext]
+	if old and old.Parent then
+		old:Destroy()
+	end
+	live[liveNext] = p
+	return p
+end
+
+-- How many short-lived effect parts are showing now.
+function EffectsController.liveEffects(): number
+	local n = 0
+	for _, p in live do
+		if p.Parent then
+			n += 1
+		end
+	end
+	return n
 end
 
 -- The next pooled burst (the oldest is reused when all are busy).
@@ -114,7 +140,7 @@ function EffectsController.explosion(position: Vector3, color: Color3?, radius: 
 	if EffectsController.reduced() then
 		return
 	end
-	local cloud = effectPart("GasCloud")
+	local cloud = transient("GasCloud")
 	cloud.Material = Enum.Material.SmoothPlastic
 	cloud.Color = Color3.fromRGB(120, 170, 60)
 	cloud.Size = Vector3.one * reach * 1.4
@@ -131,7 +157,7 @@ function EffectsController.dashPuff(from: Vector3, direction: Vector3, color: Co
 		return
 	end
 	for i = 0, 2 do
-		local puff = effectPart("DashPuff")
+		local puff = transient("DashPuff")
 		puff.Material = Enum.Material.SmoothPlastic
 		puff.Color = color or Color3.fromRGB(170, 200, 90)
 		puff.Size = Vector3.one * (2.4 - i * 0.5)
@@ -150,7 +176,7 @@ function EffectsController.lob(path: { Vector3 }, flight: number, color: Color3?
 		local a, b = path[i], path[i + 1]
 		local length = (b - a).Magnitude
 		if length > 0.1 then
-			local segment = effectPart("LobArc")
+			local segment = transient("LobArc")
 			segment.Shape = Enum.PartType.Block
 			segment.Color = color or GAS_GREEN
 			segment.Size = Vector3.new(0.25, 0.25, length)
@@ -169,7 +195,7 @@ end
 
 -- A stink cloud that gasses enemies inside it until `endsAt`.
 function EffectsController.cloud(position: Vector3, radius: number, endsAt: number)
-	local cloud = effectPart("StinkCloud")
+	local cloud = transient("StinkCloud")
 	cloud.Material = Enum.Material.SmoothPlastic
 	cloud.Color = Color3.fromRGB(130, 180, 50)
 	cloud.Size = Vector3.one * radius * 2
@@ -216,7 +242,7 @@ function EffectsController.ability(id: string, position: Vector3)
 	if id == "RecoveryBurst" then
 		Audio.play("vent")
 		for i = 0, (if EffectsController.reduced() then 0 else 3) do
-			local puff = effectPart("VentPuff")
+			local puff = transient("VentPuff")
 			puff.Material = Enum.Material.SmoothPlastic
 			puff.Color = Color3.fromRGB(200, 230, 120)
 			puff.Size = Vector3.one * (3 - i * 0.4)
@@ -230,7 +256,7 @@ function EffectsController.ability(id: string, position: Vector3)
 		Audio.play("pulse")
 		local radius = AbilityConfig.GasPulse.radius :: number
 		local windup = AbilityConfig.GasPulse.durationSeconds
-		local ring = effectPart("PulseRing")
+		local ring = transient("PulseRing")
 		ring.Shape = Enum.PartType.Cylinder
 		ring.Color = GAS_GREEN
 		ring.Size = Vector3.new(0.4, 2, 2)

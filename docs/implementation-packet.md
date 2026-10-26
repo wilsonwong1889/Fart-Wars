@@ -78,6 +78,8 @@ Services start in this order and never require one that starts later.
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
+| `MetricsService` | `start()`, `segments(player) -> (age?, pay?)`, `setAnalytics(fake)` (tests); constants `FUNNEL`, `LENGTHS` |
+| `Profiler` | `record(name, seconds)`, `wrap(name, fn)`, `costs() -> { { name, count, averageMs, maxMs, totalMs } }`, `reset()` |
 | `Health` | `start({ probe })`, `loop(name, seconds, tick)`, `check() -> Report`, `report()`, `probe()`, `clientReport(player, payload)`, `loopNames()`, `testSetBeat(name, at)`, `setProbe(fn)`; a report is `{ status, problems, version, channel, players, serverFps, memoryMb?, errorsPerMinute, saving, at }` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
@@ -188,7 +190,23 @@ Retention and Phase 4: `retention.newPlayers`, `.nextDay`, `.D1`, `.D7`;
 Release and health: `health.OK` / `.DEGRADED` / `.FAILING` (one per check),
 `health.probeFailures`; `client.reports`, `.lowFps`, `.highPing`,
 `.errors`, with `samples.client.fps`, `.client.pingMs`,
-`.client.graphicsQuality`; `reports.total` and `reports.<reason>`.
+`.client.graphicsQuality`, `.client.spikesPerReport`, `.client.uiLatencyMs`;
+`reports.total` and `reports.<reason>`.
+
+Performance: `remote.in.<remote>` (requests received), `Combat.shotsBy.<band>`
+and `Combat.hitsBy.<band>` (`lowPing`, `midPing`, `highPing`,
+`unknownPing`), `Projectile.cloudsCapped`, and `Profiler.costs()` (in
+`/fw perf` and Health's report).
+
+Live metrics: `metrics.joins.<segment>`, `metrics.sessions.<segment>`,
+`samples.metrics.sessionMinutes.<segment>`,
+`metrics.sessionLength.under1` / `under5` / `under10` / `under20` /
+`under40` / `40plus`, `metrics.leftBeforeFirstShot.<age>`,
+`metrics.newPayers`, `samples.metrics.concurrent`,
+`funnel.<age>.<step>` (`joined`, `played`, `shot`, `hit`, `elimination`,
+`reached5Minutes`, `reached10Minutes`), `fairness.kills.<segment>` and
+`fairness.deaths.<segment>`, `metrics.analyticsErrors`. A segment is
+`new` / `returning` or `payer` / `free`.
 
 ## Save format
 
@@ -243,8 +261,9 @@ specially; an older server never writes a newer save.
 ## Known bugs and limits
 
 - No lag compensation: the server casts shots against where players are
-  now, so a high-ping shooter can miss a fast mover they had on target.
-  Phase 5 covers network fairness.
+  now, so a high-ping shooter can miss a fast mover they had on target
+  (and nobody can be hit by a shot the server didn't see land). Hit rates
+  by ping (`Combat.hitsBy.<band>`) show whether it needs adding.
 - The spec harness casts rays against bounding boxes, so round cover is a
   little "boxier" in the specs than in Studio.
 - Chat test commands are a TextChatService command (`/fw`, `!fw`) and

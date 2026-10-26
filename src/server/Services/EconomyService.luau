@@ -46,6 +46,9 @@ EconomyService.TICK_SECONDS = 1
 -- (player): what they own or have earned changed (a level's unlock, a
 -- badge), beyond coins and XP.
 EconomyService.Changed = Signal.new()
+-- Fires for every coin movement: (player, coins (+ in, - out), reason,
+-- balance after).
+EconomyService.Transaction = Signal.new()
 
 type Session = {
 	-- Grant IDs already paid this session.
@@ -135,8 +138,11 @@ local function withProfile(player: Player, change: (Data, { Event }) -> ())
 	end
 end
 
-local function addToLedger(data: Data, id: string, reason: string, coins: number, xp: number)
+local function addToLedger(player: Player, data: Data, id: string, reason: string, coins: number, xp: number)
 	table.insert(data.Ledger, { id = `{jobTag()}:{id}`, reason = reason, coins = coins, xp = xp, at = os.time() })
+	if coins ~= 0 then
+		EconomyService.Transaction:Fire(player, coins, reason, data.Coins)
+	end
 	while #data.Ledger > ProgressionConfig.LEDGER_SIZE do
 		table.remove(data.Ledger, 1)
 	end
@@ -211,7 +217,7 @@ end
 -- One transaction on a loaded profile.
 credit = function(player: Player, data: Data, events: { Event }, id: string, reason: string, coins: number, xp: number)
 	data.Coins += coins
-	addToLedger(data, id, reason, coins, xp)
+	addToLedger(player, data, id, reason, coins, xp)
 	Telemetry.count(`Economy.coins.{reason}`, coins)
 	Telemetry.count(`Economy.xp.{reason}`, xp)
 	local session = sessions[player]
@@ -266,7 +272,7 @@ function EconomyService.spend(player: Player, id: string, reason: string, coins:
 	end
 	DataService.update(player, function(data)
 		data.Coins -= coins
-		addToLedger(data, id, reason, -coins, 0)
+		addToLedger(player, data, id, reason, -coins, 0)
 	end)
 	Telemetry.count(`Economy.spent.{reason}`, coins)
 	EconomyService.publish(player)
@@ -299,7 +305,7 @@ function EconomyService.revoke(player: Player, id: string, coins: number)
 	DataService.update(player, function(data)
 		local taken = math.min(coins, data.Coins)
 		data.Coins -= taken
-		addToLedger(data, `{id}:revoked`, "revoked", -taken, 0)
+		addToLedger(player, data, `{id}:revoked`, "revoked", -taken, 0)
 	end)
 	Telemetry.count("Economy.revoked", coins)
 	EconomyService.publish(player)
@@ -309,7 +315,7 @@ end
 function EconomyService.refund(player: Player, id: string, coins: number)
 	if DataService.update(player, function(data)
 		data.Coins += coins
-		addToLedger(data, `{id}:refund`, "refund", coins, 0)
+		addToLedger(player, data, `{id}:refund`, "refund", coins, 0)
 	end) then
 		Telemetry.count("Economy.refunded", coins)
 		EconomyService.publish(player)
@@ -394,6 +400,7 @@ function EconomyService.tick(dt: number)
 					session.reached[step.minutes] = true
 					-- Sessions that get this far (the first-ten-minutes rate).
 					Telemetry.count(`session.reached{step.minutes}Minutes`)
+					Telemetry.first(player, `reached{step.minutes}Minutes`)
 					EconomyService.grant(player, `participation:{step.minutes}`, "participation", step.coins, step.xp)
 				end
 			end

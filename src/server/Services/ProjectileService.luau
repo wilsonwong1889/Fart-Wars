@@ -5,7 +5,9 @@
 -- enemies (a blast through ExplosionService, so walls stop it and barrels
 -- in range go off) and leaves a cloud that gasses enemies standing in it
 -- every tick until it fades. Friendly fire stays off throughout, and the
--- gas is credited to the thrower and the weapon.
+-- gas is credited to the thrower and the weapon. At most
+-- GameConfig.BUDGET.MAX_CLOUDS clouds last at once: a new one ends the
+-- oldest early.
 --   CombatEvent { kind = "lob", shooter, from, to, path, flight }    all clients
 --   CombatEvent { kind = "cloud", position, radius, endsAt, team }  all clients
 local Players = game:GetService("Players")
@@ -13,9 +15,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local GameConfig = require(Shared.Config.GameConfig)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Health = require(Server.Health)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local GasService = require(script.Parent.GasService)
@@ -107,6 +111,10 @@ local function land(thrower: Player, team: string, at: Vector3, weapon: WeaponCo
 		tick = weapon.cloudTickSeconds :: number,
 	}
 	table.insert(clouds, cloud)
+	while #clouds > GameConfig.BUDGET.MAX_CLOUDS do
+		table.remove(clouds, 1)
+		Telemetry.count("Projectile.cloudsCapped")
+	end
 	combatEvent():FireAllClients({ kind = "cloud", position = cloud.position, radius = cloud.radius, endsAt = cloud.endsAt, team = team })
 end
 
@@ -162,11 +170,8 @@ function ProjectileService.start()
 	end
 	started = true
 	CombatService.Lobbed:Connect(ProjectileService.throw)
-	task.spawn(function()
-		while true do
-			task.wait(0.1)
-			ProjectileService.step()
-		end
+	Health.loop("Projectiles", 0.1, function()
+		ProjectileService.step()
 	end)
 end
 

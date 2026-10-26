@@ -152,6 +152,7 @@ function ShopService.start()
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local shopRequest = remotes:WaitForChild("ShopRequest") :: RemoteFunction
 	shopRequest.OnServerInvoke = function(player, action, kind, id)
+		Telemetry.count("remote.in.ShopRequest")
 		return ShopService.request(player, action, kind, id)
 	end
 	Players.PlayerRemoving:Connect(function(player)
