@@ -1,8 +1,9 @@
-# Phase 1 implementation packet
+# Implementation packet
 
-What the masterplan (section 1.5) asks Phase 1 to hand over: the folder
+What the masterplan (section 1.5) asks each phase to hand over: the folder
 tree, module contracts, exact remote payloads, feature flags, test cases
-and known bugs. It describes the code as it is; update it with the code.
+and known bugs. It describes the code as it is (Phases 1 and 2); update it
+with the code.
 
 ## Folder tree
 
@@ -59,6 +60,8 @@ Services start in this order and never require one that starts later.
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signal `Eliminated(victim, killer?, assists, cause, eventId)` |
 | `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth? }) -> boolean`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
 | `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signal `PartHit(shooter, part, weapon, from)` |
+| `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
+| `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()` |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `snapshot()` |
@@ -83,7 +86,7 @@ reason.
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
-| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all); players as user IDs |
+| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
@@ -91,7 +94,8 @@ Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 
 Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 `Weapon`. Character attributes: `ProtectedUntil`, `Gas` (0-100),
-`GasStage` (0-4), `ExplodesAt` (server time).
+`GasStage` (0-4), `ExplodesAt` (server time). Gas barrel attributes:
+`Health`, `Ready`, `FuseAt` (server time).
 
 ## Feature flags
 
@@ -118,6 +122,7 @@ it proves.
 | `Combat` | 1.3 respawn rules, friendly fire, spawn protection; 1.4 remote validation, rate limits, line of sight, observability, test commands; 1.5 two clients fight, no spawn kills, respawn after repeated deaths; 2.1 server-validated hits, duplicate packets; 2.5 hit registration, cooldown exploits, team immunity |
 | `Gas` | 2.2 stages, clamping, recovery and interruption, 99 to 100, simultaneous hits, disconnects mid-countdown; 2.3 one kill per explosion, killer and assists |
 | `Streak` | 2.4 the five-kill call, once, reset on death, rate-limited; inflation visuals and the effect pool |
+| `Chaos` | 2.3 chain reactions, depth limit, per-tick budget, friendly fire off, barrels (health, fuse, radius, respawn, attribution); 2.5 barrel-player-barrel chains, kill attribution |
 | `Continuous` | 1.1 continuous core loop behind its flag |
 | `Lifecycle` | 1.3 joining, spawning, churn without duplicate avatars or bad counts |
 | `QAMatrix` | the Phase 1 plan's QA matrix |

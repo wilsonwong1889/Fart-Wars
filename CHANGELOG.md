@@ -1,5 +1,20 @@
 # Changelog
 
+## Phase 2, milestone 2: chain reactions and gas barrels
+
+- `ExplosionService`: an exploding player blasts 40% gas onto the
+  killer's enemies within 14 studs (walls and cover stop it), credited to
+  the killer; chains go up to 4 steps deep; at most 6 blasts resolve per
+  tick.
+- `BarrelService`: 12 gas barrels (each a `GasBarrel` model). 40 health,
+  so two shots; a 0.6 s fuse (a lit barrel gets a steady red outline); a
+  16-stud, 40% blast for the last shooter's side; back after 20 s. Blasts
+  set off barrels in range, so barrel-player-barrel chains happen.
+- Playtest metrics: eliminations a minute, barrel and chain kills, spawn
+  deaths (within 5 s of spawning), dashes and gas recovered, all in
+  `/fw stats`.
+- `/fw barrels` resets them all. New `Chaos` spec.
+
 ## Phase 2, milestone 1: gas and eliminations
 
 - The Gas Blaster replaces the placeholder: 20% gas a body hit, 25% to the

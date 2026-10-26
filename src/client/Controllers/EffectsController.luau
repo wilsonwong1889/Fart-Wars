@@ -5,7 +5,8 @@
 --     countdown the avatar gets a slow red outline pulse (well under three
 --     flashes a second)
 --   * explosions: a burst and a lingering cloud, from a small pool so a
---     chain of explosions never piles up parts
+--     chain of explosions never piles up parts; barrels burst orange, and a
+--     barrel with its fuse lit gets a steady red outline
 --   * Fart Dash puffs behind other players' dashes
 --   * "BRO IS THE ALPHA FART!" across the screen when someone hits the
 --     streak, with its sound
@@ -42,7 +43,9 @@ local BELLY = {
 	{ size = 5.6, color = Color3.fromRGB(240, 70, 50) },
 }
 local POOL_SIZE = 8
-local EXPLOSION_RADIUS = 14
+local EXPLOSION_RADIUS = GameConfig.EXPLOSION.RADIUS
+local GAS_GREEN = Color3.fromRGB(150, 230, 60)
+local BARREL_ORANGE = Color3.fromRGB(255, 150, 40)
 
 local player = Players.LocalPlayer
 local pool: { BasePart } = {}
@@ -87,15 +90,15 @@ local function pooled(): BasePart
 end
 EffectsController.pool = pool
 
-function EffectsController.explosion(position: Vector3)
-	Audio.play("explosion")
+function EffectsController.explosion(position: Vector3, color: Color3?, radius: number?)
+	local reach = radius or EXPLOSION_RADIUS
 	local burst = pooled()
-	burst.Color = Color3.fromRGB(150, 230, 60)
+	burst.Color = color or GAS_GREEN
 	burst.Size = Vector3.one * 2
 	burst.CFrame = CFrame.new(position)
 	burst.Transparency = 0.2
 	TweenService:Create(burst, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Size = Vector3.one * EXPLOSION_RADIUS * 2,
+		Size = Vector3.one * reach * 2,
 		Transparency = 1,
 	}):Play()
 	if EffectsController.reduced() then
@@ -104,7 +107,7 @@ function EffectsController.explosion(position: Vector3)
 	local cloud = effectPart("GasCloud")
 	cloud.Material = Enum.Material.SmoothPlastic
 	cloud.Color = Color3.fromRGB(120, 170, 60)
-	cloud.Size = Vector3.one * EXPLOSION_RADIUS * 1.4
+	cloud.Size = Vector3.one * reach * 1.4
 	cloud.CFrame = CFrame.new(position)
 	cloud.Transparency = 0.6
 	cloud.Parent = workspace
@@ -191,6 +194,39 @@ local function renderGas(character: Model)
 end
 EffectsController.renderGas = renderGas
 
+-- A lit barrel: a steady red outline until it goes (no flashing).
+local function renderBarrel(barrel: Model)
+	local lit = barrel:GetAttribute("FuseAt") ~= nil
+	local outline = barrel:FindFirstChild("Danger")
+	if lit and not outline then
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "Danger"
+		highlight.FillColor = Color3.fromRGB(255, 60, 40)
+		highlight.OutlineColor = Color3.fromRGB(255, 80, 60)
+		highlight.FillTransparency = 0.5
+		highlight.Adornee = barrel
+		highlight.Parent = barrel
+	elseif outline and not lit then
+		outline:Destroy()
+	end
+end
+EffectsController.renderBarrel = renderBarrel
+
+local function watchMap(map: Instance)
+	local folder = map:WaitForChild("Barrels", 10)
+	if not folder then
+		return
+	end
+	for _, barrel in folder:GetChildren() do
+		if barrel:IsA("Model") then
+			barrel:GetAttributeChangedSignal("FuseAt"):Connect(function()
+				renderBarrel(barrel)
+			end)
+			renderBarrel(barrel)
+		end
+	end
+end
+
 local function watchCharacter(character: Model)
 	for _, name in { "GasStage", "ExplodesAt" } do
 		character:GetAttributeChangedSignal(name):Connect(function()
@@ -260,6 +296,15 @@ function EffectsController.start()
 		watchPlayer(other)
 	end
 	Players.PlayerAdded:Connect(watchPlayer)
+	local map = workspace:FindFirstChild("Map")
+	if map then
+		task.spawn(watchMap, map)
+	end
+	workspace.ChildAdded:Connect(function(child)
+		if child.Name == "Map" then
+			watchMap(child)
+		end
+	end)
 	-- Your own belly hides in first person.
 	InputController.CameraToggled:Connect(function()
 		task.defer(function()
@@ -274,7 +319,11 @@ function EffectsController.start()
 			return
 		end
 		if event.kind == "explosion" and typeof(event.position) == "Vector3" then
+			Audio.play("explosion")
 			EffectsController.explosion(event.position)
+		elseif event.kind == "barrel" and typeof(event.position) == "Vector3" then
+			Audio.play("barrel")
+			EffectsController.explosion(event.position, BARREL_ORANGE, GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
 			EffectsController.dashPuff(event.from, event.direction)
 		elseif event.kind == "alpha" and type(event.player) == "number" then

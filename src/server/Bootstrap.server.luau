@@ -8,6 +8,8 @@
 --   EliminationService    each death credited once; streaks; the alpha call
 --   GasService            the gas meter, recovery, countdowns, explosions
 --   CombatService         the Gas Blaster: shots and hits
+--   ExplosionService      blasts and chain reactions
+--   BarrelService         gas barrels
 --   DashService           Fart Dash checks
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
@@ -31,6 +33,8 @@ local AFKService = require(Services.AFKService)
 local EliminationService = require(Services.EliminationService)
 local GasService = require(Services.GasService)
 local CombatService = require(Services.CombatService)
+local ExplosionService = require(Services.ExplosionService)
+local BarrelService = require(Services.BarrelService)
 local DashService = require(Services.DashService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
@@ -43,6 +47,8 @@ AFKService.start()
 EliminationService.start()
 GasService.start()
 CombatService.start()
+ExplosionService.start()
+BarrelService.start()
 DashService.start()
 RoundService.start()
 TestControls.start()

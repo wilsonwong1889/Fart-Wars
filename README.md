@@ -45,6 +45,8 @@ repository holds credentials or API keys, and nothing should.
 | Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off |
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
 | Eliminations | the last enemy to add gas scores; others from the last 10 seconds assist. Five in a row without dying: the whole server hears "BRO IS THE ALPHA FART!" |
+| Explosions | an exploding player blasts 40% gas onto the killer's enemies within 14 studs (not through walls), credited to the killer; chains stop after 4 steps |
+| Barrels | 12 gas barrels in the middle. Two shots light the fuse; 0.6 s later they blast 40% gas onto the last shooter's enemies within 16 studs, set off nearby barrels, and come back 20 s later |
 | Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
 
@@ -99,6 +101,8 @@ else.
 | `CombatService` | the Gas Blaster: checks each shot (state, interval, shot numbers, payload), casts it on the server, sends hits to GasService; logs suspicious accuracy and movement |
 | `GasService` | the gas meter: enemy-only gas, protection, recovery, the countdown and the explosion, killer and assists |
 | `EliminationService` | each death credited exactly once, with an event ID; streaks and the alpha announcement |
+| `ExplosionService` | blasts from explosions: gas to the owner's enemies in range and in sight, chain depth limit, a per-tick budget |
+| `BarrelService` | gas barrels: health, fuse, ownership by the last shot, blasts, respawn |
 | `DashService` | Fart Dash: cooldown and travel checks |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, time to first shot / hit / elimination |
 | Client controllers | `InputController`, `CameraController`, `CombatController`, `HUDController`, `HomeController`: render, capture input, switch camera, fire and dash; they never decide teams, hits or results |
@@ -129,8 +133,8 @@ has a better layout (`src/maps/BrainrotBattlefield.luau`):
 - **Spawn rooms** at each end, walled at the front and sides with their
   doors at the back. Nothing in the lanes or the enemy half can see a pad
   (the Map spec checks over 13,000 sightlines).
-- **Barrels** sit in the contested middle, never by a spawn; they're
-  decoration until Phase 2 makes them explode.
+- **Gas barrels** sit in the contested middle, never by a spawn, one
+  `GasBarrel` model each in the `Barrels` folder.
 - `Zones` marks the lanes and spawn areas, `CameraPoints` holds the home
   screen's fixed views, and `Bounds` is the playable box.
 
@@ -160,7 +164,9 @@ Chat (`/fw` or `!fw`):
 /fw resetgas             empty your gas meter
 /fw gas 95               set your gas (100 starts your countdown)
 /fw weapon gasblaster    equip a weapon by id
-/fw stats                shots, hits, eliminations, rejected requests, errors
+/fw barrels              every gas barrel back, full
+/fw stats                shots, hits, eliminations a minute, barrel and chain kills,
+                         spawn deaths, dashes, gas recovered, rejected requests, errors
 ```
 
 Or the server command bar in Studio:
@@ -168,7 +174,7 @@ Or the server command bar in Studio:
 ```lua
 local T = require(game.ServerScriptService.Server.TestControls)
 T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
-T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.stats()
+T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.barrels(); T.stats()
 ```
 
 ## Tests
@@ -191,6 +197,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Combat` | two players fight with the Gas Blaster: body and head hits, no spawn kills, the countdown and explosion, repeated deaths, friendly fire, walls, refused and duplicate shots, Fart Dash, test commands, telemetry |
 | `Gas` | gas stages, clamping, recovery and its interruption, 99 to 100, simultaneous hits, assists, leaving or spectating mid-countdown, no double kills |
 | `Streak` | "BRO IS THE ALPHA FART!" once at five, resets, two at once; the client's banner, inflation and effect pool |
+| `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
@@ -199,8 +206,9 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
 
 The stand-ins have almost no physics and no rendering, so Studio stays the
-final word: the checklist in [`docs/phase-1-checklist.md`](docs/phase-1-checklist.md)
-lists what still needs a multi-client Studio test.
+final word: [`docs/phase-1-checklist.md`](docs/phase-1-checklist.md) and
+[`docs/phase-2-checklist.md`](docs/phase-2-checklist.md) list what still
+needs a multi-client Studio test.
 
 For type checking against the Roblox API, use
 [luau-lsp](https://github.com/JohnnyMorganz/luau-lsp):
@@ -252,6 +260,14 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Leaving, spectating or going AFK mid-countdown explodes you on the
   spot**, so nobody can dodge giving the killer the point. A killer who
   leaves before the bang scores nothing.
+- **Explosions hurt the killer's enemies.** A player who explodes blasts
+  gas onto their own teammates nearby, credited to whoever blew them up;
+  the killer's team is never touched. Explosions with nobody to credit
+  (a test gas, a killer who left) blast nobody.
+- **The last shot owns a barrel.** Whoever finishes it gets the credit and
+  their enemies get the gas, so it's never ambiguous. Blasts set barrels
+  off for the same owner.
+- **Walls and cover stop blasts**, the same as they stop shots.
 - **Fart Dash works while spawn-protected**: it's movement, not an attack.
 - **Shots are numbered** by the client; a repeated or out-of-order number
   is refused as a duplicate packet.
@@ -260,28 +276,27 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
   puffs). There's no separate settings screen yet.
 
-## Handoff to Phase 2: Combat & Chaos
+## Handoff to Phase 3: Progression & Economy
 
-Phase 2 adds the Gas Blaster, gas and inflation, explosions and chain
-reactions, explosive barrels, the Fart Dash trail and sound, and the 5-kill
-"BRO IS THE ALPHA FART!" announcement. The places it plugs into:
+Phase 3 adds coins and XP, levels 1-50, the shop, loadouts, weapon mastery
+and saving. The places it plugs into:
 
-- `GasService.add(victim, amount, { attacker, cause })` is the one damage
-  path (friendly fire and spawn protection are checked there).
-  Eliminations go through `EliminationService.eliminate`, once per life,
-  into `MatchScoreService.recordElimination`.
-- `EliminationService.streakOf(player)` counts eliminations without dying;
-  `EliminationService.Eliminated` fires for each one.
-- `PlayerLifecycleService.Died` is where per-life state (gas, debuffs,
-  ability cooldowns, streaks) resets.
-- `WeaponConfig` holds weapons by the masterplan's contract.
-- `AFKService.markActive(player)` for any new meaningful action.
+- `EliminationService.Eliminated(victim, killer, assists, cause, eventId)`
+  is the one event for elimination, assist, chain and streak rewards; the
+  event ID makes a reward idempotent.
+- `EliminationService.statsOf(player)` holds eliminations, deaths and best
+  streak for the save.
+- `WeaponConfig` and `AbilityConfig` follow the masterplan's contracts;
+  `CombatService.setWeapon` equips, and `AbilityConfig.ownership` is where
+  unlocks go.
+- `PlayerLifecycleService` tracks `activeSecondsThisRound`, and
+  `RoundService.lastParticipation()` keeps it per round for the 5- and
+  10-minute participation rewards; AFK time never counts.
+- `Telemetry` already counts eliminations a minute, time to explosion,
+  recovery, dashes, barrel and spawn deaths: the playtest metrics.
 - `GameModeBase.new` for new modes; `MapConfig` plus `ServerStorage.Maps`
   for new maps. `RoundService` needs no change for either.
-- `PlayerLifecycleService` tracks `activeSecondsThisRound`, and
-  `RoundService.lastParticipation()` keeps it per round for the 60-second
-  completion rewards.
 
-Later phases (not Phase 1): progression, weapons, abilities and saving;
-rewards, jackpot, challenges and cosmetics; full-server testing, anti-cheat
-and the public beta. See [`CHANGELOG.md`](CHANGELOG.md) for what changed.
+Later phases: rewards, challenges, cosmetics and monetization (4);
+full-server testing, optimization and the public beta (5); new modes and
+maps, prestige and seasons (6). See [`CHANGELOG.md`](CHANGELOG.md) for what changed.

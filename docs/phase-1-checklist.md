@@ -28,7 +28,7 @@ physics, rendering, chat service or real network).
 - [ ] All QA matrix cases pass. *Spec rows below pass; the Studio rows need
       a multi-client session.*
 - [x] Combat implementation can begin without replacing the foundation.
-      *See "Handoff to Phase 2" in the README.*
+      *Done: Phase 2 built on it (see `phase-2-checklist.md`).*
 
 ## QA matrix
 
@@ -84,6 +84,6 @@ physics, rendering, chat service or real network).
   `USER_IDS` empty) before any public release.
 - Studio-only rounds are the full five minutes; use `/fw end 5` to move
   on while testing.
-- Gas, inflation, explosions, barrel interactions, the dash trail and the
-  5-kill announcement are Phase 2.
+- Gas, explosions, barrels and the 5-kill announcement are in; see
+  `phase-2-checklist.md`.
 - See "Known bugs and limits" in `docs/implementation-packet.md`.

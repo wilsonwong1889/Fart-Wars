@@ -21,6 +21,7 @@ local flagged: { [Player]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local joinedAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local firsts: { [Player]: { [string]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
 local timings: { [string]: { count: number, total: number } } = {}
+local startedAt = workspace:GetServerTimeNow()
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -155,6 +156,7 @@ function Telemetry.snapshot(): { [string]: any }
 		rejectCopy[remote] = table.clone(reasons)
 	end
 	return {
+		uptimeSeconds = now() - startedAt,
 		counters = table.clone(counters),
 		errors = table.clone(errors),
 		rejects = rejectCopy,

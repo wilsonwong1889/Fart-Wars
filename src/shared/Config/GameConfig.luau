@@ -41,6 +41,34 @@ local GameConfig = {
 		TICK_SECONDS = 0.1,
 	}),
 
+	-- An exploding player blasts gas onto the killer's enemies nearby (with
+	-- a clear line to them), which can set off more players and barrels:
+	-- a chain, cut off after CHAIN_MAX_DEPTH steps. At most PER_TICK blasts
+	-- resolve every TICK_SECONDS, so a big chain spreads over a few frames.
+	EXPLOSION = table.freeze({
+		RADIUS = 14,
+		CHAIN_GAS = 40,
+		CHAIN_MAX_DEPTH = 4,
+		PER_TICK = 6,
+		TICK_SECONDS = 0.05,
+	}),
+
+	-- Gas barrels: shots take HEALTH away (each shot its gas per hit); at 0
+	-- the fuse burns for FUSE_SECONDS, then the barrel blasts GAS onto the
+	-- enemies of whoever fired the last shot, within RADIUS. It's back
+	-- RESPAWN_SECONDS later.
+	BARREL = table.freeze({
+		HEALTH = 40,
+		FUSE_SECONDS = 0.6,
+		RADIUS = 16,
+		GAS = 40,
+		RESPAWN_SECONDS = 20,
+	}),
+
+	-- A death this soon after spawning counts as a spawn death (a playtest
+	-- metric for spawn camping).
+	SPAWN_DEATH_SECONDS = 5,
+
 	-- Eliminations in a row without dying. At ALPHA_AT the whole server
 	-- hears ALPHA_TEXT, once; announcements are at least ANNOUNCE_GAP apart.
 	STREAK = table.freeze({

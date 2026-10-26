@@ -187,7 +187,7 @@ function GasService.add(victim: Player, amount: number, source: Source): boolean
 	local victimTeam = TeamService.teamOf(victim)
 	local attacker = source.attacker
 	local attackerTeam = source.team or (attacker and TeamService.teamOf(attacker))
-	if not victimTeam or attacker == victim or (attacker and attackerTeam == victimTeam) then
+	if not victimTeam or attacker == victim or (attackerTeam ~= nil and attackerTeam == victimTeam) then
 		return false -- friendly fire is off
 	end
 	if PlayerLifecycleService.stateOf(victim) ~= States.Player.ACTIVE or PlayerLifecycleService.isProtected(victim) then

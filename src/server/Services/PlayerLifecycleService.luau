@@ -45,6 +45,7 @@ export type Runtime = {
 	-- Bumped by every spawn and every move off a team, so a spawn or
 	-- respawn that finishes late can tell it has been overtaken.
 	spawnToken: number,
+	lastSpawnAt: number?,
 }
 
 local PlayerLifecycleService = {}
@@ -168,6 +169,7 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	end
 	local character = player.Character
 	if character and runtimes[player] == runtime then
+		runtime.lastSpawnAt = now()
 		protect(character)
 		Telemetry.log("Lifecycle", "spawned", { player = player, team = teamId })
 		PlayerLifecycleService.Spawned:Fire(player, character)
@@ -202,6 +204,9 @@ local function onCharacterAdded(player: Player, character: Model)
 	local token = runtime.spawnToken
 	humanoid.Died:Connect(function()
 		Telemetry.log("Lifecycle", "died", { player = player })
+		if runtime.lastSpawnAt and now() - runtime.lastSpawnAt < GameConfig.SPAWN_DEATH_SECONDS then
+			Telemetry.count("Lifecycle.spawnDeaths")
+		end
 		PlayerLifecycleService.Died:Fire(player, character)
 		task.wait(GameConfig.RESPAWN_SECONDS)
 		if runtimes[player] == runtime and runtime.state == PlayerState.ACTIVE and runtime.spawnToken == token and player.Character == character then

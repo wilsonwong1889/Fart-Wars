@@ -12,8 +12,8 @@
 -- Each spawn room is walled on its front and sides with its doors at the
 -- back, onto a corridor along the end wall that opens into the side lanes,
 -- so nothing out in the lanes or the enemy half can see the spawn pads.
--- Barrels sit in the contested middle, never by a spawn; they're
--- decoration only until Phase 2 makes them explode.
+-- Gas barrels sit in the contested middle, never by a spawn; each is a
+-- GasBarrel model (Barrel and Band) that BarrelService makes explosive.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -104,7 +104,7 @@ local function build(entry: MapConfig.MapEntry): Model
 	local floorFolder = folder("Floor", model)
 	local walls = folder("Walls", model)
 	local cover = folder("Cover", model)
-	local decor = folder("Decor", model)
+	local barrels = folder("Barrels", model)
 	local zones = folder("Zones", model)
 	local cameras = folder("CameraPoints", model)
 	local spawns = folder("Spawns", model)
@@ -213,8 +213,15 @@ local function build(entry: MapConfig.MapEntry): Model
 		Vector3.new(-18, 0, -14),
 		Vector3.new(36, 0, -28),
 	} do
-		pair(decor, "Barrel", Vector3.new(5, 4, 4), CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT, barrel)
-		pair(decor, "BarrelBand", Vector3.new(0.6, 4.2, 4.2), CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT, band)
+		local frame = CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT
+		for _, at in { frame, mirror(frame) } do
+			local gasBarrel = Instance.new("Model")
+			gasBarrel.Name = "GasBarrel"
+			local body = part(gasBarrel, "Barrel", Vector3.new(5, 4, 4), at, barrel)
+			part(gasBarrel, "Band", Vector3.new(0.6, 4.2, 4.2), at, band)
+			gasBarrel.PrimaryPart = body
+			gasBarrel.Parent = barrels
+		end
 	end
 
 	-- Zones: where players walk (the lanes and the plazas joining them) and
