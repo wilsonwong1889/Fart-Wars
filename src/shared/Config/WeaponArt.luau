@@ -3,14 +3,16 @@
 -- script and run it again; don't edit this file.
 --
 -- For each weapon: where the muzzle is (from the grip, in studs, the
--- barrel along -Z), each role's colour and material, the box each
--- role's mesh fills (to place the MeshParts Studio imports from
--- art/export/weapons/<Weapon>.fbx), and the pieces the mesh was built
--- from (blocks, cylinders and balls: the stand-in model before the
--- meshes are imported, and the UI icons).
-export type Piece = { role: string, shape: string, size: Vector3, cframe: CFrame, corner: number?, standin: boolean? }
+-- barrel along -Z), each role's colour and material, its meshes (one
+-- per role, and one per moving part, such as the pump: the box each
+-- fills, to place the MeshParts built from MeshData/<Weapon> or
+-- imported from art/export/weapons/<Weapon>.fbx; a moving part turns
+-- and scales about its box's centre), and the pieces the meshes were
+-- built from (blocks, cylinders and balls: the stand-in model when
+-- there are no meshes; a piece of a moving part names it).
+export type Piece = { role: string, shape: string, size: Vector3, cframe: CFrame, corner: number?, standin: boolean?, part: string? }
 export type Role = { color: Color3, material: Enum.Material, transparency: number }
-export type Mesh = { center: Vector3, size: Vector3, triangles: number }
+export type Mesh = { role: string, center: Vector3, size: Vector3, triangles: number, moving: boolean? }
 export type Art = { muzzle: Vector3, roles: { [string]: Role }, meshes: { [string]: Mesh }, pieces: { Piece } }
 
 local function v(x: number, y: number, z: number): Vector3
@@ -29,30 +31,42 @@ local art: { [string]: Art } = {
 			Trim = { color = Color3.fromRGB(255, 214, 60), material = Enum.Material.SmoothPlastic, transparency = 0 },
 		},
 		meshes = {
-			Body = { center = v(0, 0.4825, -0.2225), size = v(0.52, 0.585, 1.505), triangles = 1128 },
-			Gas = { center = v(0, 0.685, -1.1535), size = v(0.48, 0.91, 2.407), triangles = 216 },
-			Glass = { center = v(0, 0.98, -0.3), size = v(0.42, 0.42, 0.8), triangles = 332 },
-			Grip = { center = v(0, 0.2146, -0.7015), size = v(0.32, 1.6073, 2.057), triangles = 1504 },
-			Metal = { center = v(0.0515, 0.5535, -0.9375), size = v(0.553, 1.303, 2.175), triangles = 2496 },
-			Trim = { center = v(0, 0.1975, -0.8991), size = v(0.65, 1.7951, 2.9483), triangles = 4992 },
+			Body = { role = "Body", center = v(0, 0.4825, -0.2225), size = v(0.54, 0.585, 1.505), triangles = 1352 },
+			Gas = { role = "Gas", center = v(0, 0.685, -0.8846), size = v(0.585, 0.91, 2.9448), triangles = 2380 },
+			Glass = { role = "Glass", center = v(0, 0.98, -0.3), size = v(0.42, 0.42, 0.8), triangles = 332 },
+			Grip = { role = "Grip", center = v(0, 0.2157, -0.3893), size = v(0.32, 1.6051, 1.4283), triangles = 1428 },
+			Metal = { role = "Metal", center = v(0.0138, 0.5535, -0.7125), size = v(0.5925, 1.303, 2.625), triangles = 2780 },
+			Needle = { role = "Metal", center = v(0.326, 0.5, -0.12), size = v(0.024, 0.1507, 0.1139), triangles = 56, moving = true },
+			Pump = { role = "Grip", center = v(0, 0.254, -1.52), size = v(0.27, 0.192, 0.44), triangles = 320, moving = true },
+			Trim = { role = "Trim", center = v(0, 0.1975, -0.8991), size = v(0.65, 1.7951, 2.9483), triangles = 5056 },
 		},
 		pieces = {
-			{ role = "Grip", shape = "block", size = v(0.32, 0.85, 0.42), cframe = CFrame.new(0, -0.15, 0.04, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.1 },
+			{ role = "Grip", shape = "block", size = v(0.32, 0.85, 0.42), cframe = CFrame.new(0, -0.15, 0.04, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.12 },
 			{ role = "Grip", shape = "cylinder", size = v(0.3, 0.13, 0.13), cframe = CFrame.new(0, -0.011, -0.215, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
 			{ role = "Grip", shape = "cylinder", size = v(0.3, 0.13, 0.13), cframe = CFrame.new(0, -0.252, -0.15, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
 			{ role = "Grip", shape = "cylinder", size = v(0.3, 0.13, 0.13), cframe = CFrame.new(0, -0.494, -0.085, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
 			{ role = "Trim", shape = "block", size = v(0.36, 0.1, 0.48), cframe = CFrame.new(0, -0.6, 0.156, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.04 },
-			{ role = "Body", shape = "block", size = v(0.52, 0.52, 1.25), cframe = CFrame.new(0, 0.45, -0.35, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.14 },
-			{ role = "Trim", shape = "block", size = v(0.545, 0.11, 0.86), cframe = CFrame.new(0, 0.33, -0.38, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.04 },
-			{ role = "Body", shape = "block", size = v(0.46, 0.46, 0.3), cframe = CFrame.new(0, 0.45, 0.38, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.12 },
-			{ role = "Trim", shape = "cylinder", size = v(0.06, 0.3, 0.3), cframe = CFrame.new(0, 0.45, 0.545, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
+			{ role = "Body", shape = "block", size = v(0.54, 0.52, 1.25), cframe = CFrame.new(0, 0.45, -0.35, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.16 },
+			{ role = "Trim", shape = "block", size = v(0.565, 0.1, 0.86), cframe = CFrame.new(0, 0.3, -0.38, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.04 },
+			{ role = "Body", shape = "block", size = v(0.46, 0.46, 0.3), cframe = CFrame.new(0, 0.45, 0.38, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.13 },
+			{ role = "Trim", shape = "cylinder", size = v(0.06, 0.32, 0.32), cframe = CFrame.new(0, 0.45, 0.545, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
+			{ role = "Gas", shape = "cylinder", size = v(0.048, 0.378, 0.378), cframe = CFrame.new(0, 0.45, 0.565, 0, -1, 0, 0, 0, -1, 1, 0, 0), standin = false },
+			{ role = "Metal", shape = "cylinder", size = v(0.03, 0.12, 0.12), cframe = CFrame.new(0, 0.45, 0.585, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
+			{ role = "Gas", shape = "ball", size = v(0.11, 0.11, 0.11), cframe = CFrame.new(0, 0.68, 0.42, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.055 },
+			{ role = "Metal", shape = "block", size = v(0.565, 0.22, 0.42), cframe = CFrame.new(0, 0.48, -0.72, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.05 },
+			{ role = "Gas", shape = "block", size = v(0.585, 0.15, 0.055), cframe = CFrame.new(0, 0.48, -0.6, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.02 },
+			{ role = "Gas", shape = "block", size = v(0.585, 0.15, 0.055), cframe = CFrame.new(0, 0.48, -0.72, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.02 },
+			{ role = "Gas", shape = "block", size = v(0.585, 0.15, 0.055), cframe = CFrame.new(0, 0.48, -0.84, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.02 },
+			{ role = "Metal", shape = "cylinder", size = v(0.565, 0.064, 0.064), cframe = CFrame.new(0, 0.37, 0.17, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
+			{ role = "Metal", shape = "cylinder", size = v(0.565, 0.064, 0.064), cframe = CFrame.new(0, 0.62, 0.17, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
 			{ role = "Body", shape = "cylinder", size = v(0.08, 0.15, 0.15), cframe = CFrame.new(-0.12, 0.735, 0.19, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
 			{ role = "Body", shape = "cylinder", size = v(0.08, 0.15, 0.15), cframe = CFrame.new(0.12, 0.735, 0.19, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
 			{ role = "Body", shape = "cylinder", size = v(0.08, 0.15, 0.15), cframe = CFrame.new(-0.12, 0.735, -0.85, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
 			{ role = "Body", shape = "cylinder", size = v(0.08, 0.15, 0.15), cframe = CFrame.new(0.12, 0.735, -0.85, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
-			{ role = "Metal", shape = "cylinder", size = v(0.06, 0.27, 0.27), cframe = CFrame.new(0.27, 0.5, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
-			{ role = "Trim", shape = "cylinder", size = v(0.03, 0.21, 0.21), cframe = CFrame.new(0.3, 0.5, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
-			{ role = "Metal", shape = "block", size = v(0.02, 0.085, 0.022), cframe = CFrame.new(0.318, 0.53, -0.14, 1, 0, 0, 0, 0.8192, 0.5736, 0, -0.5736, 0.8192) },
+			{ role = "Metal", shape = "cylinder", size = v(0.07, 0.28, 0.28), cframe = CFrame.new(0.275, 0.5, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
+			{ role = "Trim", shape = "cylinder", size = v(0.03, 0.22, 0.22), cframe = CFrame.new(0.305, 0.5, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1) },
+			{ role = "Metal", shape = "block", size = v(0.018, 0.17, 0.02), cframe = CFrame.new(0.326, 0.5, -0.12, 1, 0, 0, 0, 0.8192, 0.5736, 0, -0.5736, 0.8192), part = "Needle" },
+			{ role = "Metal", shape = "cylinder", size = v(0.024, 0.052, 0.052), cframe = CFrame.new(0.326, 0.5, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1), part = "Needle" },
 			{ role = "Metal", shape = "block", size = v(0.18, 0.08, 0.9), cframe = CFrame.new(0, 0.75, -0.3, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.03 },
 			{ role = "Glass", shape = "cylinder", size = v(0.8, 0.42, 0.42), cframe = CFrame.new(0, 0.98, -0.3, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Gas", shape = "cylinder", size = v(0.7, 0.32, 0.32), cframe = CFrame.new(0, 0.98, -0.3, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
@@ -70,7 +84,10 @@ local art: { [string]: Art } = {
 			{ role = "Trim", shape = "cylinder", size = v(0.07, 0.33, 0.33), cframe = CFrame.new(0, 0.47, -1.3, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Trim", shape = "cylinder", size = v(0.07, 0.33, 0.33), cframe = CFrame.new(0, 0.47, -1.5, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Trim", shape = "cylinder", size = v(0.07, 0.33, 0.33), cframe = CFrame.new(0, 0.47, -1.7, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
-			{ role = "Grip", shape = "block", size = v(0.24, 0.16, 0.5), cframe = CFrame.new(0, 0.27, -1.48, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.06 },
+			{ role = "Grip", shape = "block", size = v(0.26, 0.17, 0.44), cframe = CFrame.new(0, 0.265, -1.52, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.07, part = "Pump" },
+			{ role = "Grip", shape = "cylinder", size = v(0.27, 0.064, 0.064), cframe = CFrame.new(0, 0.19, -1.4, 1, 0, 0, 0, 1, 0, 0, 0, 1), part = "Pump" },
+			{ role = "Grip", shape = "cylinder", size = v(0.27, 0.064, 0.064), cframe = CFrame.new(0, 0.19, -1.52, 1, 0, 0, 0, 1, 0, 0, 0, 1), part = "Pump" },
+			{ role = "Grip", shape = "cylinder", size = v(0.27, 0.064, 0.064), cframe = CFrame.new(0, 0.19, -1.64, 1, 0, 0, 0, 1, 0, 0, 0, 1), part = "Pump" },
 			{ role = "Trim", shape = "cylinder", size = v(0.32, 0.6, 0.6), cframe = CFrame.new(0, 0.47, -2.18, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Trim", shape = "cylinder", size = v(0.07, 0.65, 0.65), cframe = CFrame.new(0, 0.47, -2.34, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Gas", shape = "cylinder", size = v(0.02, 0.48, 0.48), cframe = CFrame.new(0, 0.47, -2.347, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
@@ -89,12 +106,13 @@ local art: { [string]: Art } = {
 			Trim = { color = Color3.fromRGB(240, 250, 255), material = Enum.Material.SmoothPlastic, transparency = 0 },
 		},
 		meshes = {
-			Body = { center = v(0, 0.45, -0.5525), size = v(0.48, 0.62, 1.555), triangles = 376 },
-			Gas = { center = v(0, 1.04, -0.08), size = v(0.48, 0.48, 0.48), triangles = 960 },
-			Glass = { center = v(0, 1.04, -0.08), size = v(0.6, 0.6, 0.6), triangles = 960 },
-			Grip = { center = v(0, -0.12, 0.04), size = v(0.3, 0.8245, 0.5417), triangles = 188 },
-			Metal = { center = v(0, 0.366, -0.8375), size = v(0.26, 0.928, 1.775), triangles = 1492 },
-			Trim = { center = v(0, 0.392, -0.9797), size = v(0.5, 0.756, 1.7806), triangles = 708 },
+			Body = { role = "Body", center = v(0, 0.45, -0.3), size = v(0.48, 0.62, 1.05), triangles = 188 },
+			Gas = { role = "Gas", center = v(0, 1.04, -0.08), size = v(0.48, 0.48, 0.48), triangles = 960 },
+			Glass = { role = "Glass", center = v(0, 1.04, -0.08), size = v(0.6, 0.6, 0.6), triangles = 960 },
+			Grip = { role = "Grip", center = v(0, -0.12, 0.04), size = v(0.3, 0.8245, 0.5417), triangles = 188 },
+			Metal = { role = "Metal", center = v(0, 0.366, -0.8375), size = v(0.26, 0.928, 1.775), triangles = 1492 },
+			Pump = { role = "Body", center = v(0, 0.24, -1.08), size = v(0.26, 0.2, 0.5), triangles = 188, moving = true },
+			Trim = { role = "Trim", center = v(0, 0.392, -0.9797), size = v(0.5, 0.756, 1.7806), triangles = 708 },
 		},
 		pieces = {
 			{ role = "Grip", shape = "block", size = v(0.3, 0.8, 0.4), cframe = CFrame.new(0, -0.12, 0.04, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.1 },
@@ -105,7 +123,7 @@ local art: { [string]: Art } = {
 			{ role = "Metal", shape = "cylinder", size = v(0.14, 0.26, 0.26), cframe = CFrame.new(0, 0.76, -0.08, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
 			{ role = "Metal", shape = "cylinder", size = v(0.95, 0.12, 0.12), cframe = CFrame.new(0, 0.5, -1.25, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Trim", shape = "cylinder", size = v(0.18, 0.26, 0.26), cframe = CFrame.new(0, 0.5, -1.78, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
-			{ role = "Body", shape = "block", size = v(0.26, 0.2, 0.5), cframe = CFrame.new(0, 0.24, -1.08, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.07 },
+			{ role = "Body", shape = "block", size = v(0.26, 0.2, 0.5), cframe = CFrame.new(0, 0.24, -1.08, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.07, part = "Pump" },
 			{ role = "Metal", shape = "block", size = v(0.08, 0.1, 0.3), cframe = CFrame.new(0, 0.35, -1.08, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.02 },
 			{ role = "Metal", shape = "cylinder", size = v(0.056, 0.316, 0.316), cframe = CFrame.new(0, 0.06, -0.12, 1, 0, 0, 0, 1, 0, 0, 0, 1), standin = false },
 			{ role = "Trim", shape = "block", size = v(0.06, 0.17, 0.07), cframe = CFrame.new(0, 0.1, -0.14, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.02 },
@@ -122,12 +140,12 @@ local art: { [string]: Art } = {
 			Trim = { color = Color3.fromRGB(255, 222, 70), material = Enum.Material.SmoothPlastic, transparency = 0 },
 		},
 		meshes = {
-			Body = { center = v(0, 0.5, -0.34), size = v(0.72, 0.72, 2.52), triangles = 376 },
-			Gas = { center = v(0, 1.06, -0.42), size = v(0.58, 0.24, 0.92), triangles = 216 },
-			Glass = { center = v(0, 1.06, -0.42), size = v(0.66, 0.32, 1), triangles = 664 },
-			Grip = { center = v(0, 0.0774, -0.117), size = v(0.62, 1.3851, 2.254), triangles = 564 },
-			Metal = { center = v(0, 0.551, -1.1985), size = v(0.72, 1.298, 2.553), triangles = 3268 },
-			Trim = { center = v(0, 0.4438, -1.4147), size = v(0.7473, 0.8597, 2.7306), triangles = 708 },
+			Body = { role = "Body", center = v(0, 0.5, -0.34), size = v(0.72, 0.72, 2.52), triangles = 376 },
+			Gas = { role = "Gas", center = v(0, 1.06, -0.42), size = v(0.58, 0.24, 0.92), triangles = 216 },
+			Glass = { role = "Glass", center = v(0, 1.06, -0.42), size = v(0.66, 0.32, 1), triangles = 664 },
+			Grip = { role = "Grip", center = v(0, 0.0774, -0.117), size = v(0.62, 1.3851, 2.254), triangles = 564 },
+			Metal = { role = "Metal", center = v(0, 0.551, -1.1985), size = v(0.72, 1.298, 2.553), triangles = 3268 },
+			Trim = { role = "Trim", center = v(0, 0.4438, -1.4147), size = v(0.7473, 0.8597, 2.7306), triangles = 708 },
 		},
 		pieces = {
 			{ role = "Grip", shape = "block", size = v(0.34, 0.9, 0.44), cframe = CFrame.new(0, -0.15, 0.08, 1, 0, 0, 0, 0.9781, 0.2079, 0, -0.2079, 0.9781), corner = 0.1 },
@@ -163,13 +181,14 @@ local art: { [string]: Art } = {
 			Trim = { color = Color3.fromRGB(150, 102, 52), material = Enum.Material.SmoothPlastic, transparency = 0 },
 		},
 		meshes = {
-			Body = { center = v(0, 0.6425, -0.675), size = v(0.68, 0.995, 1.85), triangles = 520 },
-			Bomb = { center = v(0, 0.8, -1.74), size = v(0.54, 0.54, 0.54), triangles = 960 },
-			Gas = { center = v(0.36, 0.42, -0.25), size = v(0.22, 0.22, 0.52), triangles = 108 },
-			Glass = { center = v(0.36, 0.42, -0.25), size = v(0.3, 0.3, 0.6), triangles = 332 },
-			Grip = { center = v(0, -0.15, 0.04), size = v(0.32, 0.878, 0.574), triangles = 188 },
-			Metal = { center = v(0, 0.636, -0.7635), size = v(0.58, 1.468, 1.643), triangles = 936 },
-			Trim = { center = v(0, 0.617, -0.9422), size = v(0.79, 1.206, 1.7456), triangles = 1800 },
+			Body = { role = "Body", center = v(0, 0.6425, -0.675), size = v(0.68, 0.995, 1.85), triangles = 520 },
+			Bomb = { role = "Bomb", center = v(0, 0.8, -1.74), size = v(0.54, 0.54, 0.54), triangles = 960, moving = true },
+			Fuse = { role = "Trim", center = v(0, 1.12, -1.78), size = v(0.07, 0.2, 0.07), triangles = 332, moving = true },
+			Gas = { role = "Gas", center = v(0.36, 0.42, -0.25), size = v(0.22, 0.22, 0.52), triangles = 108 },
+			Glass = { role = "Glass", center = v(0.36, 0.42, -0.25), size = v(0.3, 0.3, 0.6), triangles = 332 },
+			Grip = { role = "Grip", center = v(0, -0.15, 0.04), size = v(0.32, 0.878, 0.574), triangles = 188 },
+			Metal = { role = "Metal", center = v(0, 0.636, -0.7635), size = v(0.58, 1.468, 1.643), triangles = 936 },
+			Trim = { role = "Trim", center = v(0, 0.6045, -0.8656), size = v(0.79, 1.181, 1.5925), triangles = 1468 },
 		},
 		pieces = {
 			{ role = "Grip", shape = "block", size = v(0.32, 0.85, 0.42), cframe = CFrame.new(0, -0.15, 0.04, 1, 0, 0, 0, 0.9659, 0.2588, 0, -0.2588, 0.9659), corner = 0.1 },
@@ -178,8 +197,8 @@ local art: { [string]: Art } = {
 			{ role = "Trim", shape = "cylinder", size = v(0.13, 0.79, 0.79), cframe = CFrame.new(0, 0.8, -1.6, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Trim", shape = "cylinder", size = v(0.1, 0.76, 0.76), cframe = CFrame.new(0, 0.8, -0.33, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Metal", shape = "cylinder", size = v(0.05, 0.58, 0.58), cframe = CFrame.new(0, 0.8, -1.56, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
-			{ role = "Bomb", shape = "ball", size = v(0.54, 0.54, 0.54), cframe = CFrame.new(0, 0.8, -1.74, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.27 },
-			{ role = "Trim", shape = "cylinder", size = v(0.2, 0.07, 0.07), cframe = CFrame.new(0, 1.12, -1.78, 0, -1, 0, 1, 0, 0, 0, 0, 1) },
+			{ role = "Bomb", shape = "ball", size = v(0.54, 0.54, 0.54), cframe = CFrame.new(0, 0.8, -1.74, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.27, part = "Bomb" },
+			{ role = "Trim", shape = "cylinder", size = v(0.2, 0.07, 0.07), cframe = CFrame.new(0, 1.12, -1.78, 0, -1, 0, 1, 0, 0, 0, 0, 1), part = "Fuse" },
 			{ role = "Glass", shape = "cylinder", size = v(0.6, 0.3, 0.3), cframe = CFrame.new(0.36, 0.42, -0.25, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Gas", shape = "cylinder", size = v(0.52, 0.22, 0.22), cframe = CFrame.new(0.36, 0.42, -0.25, 0, -1, 0, 0, 0, -1, 1, 0, 0) },
 			{ role = "Metal", shape = "block", size = v(0.08, 0.26, 0.2), cframe = CFrame.new(0, 1.24, -0.55, 1, 0, 0, 0, 1, 0, 0, 0, 1), corner = 0.02 },

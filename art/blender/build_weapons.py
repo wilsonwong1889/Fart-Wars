@@ -5,12 +5,15 @@
 
 For each weapon it writes, under art/export/weapons/:
     <Weapon>.fbx    one mesh per role (Body, Metal, Grip, Trim, Glass, Gas,
-                    Bomb), for Studio's 3D importer
+                    Bomb) and per moving part (Pump, Needle, Fuse), for
+                    Studio's 3D importer
     <Weapon>.blend  the Blender scene, to edit by hand
     <Weapon>.png    a preview render
 and under art/export/icons/<Weapon>.png the hotbar icon. It also writes
 the part list the game builds from (manifest.json) and its Luau copy,
-src/shared/Config/WeaponArt.luau. Edit this script, not the outputs.
+src/shared/Config/WeaponArt.luau, and the meshes themselves packed for
+the game to build without an import, src/shared/MeshData/<Weapon>.luau.
+Edit this script, not the outputs.
 
 The grip is at the origin; the barrel points along Blender +Y (Roblox -Z),
 the top is Blender +Z (Roblox +Y). Sizes are in studs.
@@ -81,28 +84,42 @@ def tube(b, role, points, radius):
 
 def gas_blaster(b):
     """The starter gun: a chunky toy blaster. A gas canister on top feeds
-    the barrel through a hose; a pressure gauge on the side; a ribbed
-    barrel with a pump grip under it, ending in a horn that glows with gas;
-    building-brick studs on the receiver."""
+    the barrel through a hose; a pressure gauge on the side whose needle
+    (a part of its own) drops as it fires; glowing vents and a glowing
+    ring at the back; a ribbed barrel with a pump grip under it (its own
+    part: it pumps on every shot), ending in a horn that glows with gas;
+    building-brick studs and bolts on the receiver."""
     # The grip, with finger ridges and a pommel, angled back.
-    b.box("Grip", (0.32, 0.42, 0.85), (0, -0.04, -0.15), bevel=0.1, rotation=(-15, 0, 0))
+    b.box("Grip", (0.32, 0.42, 0.85), (0, -0.04, -0.15), bevel=0.12, rotation=(-15, 0, 0), segments=4)
     for y, z in ((0.215, -0.011), (0.15, -0.252), (0.085, -0.494)):
         b.cyl("Grip", 0.065, 0.3, (0, y, z), axis="X", vertices=16)
     b.box("Trim", (0.36, 0.48, 0.1), (0, -0.156, -0.6), bevel=0.04, rotation=(-15, 0, 0))
-    # The receiver: body, a stripe round it, the back cap and its disc.
-    b.box("Body", (0.52, 1.25, 0.52), (0, 0.35, 0.45), bevel=0.14)
-    b.box("Trim", (0.545, 0.86, 0.11), (0, 0.38, 0.33), bevel=0.04)
-    b.box("Body", (0.46, 0.3, 0.46), (0, -0.38, 0.45), bevel=0.12)
-    b.cyl("Trim", 0.15, 0.06, (0, -0.545, 0.45), vertices=24)
+    # The receiver: a rounded body, a stripe round it, the back cap, its
+    # disc and the glowing ring round that, and a ready light on top.
+    b.box("Body", (0.54, 1.25, 0.52), (0, 0.35, 0.45), bevel=0.16, segments=4)
+    b.box("Trim", (0.565, 0.86, 0.1), (0, 0.38, 0.3), bevel=0.04)
+    b.box("Body", (0.46, 0.3, 0.46), (0, -0.38, 0.45), bevel=0.13, segments=4)
+    b.cyl("Trim", 0.16, 0.06, (0, -0.545, 0.45), vertices=28)
+    b.ring("Gas", 0.165, 0.024, (0, -0.565, 0.45), standin=False)
+    b.cyl("Metal", 0.06, 0.03, (0, -0.585, 0.45), vertices=6, bevel=0)
+    b.ball("Gas", 0.055, (0, -0.42, 0.68))
+    # Vents on both sides of the front: a dark panel, three glowing slots.
+    b.box("Metal", (0.565, 0.42, 0.22), (0, 0.72, 0.48), bevel=0.05)
+    for y in (0.6, 0.72, 0.84):
+        b.box("Gas", (0.585, 0.055, 0.15), (0, y, 0.48), bevel=0.02)
+    # Bolts through the back of the body, showing on both sides.
+    for z in (0.37, 0.62):
+        b.cyl("Metal", 0.032, 0.565, (0, -0.17, z), axis="X", vertices=6, bevel=0)
     # Studs on top, in front of and behind the canister.
     for y in (-0.19, 0.85):
         for x in (-0.12, 0.12):
             b.cyl("Body", 0.075, 0.08, (x, y, 0.735), axis="Z", vertices=16, bevel=0.015)
-    # The pressure gauge on the right: a dark rim, a bright face, the
-    # needle swung up towards the red.
-    b.cyl("Metal", 0.135, 0.06, (0.27, 0.12, 0.5), axis="X", vertices=24)
-    b.cyl("Trim", 0.105, 0.03, (0.3, 0.12, 0.5), axis="X", vertices=24, bevel=0)
-    b.box("Metal", (0.02, 0.022, 0.085), (0.318, 0.14, 0.53), bevel=0, rotation=(-35, 0, 0))
+    # The pressure gauge on the right: a dark bezel, a bright face, and the
+    # needle (with its hub and tail, centred on the face so it turns there).
+    b.cyl("Metal", 0.14, 0.07, (0.275, 0.12, 0.5), axis="X", vertices=28)
+    b.cyl("Trim", 0.11, 0.03, (0.305, 0.12, 0.5), axis="X", vertices=28, bevel=0)
+    b.box("Metal", (0.018, 0.02, 0.17), (0.326, 0.12, 0.5), bevel=0, rotation=(-35, 0, 0), part="Needle")
+    b.cyl("Metal", 0.026, 0.024, (0.326, 0.12, 0.5), axis="X", vertices=12, bevel=0, part="Needle")
     # The canister: glass with gas inside, caps, clamps, a rail under it,
     # and the valve and hose down to the barrel.
     b.box("Metal", (0.18, 0.9, 0.08), (0, 0.3, 0.75), bevel=0.03)
@@ -115,12 +132,15 @@ def gas_blaster(b):
     b.cyl("Trim", 0.07, 0.12, (0, 0.8, 0.98), vertices=16)
     b.ring("Trim", 0.09, 0.025, (0, 0.86, 0.98))
     tube(b, "Grip", [(0.86, 0.98), (0.98, 0.94), (1.05, 0.83), (1.06, 0.7)], 0.045)
-    # The barrel: a collar out of the body, cooling rings, the pump.
+    # The barrel: a collar out of the body, cooling rings, and the pump,
+    # ridged underneath, with room to slide back.
     b.cyl("Trim", 0.22, 0.18, (0, 1.02, 0.47))
     b.cyl("Metal", 0.12, 0.95, (0, 1.55, 0.47))
     for y in (1.3, 1.5, 1.7):
         b.ring("Trim", 0.13, 0.035, (0, y, 0.47))
-    b.box("Grip", (0.24, 0.5, 0.16), (0, 1.48, 0.27), bevel=0.06)
+    b.box("Grip", (0.26, 0.44, 0.17), (0, 1.52, 0.265), bevel=0.07, part="Pump")
+    for y in (1.4, 1.52, 1.64):
+        b.cyl("Grip", 0.032, 0.27, (0, y, 0.19), axis="X", vertices=12, bevel=0, part="Pump")
     # The horn: flared, a rim, and gas glowing inside.
     b.cyl("Trim", 0.3, 0.32, (0, 2.18, 0.47), radius2=0.13)
     b.ring("Trim", 0.29, 0.035, (0, 2.34, 0.47))
@@ -138,7 +158,8 @@ def spritzer(b):
     b.cyl("Metal", 0.13, 0.14, (0, 0.08, 0.76), axis="Z")
     b.cyl("Metal", 0.06, 0.95, (0, 1.25, 0.5))
     b.cyl("Trim", 0.13, 0.18, (0, 1.78, 0.5), radius2=0.07)
-    b.box("Body", (0.26, 0.5, 0.2), (0, 1.08, 0.24), bevel=0.07)
+    # The pump under the barrel (a part of its own: it pumps on every shot).
+    b.box("Body", (0.26, 0.5, 0.2), (0, 1.08, 0.24), bevel=0.07, part="Pump")
     b.box("Metal", (0.08, 0.3, 0.1), (0, 1.08, 0.35), bevel=0.02)
     trigger(b, 0.12)
     return (0, 1.88, 0.5)
@@ -171,8 +192,10 @@ def stink_lobber(b):
     b.ring("Trim", 0.33, 0.065, (0, 1.6, 0.8))
     b.ring("Trim", 0.33, 0.05, (0, 0.33, 0.8))
     b.cyl("Metal", 0.29, 0.05, (0, 1.56, 0.8), bevel=0)
-    b.ball("Bomb", 0.27, (0, 1.74, 0.8))
-    b.cyl("Trim", 0.035, 0.2, (0, 1.78, 1.12), axis="Z")
+    # The loaded bomb and its fuse: parts of their own, gone when it's
+    # thrown and back once it has reloaded.
+    b.ball("Bomb", 0.27, (0, 1.74, 0.8), part="Bomb")
+    b.cyl("Trim", 0.035, 0.2, (0, 1.78, 1.12), axis="Z", part="Fuse")
     b.cyl("Glass", 0.15, 0.6, (0.36, 0.25, 0.42))
     b.cyl("Gas", 0.11, 0.52, (0.36, 0.25, 0.42), bevel=0)
     b.box("Metal", (0.08, 0.2, 0.26), (0, 0.55, 1.24), bevel=0.02)
@@ -238,13 +261,28 @@ def build(weapon):
     joined = b.join()
 
     meshes = {}
-    for role, obj in joined.items():
+    packed = {}
+    for name, obj in joined.items():
         center, size = kit.bounds(obj)
-        meshes[role] = {
+        meshes[name] = {
+            "role": b.mesh_roles[name],
             "center": [round(c, 4) for c in center],
             "size": [round(s, 4) for s in size],
             "triangles": kit.triangles(obj),
         }
+        if name in b.moving:
+            meshes[name]["moving"] = True
+        packed[name] = dict(kit.mesh_data(obj), size=meshes[name]["size"])
+    kit.write_mesh_module(
+        os.path.join(kit.ROOT, "src", "shared", "MeshData", f"{weapon['id']}.luau"),
+        [
+            f"The {weapon['id']}'s meshes, packed: GENERATED by art/blender/build_weapons.py.",
+            "Edit the script and run it again; don't edit this file. MeshBuilder",
+            "builds them in the game, so they show without importing anything;",
+            "Config/WeaponArt says where each goes. The format is kit.mesh_data's.",
+        ],
+        packed,
+    )
     os.makedirs(OUT, exist_ok=True)
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
@@ -310,14 +348,16 @@ def write_luau(manifest):
         "-- script and run it again; don't edit this file.",
         "--",
         "-- For each weapon: where the muzzle is (from the grip, in studs, the",
-        "-- barrel along -Z), each role's colour and material, the box each",
-        "-- role's mesh fills (to place the MeshParts Studio imports from",
-        "-- art/export/weapons/<Weapon>.fbx), and the pieces the mesh was built",
-        "-- from (blocks, cylinders and balls: the stand-in model before the",
-        "-- meshes are imported, and the UI icons).",
-        "export type Piece = { role: string, shape: string, size: Vector3, cframe: CFrame, corner: number?, standin: boolean? }",
+        "-- barrel along -Z), each role's colour and material, its meshes (one",
+        "-- per role, and one per moving part, such as the pump: the box each",
+        "-- fills, to place the MeshParts built from MeshData/<Weapon> or",
+        "-- imported from art/export/weapons/<Weapon>.fbx; a moving part turns",
+        "-- and scales about its box's centre), and the pieces the meshes were",
+        "-- built from (blocks, cylinders and balls: the stand-in model when",
+        "-- there are no meshes; a piece of a moving part names it).",
+        "export type Piece = { role: string, shape: string, size: Vector3, cframe: CFrame, corner: number?, standin: boolean?, part: string? }",
         "export type Role = { color: Color3, material: Enum.Material, transparency: number }",
-        "export type Mesh = { center: Vector3, size: Vector3, triangles: number }",
+        "export type Mesh = { role: string, center: Vector3, size: Vector3, triangles: number, moving: boolean? }",
         "export type Art = { muzzle: Vector3, roles: { [string]: Role }, meshes: { [string]: Mesh }, pieces: { Piece } }",
         "",
         "local function v(x: number, y: number, z: number): Vector3",
@@ -337,9 +377,10 @@ def write_luau(manifest):
             lines.append(f"\t\t\t{role} = {{ color = Color3.fromRGB({r}, {g}, {b}), material = Enum.Material.{spec['material']}, transparency = {lua_number(spec['transparency'])} }},")
         lines.append("\t\t},")
         lines.append("\t\tmeshes = {")
-        for role in sorted(entry["meshes"]):
-            mesh = entry["meshes"][role]
-            lines.append(f"\t\t\t{role} = {{ center = v({', '.join(lua_number(x) for x in mesh['center'])}), size = v({', '.join(lua_number(x) for x in mesh['size'])}), triangles = {mesh['triangles']} }},")
+        for name in sorted(entry["meshes"]):
+            mesh = entry["meshes"][name]
+            moving = ", moving = true" if mesh.get("moving") else ""
+            lines.append(f"\t\t\t{name} = {{ role = \"{mesh['role']}\", center = v({', '.join(lua_number(x) for x in mesh['center'])}), size = v({', '.join(lua_number(x) for x in mesh['size'])}), triangles = {mesh['triangles']}{moving} }},")
         lines.append("\t\t},")
         lines.append("\t\tpieces = {")
         for piece in entry["pieces"]:
@@ -348,6 +389,8 @@ def write_luau(manifest):
             corner = f", corner = {lua_number(piece['corner'])}" if piece.get("corner") else ""
             if piece.get("standin") is False:
                 corner += ", standin = false"
+            if piece.get("part"):
+                corner += f", part = \"{piece['part']}\""
             lines.append(f"\t\t\t{{ role = \"{piece['role']}\", shape = \"{piece['shape']}\", size = v({size}), cframe = CFrame.new({frame}){corner} }},")
         lines.append("\t\t},")
         lines.append("\t},")

@@ -2021,6 +2021,13 @@ METHODS = {
 		end,
 	},
 	ParticleEmitter = { Emit = function() end, Clear = function() end },
+	MeshPart = {
+		-- Takes another MeshPart's mesh (the stand-ins' meshes are only sizes).
+		ApplyMesh = function(self, source)
+			self.MeshSize = source.MeshSize
+			self.MeshContent = source.MeshContent
+		end,
+	},
 	Tool = {
 		Activate = function(self)
 			fireIfExists(self, "Activated")

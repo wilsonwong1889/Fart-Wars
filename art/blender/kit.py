@@ -12,9 +12,11 @@ Conventions, matching Roblox once exported (FBX: forward -Z, up +Y):
     1 Blender unit = 1 stud
 """
 
+import base64
 import json
 import math
 import os
+import struct
 
 import bpy
 import bmesh
@@ -100,12 +102,17 @@ def smooth(obj, angle=40):
 class Builder:
     """Builds one weapon from primitives, keeping a record of each piece
     (for the game's stand-in model and icons) and joining the pieces by
-    role into one mesh each (the MeshParts the game imports)."""
+    role into one mesh each (the MeshParts the game imports). A piece
+    given a `part` (the pump, the gauge's needle) is joined into a mesh of
+    its own by that name instead, so the game can move it: a moving part
+    is all one role."""
 
     def __init__(self, name, roles):
         self.name = name
         self.roles = roles  # role -> {"material": Material, "roblox": {...}}
         self.objects = {role: [] for role in roles}
+        self.mesh_roles = {role: role for role in roles}
+        self.moving = set()
         self.pieces = []
 
     def _record(self, obj, role, shape, size, extra=None):
@@ -127,14 +134,21 @@ class Builder:
             record.update(extra)
         self.pieces.append(record)
 
-    def _finish(self, obj, role):
-        obj.name = f"{self.name}_{role}_{len(self.objects[role])}"
+    def _finish(self, obj, role, part=None):
+        key = part or role
+        if part:
+            assert self.mesh_roles.get(part, role) == role, f"{part} is all one role"
+            self.mesh_roles[part] = role
+            self.moving.add(part)
+            self.pieces[-1]["part"] = part
+        objects = self.objects.setdefault(key, [])
+        obj.name = f"{self.name}_{key}_{len(objects)}"
         obj.data.materials.clear()
         obj.data.materials.append(self.roles[role]["material"])
-        self.objects[role].append(obj)
+        objects.append(obj)
         return obj
 
-    def box(self, role, size, center, bevel=0.06, rotation=(0, 0, 0)):
+    def box(self, role, size, center, bevel=0.06, rotation=(0, 0, 0), segments=3, part=None):
         """A bevelled block: size and center in Blender axes (x, y, z)."""
         bpy.ops.mesh.primitive_cube_add(size=1, location=center, rotation=[math.radians(a) for a in rotation])
         obj = bpy.context.active_object
@@ -143,12 +157,12 @@ class Builder:
         if bevel > 0:
             mod = obj.modifiers.new("Bevel", "BEVEL")
             mod.width = bevel
-            mod.segments = 3
+            mod.segments = segments
             mod.limit_method = "ANGLE"
         self._record(obj, role, "block", (size[0], size[2], size[1]), {"corner": bevel})
-        return self._finish(obj, role)
+        return self._finish(obj, role, part)
 
-    def cyl(self, role, radius, length, center, axis="Y", radius2=None, vertices=28, bevel=0.02):
+    def cyl(self, role, radius, length, center, axis="Y", radius2=None, vertices=28, bevel=0.02, part=None):
         """A cylinder (or a cone with radius2) along a Blender axis."""
         rotation = {"X": (0, math.radians(90), 0), "Y": (math.radians(90), 0, 0), "Z": (0, 0, 0)}[axis]
         if radius2 is None:
@@ -163,18 +177,18 @@ class Builder:
             mod.limit_method = "ANGLE"
         diameter = 2 * max(radius, radius2 or 0)
         self._record(obj, role, "cylinder", (length, diameter, diameter))
-        return self._finish(obj, role)
+        return self._finish(obj, role, part)
 
-    def ball(self, role, radius, center, scale=(1, 1, 1)):
+    def ball(self, role, radius, center, scale=(1, 1, 1), part=None):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=radius, location=center)
         obj = bpy.context.active_object
         obj.scale = scale
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
         size = (2 * radius * scale[0], 2 * radius * scale[2], 2 * radius * scale[1])
         self._record(obj, role, "ball" if scale == (1, 1, 1) else "block", size, {"corner": radius})
-        return self._finish(obj, role)
+        return self._finish(obj, role, part)
 
-    def ring(self, role, major, minor, center, axis="Y", standin=True):
+    def ring(self, role, major, minor, center, axis="Y", standin=True, part=None):
         rotation = {"X": (0, math.radians(90), 0), "Y": (math.radians(90), 0, 0), "Z": (0, 0, 0)}[axis]
         bpy.ops.mesh.primitive_torus_add(major_radius=major, minor_radius=minor, major_segments=32, minor_segments=10, location=center, rotation=rotation)
         obj = bpy.context.active_object
@@ -183,13 +197,13 @@ class Builder:
         if not standin:
             extra["standin"] = False
         self._record(obj, role, "cylinder", (2 * minor, 2 * (major + minor), 2 * (major + minor)), extra)
-        return self._finish(obj, role)
+        return self._finish(obj, role, part)
 
     def join(self):
-        """One mesh per role, transforms applied, smooth shaded. Returns
-        {role: object}."""
+        """One mesh per role and per moving part, transforms applied,
+        smooth shaded. Returns {name: object}."""
         joined = {}
-        for role, objects in self.objects.items():
+        for name, objects in self.objects.items():
             if not objects:
                 continue
             for obj in objects:
@@ -203,10 +217,10 @@ class Builder:
                 bpy.ops.object.join()
             obj = bpy.context.active_object
             bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-            obj.name = role
-            obj.data.name = f"{self.name}_{role}"
+            obj.name = name
+            obj.data.name = f"{self.name}_{name}"
             smooth(obj)
-            joined[role] = obj
+            joined[name] = obj
         return joined
 
 
@@ -245,6 +259,77 @@ def bounds(obj):
 def triangles(obj):
     obj.data.calc_loop_triangles()
     return len(obj.data.loop_triangles)
+
+
+def mesh_data(obj):
+    """The mesh packed small for the game to build itself (an
+    EditableMesh, so nothing has to be imported): its triangles in Roblox
+    axes around the centre of its box. Little-endian: the vertex and
+    triangle counts (uint16 each); each vertex's position (int16 x3, a
+    share of the box's half size); each vertex's normal (int8 x3); each
+    triangle's corners (uint16 x3), counterclockwise seen from the front
+    as in Blender (Blender to Roblox is a rotation, so that holds). Hard
+    edges keep separate vertices, so it shades as Blender does. Returns
+    {vertices, triangles, data (base64)}."""
+    center, size = bounds(obj)
+    mesh = obj.data
+    mesh.calc_loop_triangles()
+    turn = obj.matrix_world.to_3x3()
+    half = [max(s / 2, 1e-6) for s in size]
+    index = {}
+    positions, normals, faces = [], [], []
+    for tri in mesh.loop_triangles:
+        corners = []
+        for vert, loop in zip(tri.vertices, tri.loops):
+            p = to_roblox(obj.matrix_world @ mesh.vertices[vert].co) - center
+            n = to_roblox(turn @ mesh.corner_normals[loop].vector).normalized()
+            q = tuple(max(-32767, min(32767, round(p[i] / half[i] * 32767))) for i in range(3))
+            qn = tuple(max(-127, min(127, round(n[i] * 127))) for i in range(3))
+            key = q + qn
+            if key not in index:
+                index[key] = len(positions)
+                positions.append(q)
+                normals.append(qn)
+            corners.append(index[key])
+        if len(set(corners)) == 3:
+            faces.append(corners)
+    assert len(positions) < 65536 and len(faces) < 20000, f"{obj.name} is too big to build at runtime"
+    blob = struct.pack("<HH", len(positions), len(faces))
+    blob += b"".join(struct.pack("<hhh", *q) for q in positions)
+    blob += b"".join(struct.pack("<bbb", *n) for n in normals)
+    blob += b"".join(struct.pack("<HHH", *f) for f in faces)
+    return {"vertices": len(positions), "triangles": len(faces), "data": base64.b64encode(blob).decode()}
+
+
+def write_mesh_module(path, header, entries):
+    """A Luau module of packed meshes (mesh_data), for MeshBuilder:
+    {name: {size, vertices, triangles, data}}. `header` is its opening
+    comment, a line at a time."""
+
+    def number(n):
+        text = f"{n:.4f}".rstrip("0").rstrip(".")
+        return "0" if text in ("-0", "") else text
+
+    lines = [f"-- {line}" if line else "--" for line in header]
+    lines += [
+        "local function v(x: number, y: number, z: number): Vector3",
+        "\treturn Vector3.new(x, y, z)",
+        "end",
+        "",
+        "return {",
+    ]
+    for name in sorted(entries):
+        entry = entries[name]
+        size = ", ".join(number(x) for x in entry["size"])
+        data = entry["data"]
+        wrapped = "\n".join(data[i:i + 100] for i in range(0, len(data), 100))
+        lines.append(f"\t{name} = {{ size = v({size}), vertices = {entry['vertices']}, triangles = {entry['triangles']}, data = [[")
+        lines.append(wrapped)
+        lines.append("]] },")
+    lines += ["}", ""]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
 
 
 def write_json(path, data):

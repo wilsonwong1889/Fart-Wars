@@ -47,6 +47,7 @@ local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local ArtAssets = require(Shared.Config.ArtAssets)
 local WeaponModel = require(Shared.WeaponModel)
+local MeshBuilder = require(Shared.MeshBuilder)
 local PropArt = require(Shared.Config.PropArt)
 local ShotArt = require(Shared.Config.ShotArt)
 local MapDressing = require(script.Parent.MapDressing)
@@ -379,9 +380,14 @@ function TestControls.selftest(player: Player?): (boolean, string)
 			table.insert(problems, `{id}: {why}`)
 		end
 	end
-	expect(meshes == #WeaponConfig.order and #problems == 0, "Weapon meshes", `all {meshes} imported`,
-		if #problems > 0 then table.concat(problems, "; ")
-			else `{meshes} of {#WeaponConfig.order} imported into ReplicatedStorage.Assets.Weapons; the rest use the Blender stand-ins (art/README.md)`, "WARN")
+	-- Without imports the clients build the meshes themselves, if Roblox
+	-- lets them (the same setting covers the server, so try one here).
+	local buildable, buildWhy = MeshBuilder.probe()
+	local builtNote = if buildable then "the clients build the rest from the Blender data"
+		else `and meshes can't be built here ({buildWhy}): turn on Experience Settings > Security > Allow Mesh / Image APIs, or import them (art/README.md); until then the rest are the stand-ins`
+	expect((meshes == #WeaponConfig.order or buildable) and #problems == 0, "Weapon meshes",
+		if meshes == #WeaponConfig.order then `all {meshes} imported` else `{meshes} of {#WeaponConfig.order} imported; {builtNote}`,
+		if #problems > 0 then table.concat(problems, "; ") else `{meshes} of {#WeaponConfig.order} imported, {builtNote}`, "WARN")
 	local images, total = 0, 0
 	for _, group in { ArtAssets.icons, ArtAssets.effects } do
 		for _, value in group :: any do
@@ -399,9 +405,9 @@ function TestControls.selftest(player: Player?): (boolean, string)
 			table.insert(shotProblems, reason)
 		end
 	end
-	expect(shots == shotTotal and #shotProblems == 0, "Shot effects", `all {shotTotal} imported`,
-		if #shotProblems > 0 then table.concat(shotProblems, "; ")
-			else `{shots} of {shotTotal} imported into ReplicatedStorage.Assets.Effects; glowing parts stand in (art/README.md)`, "WARN")
+	expect((shots == shotTotal or buildable) and #shotProblems == 0, "Shot effects",
+		if shots == shotTotal then `all {shotTotal} imported` else `{shots} of {shotTotal} imported; {builtNote}`,
+		if #shotProblems > 0 then table.concat(shotProblems, "; ") else `{shots} of {shotTotal} imported, {builtNote}`, "WARN")
 	local props, propProblems, propTotal = 0, {}, 0
 	for prop in PropArt do
 		propTotal += 1

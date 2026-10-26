@@ -66,12 +66,66 @@ for _, id in WeaponConfig.order do
 	check(art and WeaponFx.weapons[id], `{id} has art and effects`)
 	check(art.muzzle.Z < -1 and math.abs(art.muzzle.X) < 0.01, `{id}'s muzzle is in front of the grip`)
 	check(art.roles.Body and art.roles.Grip and art.roles.Gas and art.roles.Gas.material == Enum.Material.Neon, `{id}'s roles`)
-	for role, mesh in art.meshes do
-		check(art.roles[role], `{id}'s {role} mesh has a colour`)
-		check(mesh.triangles > 0 and mesh.triangles < 10000, `{id}'s {role} mesh is within Roblox's limits ({mesh.triangles} triangles)`)
-		check(mesh.size.X > 0 and mesh.size.Y > 0 and mesh.size.Z > 0, `{id}'s {role} mesh has a size`)
+	for name, mesh in art.meshes do
+		check(art.roles[mesh.role], `{id}'s {name} mesh has a colour`)
+		check(mesh.triangles > 0 and mesh.triangles < 10000, `{id}'s {name} mesh is within Roblox's limits ({mesh.triangles} triangles)`)
+		check(mesh.size.X > 0 and mesh.size.Y > 0 and mesh.size.Z > 0, `{id}'s {name} mesh has a size`)
+		if mesh.moving then
+			local pieces = 0
+			for _, piece in art.pieces do
+				if piece.part == name then
+					pieces += 1
+					check(piece.role == mesh.role, `{id}'s {name} is all {mesh.role}`)
+				end
+			end
+			check(pieces > 0, `{id}'s moving {name} has its pieces`)
+		end
+	end
+	for name, motion in WeaponFx.weapons[id].parts or {} do
+		local mesh = art.meshes[name]
+		check(mesh and mesh.moving and (motion.pivot == nil or art.meshes[motion.pivot]), `{id}'s {name} moves ({motion.kind})`)
 	end
 	check(#art.pieces >= 10, `{id} is built from {#art.pieces} pieces`)
+end
+check(WeaponArt.GasBlaster.meshes.Pump and WeaponArt.GasBlaster.meshes.Needle, "the Gas Blaster's pump and needle are parts of their own")
+
+-- The meshes packed for the game to build (Shared.MeshData): every mesh,
+-- the right size once unpacked, its triangles facing the way its normals do.
+local MeshBuilder = require(Shared.MeshBuilder)
+local ShotArt = require(Shared.Config.ShotArt)
+local function unpacked(set: string, name: string, entry, size: Vector3)
+	check(entry and (entry.size - size).Magnitude < 1e-3, `{set}'s {name} is packed at its size`)
+	local positions, normals, corners = MeshBuilder.decode(entry)
+	check(#positions == entry.vertices and #corners == entry.triangles * 3, `{set}'s {name}: {entry.vertices} vertices, {entry.triangles} triangles`)
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, p in positions do
+		lo = lo:Min(p)
+		hi = hi:Max(p)
+	end
+	check((hi - lo - size).Magnitude < 2e-3 and ((hi + lo) / 2).Magnitude < 2e-3, `{set}'s {name} unpacks to its box, round its centre`)
+	local facing, total = 0, 0
+	for i = 1, #corners, 3 do
+		local a, b, c = corners[i], corners[i + 1], corners[i + 2]
+		check(a >= 1 and a <= #positions and b <= #positions and c <= #positions, `{set}'s {name}'s corners are vertices`)
+		local face = (positions[b] - positions[a]):Cross(positions[c] - positions[a])
+		if face.Magnitude > 1e-6 then
+			total += 1
+			facing += if face:Dot(normals[a] + normals[b] + normals[c]) > 0 then 1 else 0
+		end
+	end
+	check(facing >= total * 0.97, `{set}'s {name} faces out, counterclockwise as Roblox draws ({facing} of {total})`)
+end
+local MeshData = Shared:FindFirstChild("MeshData")
+check(MeshData, "Shared.MeshData is there")
+for _, id in WeaponConfig.order do
+	local packed = require(MeshData:FindFirstChild(id))
+	for name, mesh in WeaponArt[id].meshes do
+		unpacked(id, name, packed[name], mesh.size)
+	end
+end
+local packedShots = require(MeshData:FindFirstChild("Shots"))
+for name, art in ShotArt do
+	unpacked("Shots", name, packedShots[name], art.size)
 end
 
 -- The held gun, from the pieces.
@@ -82,18 +136,26 @@ local standins = 0
 for _, piece in WeaponArt.GasBlaster.pieces do
 	standins += if piece.standin ~= false then 1 else 0
 end
-local parts, welds = 0, 0
+local parts, welds, moving = 0, 0, 0
 for _, part in tool:GetChildren() do
 	if part:IsA("BasePart") and part ~= handle then
 		parts += 1
 		check(not part.CanCollide and not part.CanQuery and not part.CanTouch and part.Massless, `{part.Name} is never in the way`)
-		check(part.Color == WeaponArt.GasBlaster.roles[part.Name].color, `{part.Name} in its role's colour`)
+		check(part.Color == WeaponArt.GasBlaster.roles[part:GetAttribute("Role")].color, `{part.Name} in its role's colour`)
+		local move = part:FindFirstChild("Move")
+		if part:GetAttribute("Part") then
+			moving += 1
+			check(move and move:IsA("Weld") and move.Part0 == handle and move:GetAttribute("Part") == part.Name, `{part.Name} hangs on a Move weld`)
+			check(move.C0 == move:GetAttribute("Rest") and (handle.CFrame * move.C0).Position:FuzzyEq(part.Position, 1e-3), `{part.Name} rests where it belongs`)
+			welds += 1
+		end
 	end
 end
 for _, weld in handle:GetChildren() do
 	welds += if weld:IsA("WeldConstraint") then 1 else 0
 end
 check(parts == standins and welds == parts, `every piece there and welded ({parts})`)
+check(moving == 6, `the pump's four pieces and the needle's two move ({moving})`)
 local muzzle = handle:FindFirstChild("Muzzle") :: Attachment
 check(muzzle and (muzzle.CFrame.Position - WeaponArt.GasBlaster.muzzle).Magnitude < 1e-3, "a Muzzle attachment at the barrel's end")
 check(muzzle.CFrame.UpVector:Dot(Vector3.new(0, 0, -1)) > 0.99, "pointing down the barrel")
@@ -105,13 +167,13 @@ check(assets and assets:FindFirstChild("Weapons"), "ReplicatedStorage.Assets.Wea
 local function import(id: string, rotate: string?, skip: string?)
 	local model = Instance.new("Model")
 	model.Name = id
-	for role, mesh in WeaponArt[id].meshes do
-		if role ~= skip then
+	for name, mesh in WeaponArt[id].meshes do
+		if name ~= skip then
 			local part = Instance.new("MeshPart")
-			part.Name = role
+			part.Name = name
 			-- Imported at three times the size, somewhere else.
 			local size = mesh.size * 3
-			if role == rotate then
+			if name == rotate then
 				size = Vector3.new(size.Z, size.Y, size.X)
 			end
 			part.MeshSize = size
@@ -128,11 +190,12 @@ local found, why = WeaponModel.imported("Spritzer")
 check(found and why == "imported", "imported meshes are found")
 local spritzer = WeaponModel.tool("Spritzer")
 check(spritzer:GetAttribute("ArtSource") == "mesh", "and the gun is made of them")
-for role, mesh in WeaponArt.Spritzer.meshes do
-	local part = spritzer:FindFirstChild(role) :: BasePart
-	check(part and part:IsA("MeshPart"), `the {role} MeshPart`)
-	check((part.Size - mesh.size).Magnitude < 1e-3 and (part.CFrame.Position - mesh.center).Magnitude < 1e-3, `{role} sized and placed from the art, whatever the import's scale`)
-	check(part.Color == WeaponArt.Spritzer.roles[role].color and part.Material == WeaponArt.Spritzer.roles[role].material, `{role} coloured from the art`)
+for name, mesh in WeaponArt.Spritzer.meshes do
+	local part = spritzer:FindFirstChild(name) :: BasePart
+	check(part and part:IsA("MeshPart"), `the {name} MeshPart`)
+	check((part.Size - mesh.size).Magnitude < 1e-3 and (part.CFrame.Position - mesh.center).Magnitude < 1e-3, `{name} sized and placed from the art, whatever the import's scale`)
+	check(part.Color == WeaponArt.Spritzer.roles[mesh.role].color and part.Material == WeaponArt.Spritzer.roles[mesh.role].material, `{name} coloured from the art`)
+	check(if mesh.moving then part:FindFirstChild("Move") ~= nil else part:FindFirstChild("Move") == nil, `{name} welded to move or not`)
 end
 import("Thunderclapper", "Body")
 local rotated, reason = WeaponModel.imported("Thunderclapper")
@@ -143,6 +206,8 @@ local missing, missingWhy = WeaponModel.imported("StinkLobber")
 check(missing == nil and missingWhy == "no Gas MeshPart", "a missing mesh: " .. missingWhy)
 local _, report = TestControls.selftest(nil)
 check(type(report) == "string", "selftest reports on the art")
+local buildable, buildWhy = MeshBuilder.probe()
+check(not buildable and string.find(buildWhy, "CreateEditableMesh", 1, true) ~= nil, "meshes can't be built in the stand-in world (no EditableMesh), and the selftest's probe says why")
 
 -- Animations, on a client.
 local me = Instance.new("Player")
@@ -225,7 +290,6 @@ check(impacts.Impact2.WorldPosition.Magnitude < 1e-3 and (impacts.Impact1.WorldP
 
 -- The shots (ShotFx): a bolt from the muzzle, a burst, a splat.
 local ShotFx = require(Client.ShotFx)
-local ShotArt = require(Shared.Config.ShotArt)
 local SHOT = WeaponFx.SHOT
 local blaster = WeaponFx.weapons.GasBlaster.shot
 frames(1)
@@ -466,5 +530,265 @@ frames(0.5)
 check(preview:GetAttribute("Angle") == angle, "and still with reduce motion")
 Settings.reduceMotion = false
 Locker.close()
+
+-- The springs: a kick swings back past rest a little; standing still, the
+-- gun sways round the grip; walking, it bobs.
+adaTool = ada.Character:FindFirstChild("HeldWeapon") :: Tool
+weld = grip(ada)
+frames(1)
+Fx.fired(ada.UserId)
+local lowest = math.huge
+for _ = 1, 40 do
+	frames(1 / 60)
+	lowest = math.min(lowest, Fx.states[adaTool].kick)
+end
+check(lowest < -0.05, `the recoil springs back past rest a little ({lowest})`)
+frames(1)
+local swayFrom = weld.C1
+frames(0.8)
+check((weld.C1.LookVector - swayFrom.LookVector).Magnitude > 1e-4 and weld.C1.Position.Magnitude < 1e-3, "standing still, the gun sways a little, round the grip")
+local adaRoot = (ada.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
+adaRoot.AssemblyLinearVelocity = Vector3.new(16, 0, 0)
+local low, high = math.huge, -math.huge
+for _ = 1, 45 do
+	frames(1 / 30)
+	local y = weld.C1:Inverse().Position.Y
+	low, high = math.min(low, y), math.max(high, y)
+end
+check(high - low > 0.03, `walking, it bobs with the steps ({high - low})`)
+adaRoot.AssemblyLinearVelocity = Vector3.zero
+frames(1)
+check(weld.C1.Position.Magnitude < 1e-3, "and stops when they do")
+
+-- A light gun twirls as it comes up; a heavy one doesn't.
+TestControls.weapon(ada, "Spritzer")
+task.wait(0.2)
+weld = grip(ada)
+frames(0.1)
+check(math.abs(weld.C1:Inverse().RightVector.Y) > 0.3, "the Spritzer twirls round its barrel as it comes up")
+frames(0.5)
+check(math.abs(weld.C1:Inverse().RightVector.Y) < 0.05, "and ends upright")
+TestControls.weapon(ada, "Thunderclapper")
+task.wait(0.2)
+weld = grip(ada)
+frames(0.1)
+check(math.abs(weld.C1:Inverse().RightVector.Y) < 0.05, "the Thunderclapper just swings up")
+TestControls.weapon(ada, "GasBlaster")
+task.wait(0.2)
+adaTool = ada.Character:FindFirstChild("HeldWeapon") :: Tool
+weld = grip(ada)
+frames(1)
+
+-- The new effects: every gun's muzzle lights up and throws a shock ring;
+-- the bolt lights its way and trails smoke; where it hits, a flash of
+-- light and a ring; a player you hit flashes white; a hot barrel smokes.
+local target = Instance.new("Part")
+target.Name = "TestWall"
+target.Anchored = true
+target.Size = Vector3.new(30, 30, 2)
+target.CFrame = CFrame.new(0, 5, -41)
+target.Parent = workspace
+Fx.fired(ada.UserId)
+local blasterFlash = (adaTool:FindFirstChild("Handle") :: BasePart):FindFirstChild("Muzzle"):FindFirstChild("Flash") :: PointLight
+check(blasterFlash and blasterFlash.Enabled, "the Gas Blaster's muzzle flashes light too")
+local ring: BasePart? = nil
+for _, part in ShotFx.rings do
+	if part.Transparency < 1 then
+		ring = part
+	end
+end
+check(ring, "a shock ring at the muzzle")
+local ringSize = (ring :: BasePart).Size.X
+frames(SHOT.RING_SECONDS * 0.5)
+check((ring :: BasePart).Size.X > ringSize and (ring :: BasePart).Transparency > SHOT.RING_TRANSPARENCY, "spreading and fading")
+frames(SHOT.RING_SECONDS)
+check((ring :: BasePart).Transparency == 1, "then gone")
+local trailed = ShotFx.trailed
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+task.wait()
+local lit = false
+for _, part in ShotFx.tracers do
+	local lamp = part:FindFirstChild("Light") :: PointLight?
+	lit = lit or (part.Transparency == 0 and lamp ~= nil and lamp.Enabled and lamp.Range == blaster.light)
+end
+check(lit, "the bolt lights its way")
+local impactLit, impactRings = false, 0
+for _, attachment in impacts:GetChildren() do
+	local lamp = attachment:FindFirstChild("Flash") :: PointLight?
+	impactLit = impactLit or (lamp ~= nil and lamp.Enabled)
+end
+for _, part in ShotFx.rings do
+	impactRings += if part.Transparency < 1 and math.abs(part.Position.Z + 40) < 0.2 then 1 else 0
+end
+check(impactLit and impactRings == 1, "where it hits: a flash of light and a ring on the wall")
+frames(0.2)
+check(ShotFx.trailed > trailed, `the bolt leaves a trail of smoke ({ShotFx.trailed - trailed} puffs)`)
+target:Destroy()
+Remotes.CombatEvent:FireClient(me, { kind = "hit", victim = ada.UserId, gas = 20, headshot = false, blocked = false })
+task.wait()
+local hitFlash = workspace:FindFirstChild("HitFlash") :: Highlight
+check(hitFlash and hitFlash.Enabled and hitFlash.Adornee == ada.Character, "a player you hit flashes white")
+frames(WeaponFx.HIT.SECONDS + 0.05)
+check(not hitFlash.Enabled, "for a moment")
+for _ = 1, 6 do
+	Fx.fired(ada.UserId)
+	frames(0.05)
+end
+local smoke = adaTool.Handle.Muzzle:FindFirstChild("Smoke") :: ParticleEmitter
+check(smoke and smoke.Rate > 0, "a burst of shots leaves the barrel smoking")
+frames(5)
+check(smoke.Rate == 0, "until it cools")
+task.wait(0.2)
+Settings.reducedEffects = true
+Fx.fired(ada.UserId)
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -100) })
+task.wait()
+local quiet = true
+for _, part in ShotFx.tracers do
+	local lamp = part:FindFirstChild("Light") :: PointLight?
+	quiet = quiet and not (lamp and lamp.Enabled)
+end
+trailed = ShotFx.trailed
+frames(0.1)
+check(quiet and not blasterFlash.Enabled, "reduced effects: no lights")
+check(ShotFx.trailed == trailed, "and no trail")
+Settings.reducedEffects = false
+frames(1)
+
+-- Built in the game, so nothing has to be imported: each client builds
+-- the meshes (EditableMesh; here a stand-in that keeps what it's given)
+-- and dresses every held gun in them.
+local fakeAssets = {}
+function fakeAssets.CreateEditableMesh(_self)
+	local mesh = { vertices = {}, normals = {}, faces = {}, faceNormals = {} }
+	function mesh.AddVertex(self, p: Vector3)
+		table.insert(self.vertices, p)
+		return #self.vertices
+	end
+	function mesh.AddNormal(self, n: Vector3)
+		table.insert(self.normals, n)
+		return #self.normals
+	end
+	function mesh.AddTriangle(self, a, b, c)
+		assert(self.vertices[a] and self.vertices[b] and self.vertices[c], "triangles of real vertices")
+		table.insert(self.faces, { a, b, c })
+		return #self.faces
+	end
+	function mesh.SetFaceNormals(self, face, ids)
+		assert(self.faces[face] and #ids == 3 and self.normals[ids[1]], "normals for real faces")
+		self.faceNormals[face] = ids
+	end
+	function mesh.Destroy() end
+	return mesh
+end
+function fakeAssets.CreateMeshPartAsync(_self, mesh, options)
+	assert(options and options.CollisionFidelity == Enum.CollisionFidelity.Box, "no collision geometry worked out")
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, p in mesh.vertices do
+		lo = lo:Min(p)
+		hi = hi:Max(p)
+	end
+	local part = Instance.new("MeshPart")
+	part.MeshSize = hi - lo
+	part.MeshContent = mesh
+	return part
+end
+MeshBuilder.reset()
+MeshBuilder.service = fakeAssets
+MeshBuilder.content = function(object)
+	return object
+end
+check(MeshBuilder.probe(), "with EditableMesh, meshes can be built")
+check(MeshBuilder.prepare("GasBlaster"), "the Gas Blaster's meshes build")
+task.wait(0.1)
+frames(1 / 60)
+local skin = adaTool:FindFirstChild("Skin")
+check(skin and adaTool:GetAttribute("ArtSource") == "pieces", "Ada's gun, the server's stand-in, is dressed in them here")
+local adaHandle = adaTool:FindFirstChild("Handle") :: BasePart
+for name, mesh in WeaponArt.GasBlaster.meshes do
+	local part = skin:FindFirstChild(name) :: MeshPart
+	check(part and part:IsA("MeshPart") and part.MeshSize:FuzzyEq(mesh.size, 2e-3), `the {name} mesh, built to its size`)
+	check(part.Size == mesh.size and part.Color == WeaponArt.GasBlaster.roles[mesh.role].color and part.Material == WeaponArt.GasBlaster.roles[mesh.role].material, `{name} sized and coloured from the art`)
+	check((part.Position - (adaHandle.CFrame * mesh.center)).Magnitude < 1e-3 and not part.CanCollide and not part.CanQuery and part.Massless, `{name} in its place, never in the way`)
+	local joint = if mesh.moving then part:FindFirstChild("Move") else nil
+	check(if mesh.moving then joint and (joint :: Weld).Part0 == adaHandle else true, `{name} welded to the grip`)
+end
+local hidden = 0
+for _, part in adaTool:GetChildren() do
+	if part:IsA("BasePart") and part:GetAttribute("Role") then
+		hidden += if part.Transparency == 1 then 1 else 0
+	end
+end
+check(hidden == standins, `the stand-in's {standins} pieces hidden here`)
+local pump = skin.Pump.Move :: Weld
+local pumpRest = pump:GetAttribute("Rest") :: CFrame
+frames(0.5)
+Fx.fired(ada.UserId)
+frames(0.05)
+check(pump.C0.Position.Z > pumpRest.Position.Z + 0.05, "the pump pumps back on a shot")
+frames(0.4)
+check((pump.C0.Position - pumpRest.Position).Magnitude < 1e-3, "and home")
+local needle = skin.Needle.Move :: Weld
+local needleRest = needle:GetAttribute("Rest") :: CFrame
+Fx.fired(ada.UserId)
+Fx.fired(ada.UserId)
+frames(0.3)
+check((needle.C0.LookVector - needleRest.LookVector).Magnitude > 0.15 and (needle.C0.Position - needleRest.Position).Magnitude < 1e-3, "the gauge's needle drops round its middle as the pressure does")
+frames(3)
+check((needle.C0.LookVector - needleRest.LookVector).Magnitude < 1e-3, "and climbs back")
+local gasPieces = 0
+for part in Fx.states[adaTool].gas do
+	gasPieces += if part.Parent == skin then 1 else 0
+end
+check(gasPieces == 1, "the glow is the meshes' now")
+-- The hotbar's icon swaps to the meshes.
+local blasterSlot
+for _, s in Hotbar.parts.slots do
+	blasterSlot = if s:GetAttribute("Weapon") == "GasBlaster" then s else blasterSlot
+end
+local iconModel = blasterSlot and blasterSlot:FindFirstChild("Icon"):FindFirstChildOfClass("Model")
+check(iconModel and iconModel:GetAttribute("ArtSource") == "runtime", "the hotbar shows the meshes too")
+-- The Stink Lobber's bomb goes with the throw and grows back.
+TestControls.weapon(ada, "StinkLobber")
+task.wait(0.2)
+local lobber = ada.Character:FindFirstChild("HeldWeapon") :: Tool
+grip(ada)
+check(MeshBuilder.prepare("StinkLobber"), "the Stink Lobber's meshes build")
+task.wait(0.1)
+frames(0.5)
+local bomb = lobber:FindFirstChild("Skin") and lobber.Skin:FindFirstChild("Bomb") :: MeshPart
+check(bomb and bomb.Transparency == 0, "a bomb loaded")
+Remotes.CombatEvent:FireClient(me, { kind = "lob", shooter = ada.UserId })
+task.wait()
+frames(1 / 60)
+check(bomb.Transparency == 1 and lobber.Skin.Fuse.Transparency == 1, "gone when it's thrown, fuse and all")
+local lob = WeaponFx.weapons.StinkLobber.parts.Bomb
+frames(lob.seconds - lob.amount + 0.05)
+check(bomb.Transparency == 0 and bomb.Size.X < WeaponArt.StinkLobber.meshes.Bomb.size.X * 0.99, "back as it reloads, growing")
+frames(0.5)
+check(bomb.Size:FuzzyEq(WeaponArt.StinkLobber.meshes.Bomb.size, 1e-3), "to full size")
+-- The shot meshes: built too (and imports win, so take those away).
+effectsFolder:ClearAllChildren()
+check(MeshBuilder.prepare("Shots"), "the shot meshes build")
+task.wait(0.1)
+TestControls.weapon(ada, "GasBlaster")
+task.wait(0.2)
+grip(ada)
+frames(0.5)
+Fx.fired(ada.UserId)
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -60) })
+task.wait()
+local runtimeBolt, runtimeRing
+for _, part in ShotFx.tracers do
+	runtimeBolt = if part.Transparency == 0 then part else runtimeBolt
+end
+for _, part in ShotFx.rings do
+	runtimeRing = if part.Transparency < 1 then part else runtimeRing
+end
+check(runtimeBolt and runtimeBolt:IsA("MeshPart") and runtimeBolt:GetAttribute("ArtSource") == "runtime", "the bolt is the Blender gas bolt, built here")
+check(runtimeRing and runtimeRing:IsA("MeshPart") and runtimeRing:GetAttribute("ArtSource") == "runtime", "and the ring")
+check(string.find(MeshBuilder.status(), "GasBlaster", 1, true) ~= nil, "status says what's built: " .. MeshBuilder.status())
+frames(1)
+MeshBuilder.service = nil
 
 return { status = "PASS", checks = checks }

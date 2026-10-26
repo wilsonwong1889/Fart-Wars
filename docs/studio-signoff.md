@@ -170,30 +170,44 @@ turn it back off unless you're keeping it):
 
 ## 8. The weapons (Blender art)
 
-- [ ] Before importing anything: each weapon in your hands is the Blender
-      shape in plain parts; the barrel points forward and the tank is on
-      top (tell me if it's sideways or backwards).
-- [ ] Import the four FBX files and upload the nine images
-      ([`../art/README.md`](../art/README.md)); `/fw selftest` says
-      **Weapon meshes: all 4 imported** and **Art images: all 9 uploaded**.
-- [ ] Equip each weapon: it comes up into the hand. Fire: it kicks and
-      settles, puffs come from the muzzle in its colour, the Thunderclapper
-      flashes and kicks the camera, the Spritzer sprays droplets.
+- [ ] Without importing anything: a moment after you spawn, the gun in
+      your hands is the smooth Blender model (rounded body, the canister,
+      the gauge, the horn), not blocks; the barrel points forward and the
+      canister is on top (tell me if it's sideways, backwards, inside out
+      or a checkerboard). The Output has no "Can't build the Blender
+      meshes" warning; `/fw selftest` says **Weapon meshes** and **Shot
+      effects** are built by the clients.
+- [ ] Equip each weapon: it swings up into the hand and settles; the Gas
+      Blaster and the Spritzer twirl round the barrel on the way.
+- [ ] Fire the Gas Blaster: it kicks back, up and a little sideways and
+      springs back; the pump under the barrel pumps; the gauge's needle
+      drops with a few quick shots and climbs back; the vents and tank
+      flash; the muzzle flashes light on the walls near you and a ring
+      spreads from it; your camera kicks a little. Hold fire for a second:
+      the barrel smokes.
+- [ ] The Spritzer's pump pumps fast; the Thunderclapper flashes and kicks
+      the camera hard; the Stink Lobber's bomb is gone when you throw it
+      and grows back before the next.
+- [ ] Standing still the gun sways a little; walking, it bobs.
 - [ ] A second client sees the same on your gun.
-- [ ] Shots that hit walls puff and spark; explosions throw smoke and a
-      ring.
 - [ ] Each shot streaks as a glowing bolt from the gun's muzzle (not your
-      head) and stops at the wall it hits, with a splat on the wall that
-      fades; the muzzle bursts as you fire. Others' shots look the same
-      from your screen, in their team's colour (or their tracer's).
-- [ ] Import the three shot effects ([`../art/README.md`](../art/README.md));
-      `/fw selftest` says **Shot effects: all 3 imported**, and the bolt,
-      burst and splat are the Blender shapes.
-- [ ] Settings → REDUCED EFFECTS: no bursts or splats; the bolt still
-      shows.
+      head), lights the walls as it passes, leaves a trail of smoke and
+      stops at the wall it hits: a splat that fades, a ring, a puff,
+      sparks and a flash of light. A player you hit flashes white. Others'
+      shots look the same from your screen, in their team's colour (or
+      their tracer's). Explosions throw smoke and a ring.
+- [ ] Settings → REDUCED EFFECTS: no bursts, rings, splats, lights, trails
+      or smoke; the bolt still shows.
 - [ ] The hotbar shows the guns; the locker's weapon cards turn them.
-- [ ] Settings → REDUCE MOTION: the gun barely moves, no flash, no camera
-      kick; the locker's guns stand still.
+- [ ] Settings → REDUCE MOTION: the gun barely moves (no twirl, sway or
+      bob), no flash, no camera kick; the locker's guns stand still.
+- [ ] Published: with **Allow Mesh / Image APIs** off, the Output warns and
+      the guns are the blocky stand-in; turn it on (Experience Settings →
+      Security) and they're the meshes. (Optional: import the FBX files
+      instead, [`../art/README.md`](../art/README.md); `/fw selftest`
+      then says **all 4 imported**.)
+- [ ] Upload the nine images; `/fw selftest` says **Art images: all 9
+      uploaded**.
 
 ## 9. The map (Blender art)
 

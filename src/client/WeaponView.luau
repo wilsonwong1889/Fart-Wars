@@ -1,15 +1,20 @@
 -- A weapon in a ViewportFrame, for the hotbar and the locker: the same
--- model the game holds (the imported Blender meshes, or the stand-in),
--- seen from its right side with the barrel pointing right. spin() turns
--- it in place for the locker's slow rotation.
+-- model the game holds (the Blender meshes, imported or built here, or the
+-- stand-in until they're built), seen from its right side with the barrel
+-- pointing right. spin() turns it in place for the locker's slow rotation.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local WeaponModel = require(ReplicatedStorage:WaitForChild("Shared").WeaponModel)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local WeaponModel = require(Shared.WeaponModel)
+local MeshBuilder = require(Shared.MeshBuilder)
 local UI = require(script.Parent.UI)
 
 local WeaponView = {}
 
 local FIELD_OF_VIEW = 30
+
+-- Every view, by its weapon, to swap in the meshes once they're built.
+local views: { [ViewportFrame]: string } = setmetatable({}, { __mode = "k" }) :: any
 
 -- A ViewportFrame showing `weaponId`, with `props` applied.
 function WeaponView.new(weaponId: string, props: { [string]: any }?): ViewportFrame
@@ -26,8 +31,10 @@ function WeaponView.new(weaponId: string, props: { [string]: any }?): ViewportFr
 			end
 		end
 	end
+	MeshBuilder.request(weaponId)
 	local model, center, size = WeaponModel.model(weaponId)
 	model.Parent = viewport
+	views[viewport] = weaponId
 	local camera = Instance.new("Camera")
 	camera.FieldOfView = FIELD_OF_VIEW
 	-- Far enough back that the longest side fits, with a margin.
@@ -67,5 +74,21 @@ function WeaponView.spin(viewport: ViewportFrame, angle: number)
 	end
 	viewport:SetAttribute("Angle", angle)
 end
+
+-- Once a weapon's meshes are built here, its views show them, turned as
+-- they were.
+MeshBuilder.built:Connect(function(set: string)
+	for viewport, weaponId in views do
+		local old = viewport:FindFirstChildOfClass("Model")
+		if weaponId == set and old and old:GetAttribute("ArtSource") == "pieces" then
+			local angle = viewport:GetAttribute("Angle")
+			local model = WeaponModel.model(weaponId)
+			old:Destroy()
+			model.Parent = viewport
+			viewport:SetAttribute("Angle", 0)
+			WeaponView.spin(viewport, if type(angle) == "number" then angle else 0)
+		end
+	end
+end)
 
 return WeaponView

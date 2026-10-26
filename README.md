@@ -107,14 +107,15 @@ Rojo maps the source like this (`default.project.json`):
 | --- | --- | --- |
 | `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `SeasonConfig`, `EventConfig`, `WeaponArt`, `PropArt` and `ShotArt` (generated from Blender), `MapArt`, `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
-| `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art) |
-| `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, once imported ([`art/README.md`](art/README.md)) |
+| `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art), `MeshBuilder` (builds the Blender meshes in the game) |
+| `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
+| `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
-| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like) and the controllers |
+| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes) and the controllers |
 
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
 `Progress`, `Locker`, plus `GameMenu` and `ComingSoon`) are built in code by the client controllers
@@ -269,7 +270,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
-| `WeaponArt` | the Blender art for every weapon; the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); equip, recoil, settling, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; muzzle particles, impacts, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, the burst, splats on walls (never players), reduced effects, the imported meshes |
+| `WeaponArt` | the Blender art for every weapon, its moving parts, and the packed meshes (each unpacking to its size, facing out); the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); built in the game (a stand-in EditableMesh), every gun dressed in the meshes, the stand-in hidden, the hotbar too; equip, recoil, springs past rest, the twirl, sway and walk bob, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; the pump, the gauge's needle, the Stink Lobber's bomb; muzzle particles, lights and rings, impacts (light, ring), a hit's flash, barrel smoke, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, lighting and trailing smoke, the burst, splats on walls (never players), reduced effects, the imported and built meshes |
 | `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
@@ -472,15 +473,18 @@ Where the plans left room, or disagreed, Phase 1 does this:
 
 ## Art
 
-The weapons, their icons, the effect textures and the map (props, walls
-and floors) are made in Blender, from scripts, in a bright building-brick
-look: toy colours on studded plastic: see
+The weapons, their icons, the shot effects, the effect textures and the
+map (props, walls and floors) are made in Blender, from scripts, in a
+bright building-brick look: toy colours on studded plastic: see
 [`art/README.md`](art/README.md) for how to change them, import the meshes
-into Studio and upload the images. Until they're imported the game builds
-each gun from the Blender model's own pieces, so it always looks like the
-art, and the map is its plain parts. Imported meshes are drawn over the
-parts they dress (walls and floors as repeated modules), which stay as
-the invisible hitboxes, so the art never changes how the map plays.
+into Studio and upload the images. The guns and shot effects need no
+importing: each player's game builds them from the packed Blender meshes
+(in a published game, turn on Experience Settings → Security → Allow
+Mesh / Image APIs first), with the Blender model's own pieces standing in
+until then. The map is its plain parts until its props are imported;
+imported meshes are drawn over the parts they dress (walls and floors as
+repeated modules), which stay as the invisible hitboxes, so the art never
+changes how the map plays.
 
 ![Brainrot Battlefield, dressed](art/export/props/map.png)
 

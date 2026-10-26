@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.12.0: better guns, shots and animation, with nothing to import
+
+- The guns and shot effects are the Blender meshes in game with nothing
+  to import: the art scripts pack each mesh into `src/shared/MeshData`,
+  and each client builds them (`MeshBuilder`, Roblox's EditableMesh) and
+  dresses every held gun in them (`WeaponSkin`), the hotbar and locker
+  too. The server keeps the stand-in (a mesh built there wouldn't reach
+  players), and it shows until the meshes are built or if they can't be
+  (in a published game: Experience Settings → Security → Allow Mesh /
+  Image APIs, which `/fw selftest` checks). Imports still win if present.
+- The Gas Blaster remodelled again: a rounder body, glowing vent gills on
+  both sides, a glowing ring and a ready light at the back, bolts, and
+  its pump and gauge needle as parts of their own. The Spritzer's pump
+  and the Stink Lobber's bomb and fuse are parts of their own too
+  (`WeaponArt` meshes now have a role and may be `moving`).
+- Animation (`WeaponFx`, `WeaponFxController`): recoil on springs (back,
+  up and a little to a side, swinging past rest and home), an equip that
+  overshoots and twirls the light guns, an idle sway and a walking bob;
+  the pumps pump on every shot, the gauge's needle drops with the
+  pressure and climbs back, the Stink Lobber's bomb goes with the throw
+  and grows back; the gas flashes on every shot and a hot barrel smokes.
+- Shots: every gun's muzzle flashes light and throws a shock ring (a new
+  Blender mesh); the bolt lights the walls it passes and leaves a trail
+  of smoke (droplets for the Spritzer); where it hits, a flash of light
+  and a ring with the splat; a player you hit flashes white; your own
+  shots kick the camera a little with every gun. Reduced effects leave
+  all of it out but the bolt.
+- Specs: `WeaponArt` checks the packed meshes (sizes, facing), building
+  and dressing, the moving parts, the springs, twirl, sway and bob, and
+  the new effects.
+
 ## 0.11.0: the Gas Blaster remodelled, and new shooting graphics
 
 - The Gas Blaster, the starter gun, is remodelled in Blender: a gas

@@ -10,6 +10,7 @@ local shots: { [string]: Shot } = {
 	MuzzleBurst = { size = Vector3.new(1.6383, 1.6383, 1.53), triangles = 354 },
 	GasBolt = { size = Vector3.new(1, 1, 2.9), triangles = 608 },
 	Splat = { size = Vector3.new(2.9244, 3.0134, 0.1), triangles = 364 },
+	ShockRing = { size = Vector3.new(1.99, 1.99, 0.14), triangles = 1280 },
 }
 
 return shots
