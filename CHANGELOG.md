@@ -1,5 +1,32 @@
 # Changelog
 
+## Phase 3, milestone 1: saving, coins, XP and levels
+
+- `DataService`: player profiles in a DataStore, with every field the
+  masterplan lists. Session locks (another server's is waited on for 15 s,
+  then taken; a crashed server's is taken at once; a server that loses its
+  lock stops saving), retries with backoff, versioned migrations that
+  repair partial or damaged saves, autosave every minute, saves on leaving
+  and on shutdown. When a profile can't load, a temporary one that never
+  saves.
+- `EconomyService` and `ProgressionConfig`: coins and XP for eliminations,
+  assists, chain and barrel kills, the 5-kill streak and 5 / 10 minutes of
+  active play; each grant once, by a unique ID, within per-grant limits,
+  logged in the profile's ledger and counted by source. Levels 1-50 with
+  their unlocks, the level-50 reward and badge, a repeat reward every
+  5,000 XP after it, lifetime XP. Weapon mastery at 25 / 75 / 150 / 300
+  eliminations. Lifetime eliminations, deaths, best streak and playtime.
+  Anomalous coin gains are logged.
+- Client: `ProgressController` shows coins, level, the XP bar and the next
+  goal; reward lines; the level-up banner; whether progress is saving.
+- The new `ProgressEvent` remote (server → one client). The weapon that
+  fired the final shot now travels with gas and eliminations;
+  `EliminationService` gains an `Alpha` signal, and `Eliminated` carries
+  one record.
+- Test commands `/fw coins`, `/fw xp`, `/fw profile`; `/fw stats` adds
+  coins and XP granted, temporary profiles and save failures.
+- New specs: `Data` and `Economy`.
+
 ## Phase 2, milestone 2: chain reactions and gas barrels
 
 - `ExplosionService`: an exploding player blasts 40% gas onto the

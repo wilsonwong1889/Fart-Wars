@@ -35,6 +35,8 @@ export type Source = {
 	team: string?,
 	cause: string, -- "shot", "chain", "barrel", "test"
 	chainDepth: number?,
+	-- The weapon that fired it (shots only), for weapon mastery.
+	weapon: string?,
 }
 
 type Meter = {
@@ -51,6 +53,7 @@ type Meter = {
 	exploded: boolean,
 	cause: string,
 	chainDepth: number,
+	weapon: string?,
 }
 local meters: { [Player]: Meter } = {}
 local started = false
@@ -94,6 +97,7 @@ local function meter(player: Player): Meter?
 		exploded = false,
 		cause = "shot",
 		chainDepth = 0,
+		weapon = nil,
 	}
 	meters[player] = fresh
 	return fresh
@@ -153,6 +157,7 @@ function GasService.explode(victim: Player)
 		victimTeam = m.victimTeam,
 		assists = assists,
 		cause = m.cause,
+		weapon = m.weapon,
 	})
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
@@ -169,6 +174,7 @@ local function beginExplosion(victim: Player, m: Meter, source: Source)
 	m.exploding = true
 	m.cause = source.cause
 	m.chainDepth = source.chainDepth or 0
+	m.weapon = source.weapon
 	local character = m.character
 	character:SetAttribute("ExplodesAt", now() + GAS.EXPLOSION_COUNTDOWN_SECONDS)
 	Telemetry.count("Gas.countdowns")

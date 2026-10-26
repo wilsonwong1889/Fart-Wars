@@ -4,11 +4,13 @@
 --   T.score("Stinkers", 3)   T.endPhase(5)   T.reloadMap()   T.idle(player, 44)
 --   T.spawn(player)   T.team(player, "sharters")   T.resetGas(player)
 --   T.gas(player, 95)   T.weapon(player, "GasBlaster")   T.barrels()   T.stats()
+--   T.coins(player, 500)   T.xp(player, 1000)   T.profile(player)
 -- or as chat commands from a player who may use them (anyone in Studio; in
 -- live servers only GameConfig.TEST_CONTROLS.USER_IDS), with /fw or !fw:
 --   /fw score stinkers 3   /fw end 5   /fw reloadmap   /fw idle 44
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
+--   /fw coins 500   /fw xp 1000   /fw profile
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -28,6 +30,8 @@ local PlayerLifecycleService = require(Services.PlayerLifecycleService)
 local CombatService = require(Services.CombatService)
 local GasService = require(Services.GasService)
 local BarrelService = require(Services.BarrelService)
+local DataService = require(Services.DataService)
+local EconomyService = require(Services.EconomyService)
 local Messages = require(script.Parent.Messages)
 local Telemetry = require(script.Parent.Telemetry)
 
@@ -151,6 +155,40 @@ function TestControls.barrels(): (boolean, string)
 	return true, `{#BarrelService.all()} barrels reset`
 end
 
+-- Coins and XP through the normal grant path (ledger, level-ups, unlocks).
+function TestControls.coins(player: Player, amount: number?): (boolean, string)
+	if not (TestControls.allowed(nil) and amount) then
+		return false, "usage: coins <n>"
+	end
+	local ok = EconomyService.testGrant(player, math.floor(amount), 0)
+	return ok, if ok then `{player.Name} gets {math.floor(amount)} coins` else "refused (over the per-grant limit?)"
+end
+
+function TestControls.xp(player: Player, amount: number?): (boolean, string)
+	if not (TestControls.allowed(nil) and amount) then
+		return false, "usage: xp <n>"
+	end
+	local ok = EconomyService.testGrant(player, 0, math.floor(amount))
+	return ok, if ok then `{player.Name} gets {math.floor(amount)} XP` else "refused (over the per-grant limit?)"
+end
+
+-- The player's saved progress at a glance.
+function TestControls.profile(player: Player): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	local profile = DataService.get(player)
+	if not profile then
+		return false, `{player.Name}'s profile is still loading`
+	end
+	local d = profile.data
+	return true,
+		`{player.Name}: level {d.Level} ({d.XP}/{EconomyService.xpToNext(d)} XP, {d.LifetimeXP} lifetime), {d.Coins} coins, `
+			.. `{d.TotalEliminations} eliminations, {d.TotalDeaths} deaths, best streak {d.BestStreak}, `
+			.. `weapons {table.concat(d.OwnedWeapons, "/")}, abilities {if #d.UnlockedAbilities > 0 then table.concat(d.UnlockedAbilities, "/") else "none"}, `
+			.. (if profile.temporary then "NOT SAVING (temporary profile)" else "saving")
+end
+
 -- A short summary of the server's counters (all of it goes to the output).
 function TestControls.stats(): (boolean, string)
 	local snapshot = Telemetry.snapshot()
@@ -165,13 +203,23 @@ function TestControls.stats(): (boolean, string)
 	end
 	local counters = snapshot.counters
 	print("[FW] stats", game:GetService("HttpService"):JSONEncode(snapshot))
+	local coins, xp = 0, 0
+	for key, n in counters do
+		if string.sub(key, 1, 14) == "Economy.coins." then
+			coins += n
+		elseif string.sub(key, 1, 11) == "Economy.xp." then
+			xp += n
+		end
+	end
 	local eliminations = counters["Elimination.elimination"] or 0
 	local perMinute = eliminations / math.max(1, snapshot.uptimeSeconds / 60)
 	return true,
 		`shots {counters["Combat.shots"] or 0}, hits {counters["Combat.hits"] or 0}, eliminations {eliminations} ({string.format("%.1f", perMinute)}/min), `
 			.. `barrel kills {counters["Elimination.cause.barrel"] or 0}, chain kills {counters["Elimination.cause.chain"] or 0}, `
 			.. `spawn deaths {counters["Lifecycle.spawnDeaths"] or 0}, dashes {counters["Dash.dashes"] or 0}, `
-			.. `gas recovered {math.floor(counters["Gas.recovered"] or 0)}%, rejected {rejected}, errors {errored}`
+			.. `gas recovered {math.floor(counters["Gas.recovered"] or 0)}%, coins granted {coins}, XP granted {xp}, `
+			.. `temporary profiles {counters["Data.temporaryProfiles"] or 0}, save failures {counters["Data.saveFailures"] or 0}, `
+			.. `rejected {rejected}, errors {errored}`
 end
 
 -- Runs one chat command; returns what happened, or nil if it wasn't one.
@@ -181,7 +229,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, stats"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, stats"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -202,6 +250,12 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.weapon(player, words[3])
 	elseif command == "barrels" then
 		ok, message = TestControls.barrels()
+	elseif command == "coins" then
+		ok, message = TestControls.coins(player, tonumber(words[3]))
+	elseif command == "xp" then
+		ok, message = TestControls.xp(player, tonumber(words[3]))
+	elseif command == "profile" then
+		ok, message = TestControls.profile(player)
 	elseif command == "stats" then
 		ok, message = TestControls.stats()
 	end

@@ -21,6 +21,7 @@ local flagged: { [Player]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local joinedAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local firsts: { [Player]: { [string]: boolean } } = setmetatable({}, { __mode = "k" }) :: any
 local timings: { [string]: { count: number, total: number } } = {}
+local samples: { [string]: { count: number, total: number } } = {}
 local startedAt = workspace:GetServerTimeNow()
 
 local function now(): number
@@ -131,6 +132,15 @@ function Telemetry.time(kind: string, seconds: number)
 	timing.total += seconds
 end
 
+-- Adds one value of `kind` (not a time: coins a session, a balance) to its
+-- running average.
+function Telemetry.sample(kind: string, value: number)
+	local entry = samples[kind] or { count = 0, total = 0 }
+	samples[kind] = entry
+	entry.count += 1
+	entry.total += value
+end
+
 function Telemetry.left(player: Player)
 	local started = joinedAt[player]
 	if started then
@@ -143,13 +153,17 @@ function Telemetry.left(player: Player)
 	firsts[player] = nil
 end
 
--- Everything so far, as plain tables: counters, errors, rejects, and the
+-- Everything so far, as plain tables: counters, errors, rejects, the
 -- average seconds of each timing (firsts per session, time to explosion,
--- session length) with how many there were.
+-- session length) with how many there were, and the average of each sample.
 function Telemetry.snapshot(): { [string]: any }
 	local averages = {}
 	for kind, timing in timings do
 		averages[kind] = { players = timing.count, averageSeconds = timing.total / math.max(1, timing.count) }
+	end
+	local sampleAverages = {}
+	for kind, entry in samples do
+		sampleAverages[kind] = { count = entry.count, average = entry.total / math.max(1, entry.count) }
 	end
 	local rejectCopy = {}
 	for remote, reasons in rejects do
@@ -161,6 +175,7 @@ function Telemetry.snapshot(): { [string]: any }
 		errors = table.clone(errors),
 		rejects = rejectCopy,
 		firsts = averages,
+		samples = sampleAverages,
 	}
 end
 

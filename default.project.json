@@ -37,6 +37,9 @@
         },
         "CombatEvent": {
           "$className": "RemoteEvent"
+        },
+        "ProgressEvent": {
+          "$className": "RemoteEvent"
         }
       }
     },

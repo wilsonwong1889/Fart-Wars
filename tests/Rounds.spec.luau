@@ -197,7 +197,7 @@ for _, remote in Remotes:GetChildren() do
 end
 table.sort(names)
 check(
-	table.concat(names, ",") == "CombatEvent,FartDash,FireWeapon,RequestPlay,RequestSpectate,RequestTeam,RoundSnapshot,RoundUpdate,TeamUpdate,UIMessage",
+	table.concat(names, ",") == "CombatEvent,FartDash,FireWeapon,ProgressEvent,RequestPlay,RequestSpectate,RequestTeam,RoundSnapshot,RoundUpdate,TeamUpdate,UIMessage",
 	"exactly the planned remotes"
 )
 check(type(Remotes.RoundSnapshot.OnServerInvoke) == "function", "the snapshot can be asked for")

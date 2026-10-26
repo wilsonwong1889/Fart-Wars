@@ -187,6 +187,7 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	local landed = GasService.add(victim, if headshot then weapon.headshotGas else weapon.gasPerHit, {
 		attacker = player,
 		cause = "shot",
+		weapon = weapon.id,
 	})
 	if landed then
 		table.insert(entry.hits, at)

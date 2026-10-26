@@ -3,14 +3,16 @@
 **Fart Wars** is a Roblox team game: the **Skibidi Stinkers** (toxic green)
 against the **Sigma Sharters** (bright yellow) on the Brainrot Battlefield.
 
-This repository holds **Phase 1** (the foundation) and **Phase 2** (combat
-and chaos) of the six-phase masterplan. Two or more players join a running
+This repository holds **Phase 1** (the foundation), **Phase 2** (combat
+and chaos) and the first half of **Phase 3** (saving, coins, XP and levels)
+of the six-phase masterplan. Two or more players join a running
 server, press PLAY, land on balanced teams, and blast each other with the
 Gas Blaster on a symmetrical three-lane map until someone inflates and
 explodes. Five-minute rounds end in a win or draw, a 15-second intermission
 follows, and the next round starts with no server restart. Continuous play
-(no rounds) is one setting away. Coins, levels, the shop and the rest
-arrive in later phases.
+(no rounds) is one setting away. Eliminations, assists, streaks and time
+played earn coins and XP toward levels 1-50, saved between sessions. The
+shop, loadouts and the new weapons and abilities are next.
 
 ## Getting started
 
@@ -23,6 +25,10 @@ arrive in later phases.
 5. Press **Play** to try it alone, or **Test → Clients and Servers** with two
    or more players for a real round. With one player you stay in WAITING;
    a second player on the other team starts the round.
+6. To test saving in Studio, publish the place once, then turn on **Game
+   Settings → Security → Enable Studio Access to API Services**. Without
+   it the game still runs, on temporary profiles that never save (the HUD
+   says so, and the output warns once).
 
 Studio publishes to the private experience as usual. Nothing in this
 repository holds credentials or API keys, and nothing should.
@@ -49,6 +55,10 @@ repository holds credentials or API keys, and nothing should.
 | Barrels | 12 gas barrels in the middle. Two shots light the fuse; 0.6 s later they blast 40% gas onto the last shooter's enemies within 16 studs, set off nearby barrels, and come back 20 s later |
 | Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
+| Coins and XP | elimination 10 coins / 20 XP, assist 5 / 10, chain or barrel kill +5 coins, the 5-kill streak 50 / 100, 5 and 10 minutes of play 25 / 50 and 75 / 100 (once a session). Coins are spent in the shop (next milestone); XP only levels you up |
+| Levels | 1 to 50 on a rising curve (100 XP for level 2). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
+| Mastery | 25 / 75 / 150 / 300 eliminations with a weapon: a badge and 100 / 250 / 500 / 1,000 coins each, once |
+| Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
 Space jump, V first/third person, M menu, Tab (hold) scoreboard. Q, R and F
@@ -73,10 +83,10 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `TestControls`, `Messages`, `RateLimit` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
@@ -104,8 +114,10 @@ else.
 | `ExplosionService` | blasts from explosions: gas to the owner's enemies in range and in sight, chain depth limit, a per-tick budget |
 | `BarrelService` | gas barrels: health, fuse, ownership by the last shot, blasts, respawn |
 | `DashService` | Fart Dash: cooldown and travel checks |
+| `DataService` | player profiles: session-locked loads with retries, migrations, autosave, leave and shutdown saves, temporary profiles when DataStores are down; the only module that touches the DataStore |
+| `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, time to first shot / hit / elimination |
-| Client controllers | `InputController`, `CameraController`, `CombatController`, `HUDController`, `HomeController`: render, capture input, switch camera, fire and dash; they never decide teams, hits or results |
+| Client controllers | `InputController`, `CameraController`, `CombatController`, `EffectsController`, `HUDController`, `ProgressController`, `HomeController`: render, capture input, switch camera, fire and dash; they never decide teams, hits, results or rewards |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -116,8 +128,9 @@ Clients only state intent: PLAY (with an optional team), a team choice or
 switch, spectate, which way they're aiming, a dash. The server re-checks
 state, capacity, eligibility, fire interval, payload types and a per-player
 cooldown, casts every shot itself, and never accepts a hit, score, timer or
-team count from a client. `RoundSnapshot` answers with the current round;
-`RoundUpdate`, `TeamUpdate`, `UIMessage` and `CombatEvent` go from the
+team count from a client, and there's no remote at all for coins, XP or
+levels. `RoundSnapshot` answers with the current round; `RoundUpdate`,
+`TeamUpdate`, `UIMessage`, `CombatEvent` and `ProgressEvent` go from the
 server to clients. Exact payloads are in
 [`docs/implementation-packet.md`](docs/implementation-packet.md).
 
@@ -165,8 +178,12 @@ Chat (`/fw` or `!fw`):
 /fw gas 95               set your gas (100 starts your countdown)
 /fw weapon gasblaster    equip a weapon by id
 /fw barrels              every gas barrel back, full
+/fw coins 500            coins through the normal grant path (ledger and all)
+/fw xp 1000              XP the same way (level-ups, unlocks)
+/fw profile              your saved progress, and whether it's saving
 /fw stats                shots, hits, eliminations a minute, barrel and chain kills,
-                         spawn deaths, dashes, gas recovered, rejected requests, errors
+                         spawn deaths, dashes, gas recovered, coins and XP granted,
+                         temporary profiles, save failures, rejected requests, errors
 ```
 
 Or the server command bar in Studio:
@@ -175,6 +192,7 @@ Or the server command bar in Studio:
 local T = require(game.ServerScriptService.Server.TestControls)
 T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
 T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.barrels(); T.stats()
+T.coins(p, 500); T.xp(p, 1000); T.profile(p)
 ```
 
 ## Tests
@@ -198,6 +216,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Gas` | gas stages, clamping, recovery and its interruption, 99 to 100, simultaneous hits, assists, leaving or spectating mid-countdown, no double kills |
 | `Streak` | "BRO IS THE ALPHA FART!" once at five, resets, two at once; the client's banner, inflation and effect pool |
 | `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
+| `Data` | saving against a stand-in DataStore: defaults, autosave, leave and rejoin, session locks (waiting, taking a stuck or stale one, losing one), outages, newer saves, migrations, failed writes, leaving mid-load, rejoining mid-save, shutdown, ten joins at once |
+| `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
@@ -206,9 +226,10 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
 
 The stand-ins have almost no physics and no rendering, so Studio stays the
-final word: [`docs/phase-1-checklist.md`](docs/phase-1-checklist.md) and
-[`docs/phase-2-checklist.md`](docs/phase-2-checklist.md) list what still
-needs a multi-client Studio test.
+final word: [`docs/phase-1-checklist.md`](docs/phase-1-checklist.md),
+[`docs/phase-2-checklist.md`](docs/phase-2-checklist.md) and
+[`docs/phase-3-checklist.md`](docs/phase-3-checklist.md) list what still
+needs a Studio test.
 
 For type checking against the Roblox API, use
 [luau-lsp](https://github.com/JohnnyMorganz/luau-lsp):
@@ -276,26 +297,48 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
   puffs). There's no separate settings screen yet.
 
-## Handoff to Phase 3: Progression & Economy
+## Phase 3 decisions (so far)
 
-Phase 3 adds coins and XP, levels 1-50, the shop, loadouts, weapon mastery
-and saving. The places it plugs into:
+- **Rewards are paid when they happen, on the server.** Each grant is
+  written into the profile at once with a unique ID (from the
+  elimination's event ID), so a repeat is refused and leaving mid-animation
+  loses nothing; the client only shows it.
+- **Participation is once a session**, for time actually ACTIVE (on a team
+  with an avatar). The home screen, spectating and AFK time earn nothing,
+  so idling pays nothing.
+- **Mastery counts eliminations made with the weapon's shot.** Chain and
+  barrel kills still pay, but don't count toward a weapon. Milestones pay
+  themselves out; there's nothing to claim.
+- **Playtime is active time** (`TotalPlaytime`, seconds).
+- **Level unlocks:** abilities and cosmetics are granted at their level;
+  weapons only go on sale. Until the next milestone adds the shop and the
+  new weapons and abilities, the unlocks are recorded in the profile and
+  announced, but there's nothing to equip yet.
+- **A profile that won't load is never written.** If DataStores are down
+  (or it's Studio without API access, or the save comes from a newer
+  version), the player gets a temporary profile, the HUD says progress
+  isn't saving, and nothing overwrites the real one.
+- **Another server's lock is waited on for 15 seconds**, then taken; a lock
+  not refreshed for 3 minutes (a crashed server) is taken at once. A server
+  that finds its lock taken stops saving that profile.
 
-- `EliminationService.Eliminated(victim, killer, assists, cause, eventId)`
-  is the one event for elimination, assist, chain and streak rewards; the
-  event ID makes a reward idempotent.
-- `EliminationService.statsOf(player)` holds eliminations, deaths and best
-  streak for the save.
-- `WeaponConfig` and `AbilityConfig` follow the masterplan's contracts;
-  `CombatService.setWeapon` equips, and `AbilityConfig.ownership` is where
-  unlocks go.
-- `PlayerLifecycleService` tracks `activeSecondsThisRound`, and
-  `RoundService.lastParticipation()` keeps it per round for the 5- and
-  10-minute participation rewards; AFK time never counts.
-- `Telemetry` already counts eliminations a minute, time to explosion,
-  recovery, dashes, barrel and spawn deaths: the playtest metrics.
-- `GameModeBase.new` for new modes; `MapConfig` plus `ServerStorage.Maps`
-  for new maps. `RoundService` needs no change for either.
+## Next: Phase 3, milestone 2
+
+The shop, loadouts and the rest of the unlock table:
+
+- the Spritzer, Thunderclapper and Stink Lobber, each a different
+  playstyle rather than a bigger number;
+- Recovery Burst and Gas Pulse on Q;
+- a shop that checks coins and eligibility on the server and saves the
+  purchase before confirming it; loadouts applied on the next safe respawn;
+- Weapons, Abilities and Progression screens (badges, mastery, the cosmetic
+  tracers) in the menu: Play, Weapons, Abilities, Progression, Settings.
+
+The places it plugs into: `DataService.update` and the profile's
+`OwnedWeapons` / `EquippedWeapon` / `UnlockedAbilities` /
+`EquippedAbility` / `OwnedCosmetics` / `EquippedCosmetic` fields,
+`EconomyService.grant` for anything that pays, `CombatService.setWeapon`,
+and `ProgressionConfig.unlocks` for what a level allows.
 
 Later phases: rewards, challenges, cosmetics and monetization (4);
 full-server testing, optimization and the public beta (5); new modes and

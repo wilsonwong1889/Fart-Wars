@@ -18,7 +18,7 @@ feel, performance and visuals need Studio.
 | Barrel-to-player-to-barrel chains | Chaos |
 | Kill attribution | Gas (killer, assists, leavers), Chaos (chains, barrels, last shot) |
 | No double rewards on repeated death or duplicated remote calls | Combat (shooting the body), Gas (exploding twice), Combat (duplicate shot numbers) |
-| Server restart during combat | nothing persists yet (Phase 3 adds saving); a restart starts every meter at 0 |
+| Server restart during combat | Data (shutdown saves every profile); gas meters and streaks aren't saved, so a restart starts them at 0 |
 
 ## Playtest metrics
 
@@ -39,8 +39,9 @@ Laughter, frustration and readability come from playtesters, not counters.
 
 - [ ] 20-player load test with effects on: the server stays responsive, no
       severe memory growth or repeated errors (`/fw stats` errors stay 0).
-- [ ] Players keep fighting without progression rewards. Only then start
-      Phase 3.
+- [ ] Players keep fighting without progression rewards. (Phase 3 is under
+      way; the playtest is still worth running with
+      `FeatureFlags.PROGRESSION = false`.)
 
 ## Still to check in Studio
 

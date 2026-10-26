@@ -26,6 +26,21 @@ local UIConfig = {
 	}),
 	afkWarning = "BRO FELL ASLEEP MID-FART!",
 
+	-- What each reward line says it was for.
+	rewardReasons = table.freeze({
+		elimination = "Elimination",
+		assist = "Assist",
+		chainBonus = "Chain reaction",
+		alpha = "Alpha streak",
+		participation = "Time played",
+		levelCap = "Level 50",
+		levelCapRepeat = "Level 50 bonus",
+		mastery = "Mastery",
+		test = "Test",
+	}),
+	rewardSeconds = 2.5,
+	levelUpSeconds = 3.5,
+
 	-- Home screen and M menu entries that arrive in later phases.
 	comingSoon = table.freeze({ "Weapons", "Abilities", "Shop", "Rewards", "Profile", "Settings", "Leaderboard" }),
 

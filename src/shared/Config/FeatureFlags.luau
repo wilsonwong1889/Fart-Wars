@@ -14,6 +14,10 @@ return table.freeze({
 	-- Shift: Fart Dash. On for everyone until Phase 3 adds unlocks.
 	FART_DASH = true,
 
+	-- Coins, XP and levels for playing. Off, nothing is paid (stats still
+	-- count, and saving still runs): for playtests of the combat alone.
+	PROGRESSION = true,
+
 	-- A few seconds of protection after each spawn; firing ends it early.
 	SPAWN_PROTECTION = true,
 

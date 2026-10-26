@@ -52,17 +52,19 @@ local remotes = {
 	FireWeapon = "RemoteEvent",
 	FartDash = "RemoteEvent",
 	CombatEvent = "RemoteEvent",
+	ProgressEvent = "RemoteEvent",
 }
 local present = 0
 for _, child in ReplicatedStorage.Remotes:GetChildren() do
 	check(remotes[child.Name] == child.ClassName, `{child.Name} is a planned {remotes[child.Name] or "?"}`)
 	present += 1
 end
-check(present == 10, "all ten remotes, nothing else")
+check(present == 11, "all eleven remotes, nothing else")
 
 local FeatureFlags = require(shared.Config.FeatureFlags)
 check(FeatureFlags.MATCH_MODE == "Rounds", "5-minute rounds by default")
 check(FeatureFlags.GAS_COMBAT and FeatureFlags.FART_DASH and FeatureFlags.SPAWN_PROTECTION, "gas combat is on")
+check(FeatureFlags.PROGRESSION, "progression is on")
 check(table.isfrozen(FeatureFlags), "flags can't change at runtime")
 local WeaponConfig = require(shared.Config.WeaponConfig)
 check(WeaponConfig.weapons[WeaponConfig.default], "the default weapon exists")

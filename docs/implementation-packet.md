@@ -2,8 +2,8 @@
 
 What the masterplan (section 1.5) asks each phase to hand over: the folder
 tree, module contracts, exact remote payloads, feature flags, test cases
-and known bugs. It describes the code as it is (Phases 1 and 2); update it
-with the code.
+and known bugs. It describes the code as it is (Phases 1 and 2, and
+Phase 3 milestone 1); update it with the code.
 
 ## Folder tree
 
@@ -18,6 +18,7 @@ src/
       MapConfig.luau            maps: template, spawns, bounds, modes, theme
       WeaponConfig.luau         weapons by the masterplan's contract
       AbilityConfig.luau        abilities by the masterplan's contract (Fart Dash)
+      ProgressionConfig.luau    coin and XP grants, the level curve, unlocks, mastery, limits
       AudioConfig.luau          sound asset IDs by name (empty = silent)
       UIConfig.luau             palette, words, key bindings, controls card
     Interfaces/
@@ -41,7 +42,7 @@ src/
     ClientState.luau            snapshot, counts, state, messages
     UI.luau                     UI building helpers
     Audio.luau                  plays AudioConfig sounds
-    Controllers/                Input, Camera, Combat, Effects, HUD, Home
+    Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Home
 tests/                          specs + the Roblox stand-in harness
 scripts/run_specs.py            runs the specs on the Luau CLI
 ```
@@ -52,19 +53,21 @@ Services start in this order and never require one that starts later.
 
 | Module | Public API |
 | --- | --- |
+| `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `setStore(store)` (specs), signal `Loaded(player, profile)` |
 | `MapService` | `load(mapId) -> Model` (errors on a broken map), `current()`, `spawns(teamId)`, `safeSpawn(teamId, enemyPositions)`, `cameraPoints()`, signal `Loaded(model, entry)` |
 | `MatchScoreService` | `reset()`, `open(mode, context, endsAt)`, `closeAt(t)`, `freeze()`, `isOpen()`, `getScores()`, `recordElimination(event) -> boolean`, `testAddElimination(team, n)`, signal `Changed` |
 | `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `testSetTeam(player, team)`, signal `Changed` |
 | `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
-| `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signal `Eliminated(victim, killer?, assists, cause, eventId)` |
-| `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth? }) -> boolean`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
+| `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
+| `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
 | `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signal `PartHit(shooter, part, weapon, from)` |
 | `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
 | `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()` |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
+| `EconomyService` | `start()`, `grant(player, id, reason, coins, xp) -> boolean`, `xpToNext(data)`, `publish(player)`, `tick(dt)`, `activeSecondsOf(player)`, `testGrant(player, coins, xp)` |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
-| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `snapshot()` |
+| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `snapshot()` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
 | `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores? }) -> (team?, why)`, `bestTeams`, `preferenceAllowed`, `canSwitch`, `canStart`, `spread`, `spreadAfterJoin` |
@@ -86,6 +89,7 @@ reason.
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
+| `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
 | `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
@@ -93,7 +97,8 @@ Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `disabled`.
 
 Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
-`Weapon`. Character attributes: `ProtectedUntil`, `Gas` (0-100),
+`Weapon`, `Coins`, `Level`, `XP` (toward the next level), `XPToNext`,
+`LifetimeXP`, `DataStatus` (`loading`, `ready`, `unsaved`). Character attributes: `ProtectedUntil`, `Gas` (0-100),
 `GasStage` (0-4), `ExplodesAt` (server time). Gas barrel attributes:
 `Health`, `Ready`, `FuseAt` (server time).
 
@@ -106,6 +111,7 @@ Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 | `MATCH_MODE` | `"Rounds"` | `"Rounds"`: 5-minute rounds, 15-second results. `"Continuous"`: one endless match, joining is PLAY |
 | `GAS_COMBAT` | on | the Gas Blaster, gas meter and explosions |
 | `FART_DASH` | on | Shift dash (unlocks arrive in Phase 3) |
+| `PROGRESSION` | on | coins, XP and levels; off pays nothing (stats and saving carry on), for combat-only playtests |
 | `SPAWN_PROTECTION` | on | 3 seconds after each spawn, ended by firing |
 | `TEAMMATE_HIGHLIGHTS` | on | teammates outlined |
 | `DEBUG_LOGS` | on | `[FW]` lines in the output |
@@ -123,6 +129,8 @@ it proves.
 | `Gas` | 2.2 stages, clamping, recovery and interruption, 99 to 100, simultaneous hits, disconnects mid-countdown; 2.3 one kill per explosion, killer and assists |
 | `Streak` | 2.4 the five-kill call, once, reset on death, rate-limited; inflation visuals and the effect pool |
 | `Chaos` | 2.3 chain reactions, depth limit, per-tick budget, friendly fire off, barrels (health, fuse, radius, respawn, attribution); 2.5 barrel-player-barrel chains, kill attribution |
+| `Data` | 3.4 DataStore retries and backoff, session locking, autosave, leave and shutdown saves, versioned migrations, partial saves, failed writes, concurrent joins; 3.5 DataStore outages, invalid equipped items |
+| `Economy` | 3.1 grants with unique IDs, no double awards, limits, audit ledger, source breakdowns, idle farming, anomalous gains; 3.2 levels 1-50, unlocks, cap and repeat rewards, lifetime XP, rewards never lost; 3.4 mastery once per milestone; 3.5 repeated reward triggers, max level, HUD |
 | `Continuous` | 1.1 continuous core loop behind its flag |
 | `Lifecycle` | 1.3 joining, spawning, churn without duplicate avatars or bad counts |
 | `QAMatrix` | the Phase 1 plan's QA matrix |
@@ -131,6 +139,31 @@ it proves.
 | `TeamBalance` | 1.3 smaller-team joins, deterministic ties, fair switches |
 | `ClientShell` | 1.4 PC input, HUD, camera, menus |
 | `Modes`, `Structure` | contracts, config, flags, weapon contract, no require cycles |
+
+## Save format
+
+One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `Coins` | number | spendable |
+| `XP` | number | toward the next level (at 50, toward the next repeat reward) |
+| `Level` | number | 1-50 |
+| `LifetimeXP` | number | every XP point ever earned |
+| `TotalEliminations`, `TotalDeaths`, `BestStreak` | number | lifetime stats |
+| `OwnedWeapons` | { string } | always includes `GasBlaster` |
+| `EquippedWeapon` | string | an owned weapon, else the default on load |
+| `UnlockedAbilities`, `OwnedCosmetics`, `Badges` | { string } | |
+| `EquippedAbility`, `EquippedCosmetic` | string? | cleared on load if not owned |
+| `WeaponMastery` | { [weaponId]: { Eliminations, Claimed: { milestone } } } | |
+| `TotalPlaytime` | number | active seconds |
+| `CapRewards` | number | repeat rewards paid past level 50 |
+| `Ledger` | { { id, reason, coins, xp, at } } | the last 20 transactions |
+| `Lock` | { Job, At }? | the server holding the profile; absent when free |
+
+A new field gets a default in `DataService.defaults()`; `migrate` fills it
+in for older saves. Bump `VERSION` only for a change `migrate` must handle
+specially; an older server never writes a newer save.
 
 ## Known bugs and limits
 
@@ -144,5 +177,10 @@ it proves.
 - Sounds are empty `AudioConfig` slots until real assets are uploaded.
 - Third-person aim follows the free mouse cursor; a shoulder camera may
   feel better and is worth trying in playtests.
+- Saving is only proven against a stand-in DataStore in the specs; a real
+  DataStore run (Studio with API access, then a live server) is on the
+  Phase 3 checklist.
+- Participation is per session: rejoining starts the 5- and 10-minute
+  clock again (the time still has to be played).
 - Not yet verified in Studio: everything above passes in the spec harness
-  only. The checklist lists the Studio runs still needed.
+  only. The checklists list the Studio runs still needed.

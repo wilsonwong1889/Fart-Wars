@@ -11,4 +11,6 @@ return table.freeze({
 	dash = "", -- Fart Dash
 	alpha = "", -- BRO IS THE ALPHA FART!
 	barrel = "", -- a gas barrel exploding
+	coins = "", -- you earned coins
+	levelUp = "", -- you reached a new level
 })

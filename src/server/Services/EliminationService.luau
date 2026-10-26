@@ -4,6 +4,7 @@
 -- assist. Kills in a row without dying build a streak; reaching
 -- STREAK.ALPHA_AT tells the whole server "BRO IS THE ALPHA FART!" once.
 -- Streaks end with any death; the best one is kept for the session.
+-- Other services hear about it through Eliminated and Alpha (rewards).
 --   CombatEvent { kind = "elimination", event, victim, killer?, team?, assists, cause }
 --   CombatEvent { kind = "alpha", player, text }
 local Players = game:GetService("Players")
@@ -22,8 +23,10 @@ local STREAK = GameConfig.STREAK
 
 local EliminationService = {}
 
--- (victim, killer?, assists, cause, eventId)
+-- (Elimination): a death was credited.
 EliminationService.Eliminated = Signal.new()
+-- (player, eventId): `player` reached STREAK.ALPHA_AT with that kill.
+EliminationService.Alpha = Signal.new()
 
 export type Info = {
 	killer: Player?,
@@ -33,6 +36,18 @@ export type Info = {
 	victimTeam: string?,
 	assists: { Player }?,
 	cause: string, -- "shot", "chain", "barrel", "test"
+	-- The weapon whose shot set off the explosion (shots only).
+	weapon: string?,
+}
+export type Elimination = {
+	event: number,
+	victim: Player,
+	killer: Player?,
+	assists: { Player },
+	cause: string,
+	weapon: string?,
+	-- Whether it scored for the round (the round was live).
+	counted: boolean,
 }
 
 type Record = { streak: number, bestStreak: number, eliminations: number, deaths: number }
@@ -123,6 +138,7 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		entry.bestStreak = math.max(entry.bestStreak, entry.streak)
 		if entry.streak == STREAK.ALPHA_AT then
 			announce(killer)
+			EliminationService.Alpha:Fire(killer, eventId)
 		end
 		Telemetry.first(killer, "elimination")
 	end
@@ -155,7 +171,16 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		assists = assistIds,
 		cause = info.cause,
 	})
-	EliminationService.Eliminated:Fire(victim, killer, assists, info.cause, eventId)
+	local elimination: Elimination = {
+		event = eventId,
+		victim = victim,
+		killer = killer,
+		assists = assists,
+		cause = info.cause,
+		weapon = if killer and info.cause == "shot" then info.weapon else nil,
+		counted = counted,
+	}
+	EliminationService.Eliminated:Fire(elimination)
 	return eventId
 end
 
