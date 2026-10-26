@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Cadence = require(Server.Cadence)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
@@ -26,11 +27,11 @@ local ExplosionService = require(script.Parent.ExplosionService)
 
 local AbilityService = {}
 
--- How early a request may arrive (network jitter) before it's refused.
+-- Network slack on the cooldown (see Cadence).
 AbilityService.COOLDOWN_TOLERANCE_SECONDS = 0.5
 
 local equipped: { [Player]: string } = {}
-local readyAt: { [Player]: number } = {}
+local cadences: { [Player]: Cadence.State } = {}
 local started = false
 
 local function now(): number
@@ -115,17 +116,19 @@ function AbilityService.use(player: Player): boolean
 		reject(player, "prohibited")
 		return false
 	end
-	local at = now()
-	if readyAt[player] and at < readyAt[player] - AbilityService.COOLDOWN_TOLERANCE_SECONDS then
-		reject(player, "cooldown")
-		return false
-	end
+	-- Before the cooldown, so a refusal here doesn't spend it.
 	if ability.vent and GasService.gasOf(player) <= 0 then
 		reject(player, "noGas")
 		return false
 	end
-	readyAt[player] = at + ability.cooldownSeconds
-	player:SetAttribute("AbilityReadyAt", readyAt[player])
+	local at = now()
+	local cadence = cadences[player] or Cadence.new()
+	cadences[player] = cadence
+	if not Cadence.take(cadence, ability.cooldownSeconds, AbilityService.COOLDOWN_TOLERANCE_SECONDS, at) then
+		reject(player, "cooldown")
+		return false
+	end
+	player:SetAttribute("AbilityReadyAt", at + ability.cooldownSeconds)
 	if ability.endsProtection then
 		PlayerLifecycleService.endProtection(player)
 	end
@@ -151,12 +154,12 @@ function AbilityService.start()
 		AbilityService.use(player)
 	end))
 	PlayerLifecycleService.Died:Connect(function(player)
-		readyAt[player] = nil
+		cadences[player] = nil
 		player:SetAttribute("AbilityReadyAt", nil)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		equipped[player] = nil
-		readyAt[player] = nil
+		cadences[player] = nil
 	end)
 end
 

@@ -94,6 +94,11 @@ function ShopService.buy(player: Player, id: string): Result
 	end
 	Telemetry.count("Shop.purchases")
 	Telemetry.count(`Shop.bought.{id}`)
+	-- The first purchase rate: Shop.firstPurchases over session.joins.
+	if #data.OwnedWeapons == 2 then
+		Telemetry.count("Shop.firstPurchases")
+		Telemetry.first(player, "purchase")
+	end
 	Telemetry.log("Shop", "bought", { player = player, weapon = id, price = weapon.price })
 	LoadoutService.push(player)
 	return result(true, "bought")

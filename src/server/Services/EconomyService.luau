@@ -52,6 +52,8 @@ type Session = {
 	-- Changes waiting for the profile to load.
 	pending: { (Data, { Event }) -> () },
 	activeSeconds: number,
+	-- Participation steps reached (minutes).
+	reached: { [number]: boolean },
 	-- Active seconds not yet in TotalPlaytime (the profile isn't loaded).
 	unsavedPlaytime: number,
 	earned: number,
@@ -145,7 +147,7 @@ local function checkAnomaly(player: Player, session: Session, coins: number)
 	if total > ProgressionConfig.ANOMALY_COINS_PER_MINUTE and not session.flagged then
 		session.flagged = true
 		Telemetry.count("Economy.anomalous")
-		warn(`[FW] anomalous coin gain from {player.UserId}: {total} combat coins in a minute`)
+		Telemetry.flag(player, "anomalousCoins", `{total} combat coins in a minute`)
 	end
 end
 
@@ -346,9 +348,11 @@ function EconomyService.tick(dt: number)
 			session.activeSeconds += dt
 			session.unsavedPlaytime += dt
 			for _, step in ProgressionConfig.participation do
-				local id = `participation:{step.minutes}`
-				if not session.granted[id] and session.activeSeconds >= step.minutes * 60 then
-					EconomyService.grant(player, id, "participation", step.coins, step.xp)
+				if not session.reached[step.minutes] and session.activeSeconds >= step.minutes * 60 then
+					session.reached[step.minutes] = true
+					-- Sessions that get this far (the first-ten-minutes rate).
+					Telemetry.count(`session.reached{step.minutes}Minutes`)
+					EconomyService.grant(player, `participation:{step.minutes}`, "participation", step.coins, step.xp)
 				end
 			end
 			flushPlaytime(session, player)
@@ -378,6 +382,7 @@ local function onJoin(player: Player)
 		granted = {},
 		pending = {},
 		activeSeconds = 0,
+		reached = {},
 		unsavedPlaytime = 0,
 		earned = 0,
 		recent = {},

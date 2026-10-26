@@ -20,7 +20,9 @@
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
 --   TestControls          test-only commands (Studio / allow-list)
--- Telemetry (logs, counters, rejected requests) is used by all of them.
+-- Telemetry (logs, counters, rejected requests, flags) is used by all of
+-- them; Moderation (started first, so banned players are turned away
+-- before anything else) acts on the flags.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -50,7 +52,9 @@ local LoadoutService = require(Services.LoadoutService)
 local ShopService = require(Services.ShopService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
+local Moderation = require(script.Parent.Moderation)
 
+Moderation.start()
 DataService.start()
 MapService.load(GameConfig.DEFAULT_MAP)
 MatchScoreService.reset()

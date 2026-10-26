@@ -50,12 +50,24 @@ local function hidePlayerList()
 	end
 end
 
+-- Roblox's Reset Character would let a gassed player skip their own
+-- explosion; the server credits such deaths anyway, and the button goes.
+local function disableReset()
+	for _ = 1, 10 do
+		if pcall(StarterGui.SetCore, StarterGui, "ResetButtonCallback", false) then
+			return
+		end
+		task.wait(0.5)
+	end
+end
+
 function InputController.start()
 	if started then
 		return
 	end
 	started = true
 	task.spawn(hidePlayerList)
+	task.spawn(disableReset)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return

@@ -29,6 +29,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
+local Settings = require(Client.Settings)
 local CameraController = require(script.Parent.CameraController)
 local InputController = require(script.Parent.InputController)
 
@@ -56,13 +57,10 @@ local pool: { BasePart } = {}
 local poolNext = 0
 local started = false
 
--- Set from the Settings screen: fewer effects whatever the quality.
-EffectsController.reducedSetting = false
-
--- Whether to hold back on effects (the setting, or Roblox graphics quality
+-- Whether to hold back on effects (Settings, or Roblox graphics quality
 -- 1-3). Clouds that gas you are gameplay, so they always show.
 function EffectsController.reduced(): boolean
-	if EffectsController.reducedSetting then
+	if Settings.reducedEffects then
 		return true
 	end
 	local ok, level = pcall(function()

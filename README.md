@@ -17,7 +17,8 @@ cosmetics, all equipped from the locker.
 
 ## Getting started
 
-1. Install [Rojo](https://rojo.space) 7 and its Studio plugin.
+1. Install [Rojo](https://rojo.space) 7.4 or newer (older 7.x releases skip
+   `.luau` files) and its Studio plugin.
 2. Create a place named **Fart Wars - Development** and keep the experience
    **private** while testing. Turn on Team Create if you're collaborating.
 3. In **Game Settings → Places**, set **Max Players** to **20**. A script
@@ -30,6 +31,11 @@ cosmetics, all equipped from the locker.
    Settings → Security → Enable Studio Access to API Services**. Without
    it the game still runs, on temporary profiles that never save (the HUD
    says so, and the output warns once).
+7. Chat `/fw selftest`: it checks the place settings, the map, remotes,
+   teams, DataStore access and chat on the real server, one line each in
+   the output. Then work through
+   [`docs/studio-signoff.md`](docs/studio-signoff.md), the Studio sign-off
+   for Phases 1-3.
 
 Studio publishes to the private experience as usual. Nothing in this
 repository holds credentials or API keys, and nothing should.
@@ -124,7 +130,8 @@ else.
 | `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry; spending and refunds |
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
-| `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, time to first shot / hit / elimination |
+| `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
+| `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
 | Client controllers | `InputController`, `CameraController`, `CombatController`, `EffectsController`, `HUDController`, `ProgressController`, `LockerController`, `HomeController`: render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
@@ -192,6 +199,7 @@ Chat (`/fw` or `!fw`):
 /fw coins 500            coins through the normal grant path (ledger and all)
 /fw xp 1000              XP the same way (level-ups, unlocks)
 /fw profile              your saved progress, and whether it's saving
+/fw selftest             checks this server: settings, map, remotes, teams, DataStores, chat
 /fw stats                shots, hits, eliminations a minute, barrel and chain kills,
                          spawn deaths, dashes, gas recovered, coins and XP granted,
                          temporary profiles, save failures, rejected requests, errors
@@ -203,7 +211,7 @@ Or the server command bar in Studio:
 local T = require(game.ServerScriptService.Server.TestControls)
 T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
 T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.barrels(); T.stats()
-T.coins(p, 500); T.xp(p, 1000); T.profile(p); T.ability(p, "GasPulse")
+T.coins(p, 500); T.xp(p, 1000); T.profile(p); T.ability(p, "GasPulse"); T.selftest(p)
 ```
 
 ## Tests
@@ -229,20 +237,25 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
 | `Data` | saving against a stand-in DataStore: defaults, autosave, leave and rejoin, session locks (waiting, taking a stuck or stale one, losing one), outages, newer saves, migrations, failed writes, leaving mid-load, rejoining mid-save, shutdown, ten joins at once |
 | `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
+| `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
 | `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
+| `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining): no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
 | `Map` | the MapBase contract, symmetry, lanes, spawn sightlines, barrel placement, reloading |
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
 
+A spec fails on any error in a background thread, not just its own checks.
 The stand-ins have almost no physics and no rendering, so Studio stays the
-final word: [`docs/phase-1-checklist.md`](docs/phase-1-checklist.md),
+final word: [`docs/studio-signoff.md`](docs/studio-signoff.md) is the
+one-session Studio sign-off for Phases 1-3, and
+[`docs/phase-1-checklist.md`](docs/phase-1-checklist.md),
 [`docs/phase-2-checklist.md`](docs/phase-2-checklist.md) and
-[`docs/phase-3-checklist.md`](docs/phase-3-checklist.md) list what still
-needs a Studio test.
+[`docs/phase-3-checklist.md`](docs/phase-3-checklist.md) map each plan item
+to where it's checked.
 
 For type checking against the Roblox API, use
 [luau-lsp](https://github.com/JohnnyMorganz/luau-lsp):
@@ -342,6 +355,20 @@ Where the plans left room, or disagreed, Phase 1 does this:
   write; if the save fails both are put back and the player is told.
   Temporary profiles can't buy (it would be lost).
 - **Stink bombs and Gas Pulse set off barrels** in range, like any blast.
+
+## Readiness decisions (before Phase 4)
+
+- **Reset Character is off.** It let a gassed player skip their explosion;
+  any death while gassed (a fall too) now goes to the recent attacker, and
+  any respawn mid-countdown explodes the player first.
+- **Credit has a time limit.** The killer must have added gas in the last
+  10 seconds; gas that's fully drained owes nobody anything.
+- **Rates hold over time.** Shots, dash and Q allow a little network slack
+  for bunched packets, never a faster sustained rate.
+- **Moderation is review-only by default.** Flags are logged and counted;
+  kicking is a setting (`GameConfig.MODERATION`), off until the checks are
+  tuned on real players.
+- **Settings last a session**: reduced effects, sound effects and tips.
 - **A profile that won't load is never written.** If DataStores are down
   (or it's Studio without API access, or the save comes from a newer
   version), the player gets a temporary profile, the HUD says progress

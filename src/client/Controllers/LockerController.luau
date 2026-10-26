@@ -7,7 +7,7 @@
 --                the cooldown, EQUIP or the level that unlocks them
 --   Progression  level, XP, coins, the next goal and the unlock track,
 --                lifetime stats, badges, tracer cosmetics to equip
---   Settings     reduced effects, and the controls
+--   Settings     reduced effects, sound effects, tips, and the controls
 -- Every button only asks (ShopRequest); while a request is out the buttons
 -- wait and the status line says so, and the answer (or the refusal) is
 -- shown. What the player owns comes from the server (ProfileUpdate); coins
@@ -24,7 +24,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
-local EffectsController = require(script.Parent.EffectsController)
+local Settings = require(Client.Settings)
 local ProgressController = require(script.Parent.ProgressController)
 
 local C = UIConfig.colors
@@ -100,9 +100,11 @@ local function card(parent: Instance, name: string, order: number, height: numbe
 end
 
 local function text(parent: Instance, value: string, size: number, order: number, props: { [string]: any }?): TextLabel
+	-- Wrapped text grows downward rather than spilling onto the next line.
 	local label = UI.label(value, size, {
 		LayoutOrder = order,
 		TextWrapped = true,
+		AutomaticSize = Enum.AutomaticSize.Y,
 		Font = if size <= 15 then UIConfig.bodyFont else UIConfig.font,
 		Parent = parent,
 	})
@@ -146,7 +148,7 @@ local function weaponsTab(content: Frame)
 			Parent = box,
 		}, { UI.corner(3) })
 		text(box, weapon.description, 13, 3, { Size = UDim2.new(1, 0, 0, 70), TextColor3 = C.muted, TextYAlignment = Enum.TextYAlignment.Top })
-		local projectile = if weapon.projectile == "lob" then "lobbed, leaves a cloud" else "instant"
+		local projectile = if weapon.projectile == "lob" then "lobbed" else "instant"
 		local lines = {
 			`Gas {weapon.gasPerHit}% (head {weapon.headshotGas}%)`,
 			`Range {weapon.range} · {projectile}`,
@@ -301,25 +303,35 @@ end
 
 local function settingsTab(content: Frame)
 	UI.list(Enum.FillDirection.Vertical, 6).Parent = content
-	local toggle = UI.button(`REDUCED EFFECTS: {if EffectsController.reducedSetting then "ON" else "OFF"}`, C.panelLight, {
-		Name = "ReducedEffects",
-		LayoutOrder = 1,
-		Size = UDim2.new(0, 320, 0, 42),
-		TextSize = 18,
-		Parent = content,
-	})
-	UI.onClick(toggle, function()
-		EffectsController.reducedSetting = not EffectsController.reducedSetting
-		render()
-	end)
-	text(content, "Fewer puffs and clouds from explosions (stink clouds that gas you always show).", 14, 2, {
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = C.muted,
-	})
-	text(content, "CONTROLS", 18, 3, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
-	for i, row in UIConfig.controls do
-		text(content, `{row[1]}  {row[2]}`, 15, 3 + i, { TextXAlignment = Enum.TextXAlignment.Left })
+	local toggles = {
+		{ key = "reducedEffects", name = "ReducedEffects", label = "REDUCED EFFECTS", note = "Fewer puffs and clouds (stink clouds that gas you always show)." },
+		{ key = "sound", name = "Sound", label = "SOUND EFFECTS", note = "The game's sounds (Roblox's own volume still applies)." },
+		{ key = "tips", name = "Tips", label = "TIPS", note = "A short hint now and then, never mid-fight." },
+	}
+	for i, toggle in toggles do
+		local on = (Settings :: any)[toggle.key]
+		local button = UI.button(`{toggle.label}: {if on then "ON" else "OFF"}`, C.panelLight, {
+			Name = toggle.name,
+			LayoutOrder = i * 2 - 1,
+			Size = UDim2.new(0, 320, 0, 38),
+			TextSize = 17,
+			Parent = content,
+		})
+		UI.onClick(button, function()
+			(Settings :: any)[toggle.key] = not (Settings :: any)[toggle.key]
+			render()
+		end)
+		text(content, toggle.note, 13, i * 2, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.muted })
 	end
+	text(content, "CONTROLS", 18, 10, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
+	local controls = {}
+	for _, row in UIConfig.controls do
+		table.insert(controls, `{row[1]} {row[2]}`)
+	end
+	text(content, table.concat(controls, "  ·  "), 14, 11, {
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Size = UDim2.new(1, 0, 0, 60),
+	})
 end
 
 local TABS = { Weapons = weaponsTab, Abilities = abilitiesTab, Progression = progressionTab, Settings = settingsTab }

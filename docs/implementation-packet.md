@@ -32,17 +32,20 @@ src/
     Bootstrap.server.luau       starts everything in order
     Services/                   one module per responsibility (below)
     Modes/TeamElimination.luau  the Phase 1 mode
-    Telemetry.luau              logs, counters, rejects, session metrics
-    TestControls.luau           test-only commands
+    Telemetry.luau              logs, counters, rejects, flags, session metrics
+    Moderation.luau             acts on flags; banned players
+    TestControls.luau           test-only commands (and /fw selftest)
     Messages.luau               UIMessage sender
     RateLimit.luau              per-player request cooldowns
+    Cadence.luau                interval limits that hold over time (shots, dash, Q)
   maps/BrainrotBattlefield.luau ServerStorage.Maps: the code-built map
   client/                       StarterPlayerScripts.Client
     ClientBootstrap.client.luau starts the client
     ClientState.luau            snapshot, counts, state, messages
+    Settings.luau               the player's Settings choices (effects, sound, tips)
     UI.luau                     UI building helpers
     Audio.luau                  plays AudioConfig sounds
-    Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Locker, Home
+    Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Locker, Tips, Home
 tests/                          specs + the Roblox stand-in harness
 scripts/run_specs.py            runs the specs on the Luau CLI
 ```
@@ -53,11 +56,11 @@ Services start in this order and never require one that starts later.
 
 | Module | Public API |
 | --- | --- |
-| `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `setStore(store)` (specs), signal `Loaded(player, profile)` |
+| `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `probe() -> (ok, why)` (a scratch round trip), `setStore(store)` (specs), signal `Loaded(player, profile)` |
 | `MapService` | `load(mapId) -> Model` (errors on a broken map), `current()`, `spawns(teamId)`, `safeSpawn(teamId, enemyPositions)`, `cameraPoints()`, signal `Loaded(model, entry)` |
 | `MatchScoreService` | `reset()`, `open(mode, context, endsAt)`, `closeAt(t)`, `freeze()`, `isOpen()`, `getScores()`, `recordElimination(event) -> boolean`, `testAddElimination(team, n)`, signal `Changed` |
 | `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `testSetTeam(player, team)`, signal `Changed` |
-| `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)` |
+| `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)`, `Leaving(player, character?)`, `Replacing(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
 | `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `vent(player, amount) -> number`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
@@ -71,7 +74,8 @@ Services start in this order and never require one that starts later.
 | `LoadoutService` | `start()`, `resolve(data) -> (weapon, ability?, cosmetic?)`, `apply(player)`, `equip(player, kind, id?) -> (ok, "now" / "respawn" / reason)`, `view(player)`, `push(player)`, `testGive(player, kind, id)` |
 | `ShopService` | `start()`, `buy(player, weaponId) -> Result`, `request(player, action, kind, id?) -> Result` (`{ ok, reason, message, profile? }`) |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
-| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `snapshot()` |
+| `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
+| `Moderation` | `start()`, `flagsOf(player)`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`) |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
 | `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores? }) -> (team?, why)`, `bestTeams`, `preferenceAllowed`, `canSwitch`, `canStart`, `spread`, `spreadAfterJoin` |
@@ -101,7 +105,7 @@ reason.
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
-`disabled`, `notEquipped`, `noGas`. Shop answers (`reason`): `bought`,
+`disabled`, `notEquipped`, `noGas`, `throughWall`. Shop answers (`reason`): `bought`,
 `now`, `respawn`, `profile`, `busy`, `loading`, `notSaving`, `unknown`,
 `owned`, `level`, `coins`, `saveFailed`, `notOwned`, `badPayload`,
 `rateLimited`.
@@ -142,6 +146,7 @@ it proves.
 | `Chaos` | 2.3 chain reactions, depth limit, per-tick budget, friendly fire off, barrels (health, fuse, radius, respawn, attribution); 2.5 barrel-player-barrel chains, kill attribution |
 | `Data` | 3.4 DataStore retries and backoff, session locking, autosave, leave and shutdown saves, versioned migrations, partial saves, failed writes, concurrent joins; 3.5 DataStore outages, invalid equipped items |
 | `Economy` | 3.1 grants with unique IDs, no double awards, limits, audit ledger, source breakdowns, idle farming, anomalous gains; 3.2 levels 1-50, unlocks, cap and repeat rewards, lifetime XP, rewards never lost; 3.4 mastery once per milestone; 3.5 repeated reward triggers, max level, HUD |
+| `Soak` | 2.5 the 20-player test (errors, memory, invariants) as far as a stand-in goes; 1.3 churn with every system on |
 | `Arsenal` | 3.3 playstyles (rate, range, handling, area denial), abilities with cooldown trade-offs and counterplay, one ability at a time |
 | `Shop` | 3.3 server-checked purchases, ownership saved before the UI confirms, loadouts validated and applied on respawn; 3.5 interrupted purchases, pending purchase states, the menu |
 | `Continuous` | 1.1 continuous core loop behind its flag |
@@ -152,6 +157,18 @@ it proves.
 | `TeamBalance` | 1.3 smaller-team joins, deterministic ties, fair switches |
 | `ClientShell` | 1.4 PC input, HUD, camera, menus |
 | `Modes`, `Structure` | contracts, config, flags, weapon contract, no require cycles |
+
+## Metrics
+
+Beyond the per-service counters, `/fw stats` (and its JSON) has what the
+masterplan asks to measure: `firsts.shot`, `.hit`, `.elimination`,
+`.coins`, `.levelUp`, `.purchase` (seconds into a session), `session`
+(length), `session.joins` and `session.returning` (the return rate, with
+`samples.daysSinceLastVisit`), `session.reached5Minutes` /
+`reached10Minutes` (the first-ten-minutes rate), `Shop.firstPurchases`
+(the first purchase rate), `samples.coinsPer10Minutes` and
+`samples.unspentCoins` (inflation), `Economy.coins.<reason>` and
+`Economy.xp.<reason>` (sources), and `flags.<reason>` (moderation).
 
 ## Save format
 
@@ -172,11 +189,29 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `TotalPlaytime` | number | active seconds |
 | `CapRewards` | number | repeat rewards paid past level 50 |
 | `Ledger` | { { id, reason, coins, xp, at } } | the last 20 transactions |
+| `Sessions`, `FirstSeen`, `LastSeen` | number | visits (os.time), for the return rate |
 | `Lock` | { Job, At }? | the server holding the profile; absent when free |
 
 A new field gets a default in `DataService.defaults()`; `migrate` fills it
 in for older saves. Bump `VERSION` only for a change `migrate` must handle
 specially; an older server never writes a newer save.
+
+## Rules worth knowing when changing combat or saving
+
+- **Rates:** shots, Fart Dash and Q go through `Cadence`: a bucket that
+  refills one use per interval and holds a little slack for network
+  jitter. Bunched honest requests pass; over time nobody beats the
+  interval. Don't go back to a per-gap check (it let a steady 15% faster
+  rate through).
+- **Credit:** the killer is the last enemy to add gas, if they did so in
+  the last `GAS.ASSIST_WINDOW_SECONDS`; an empty meter forgets its
+  attackers. Leaving, a team switch, any respawn (`Replacing`) or any
+  other death mid-countdown explodes the player; a death while gassed
+  (Reset is off on the client, but a fall) is credited to the recent
+  attacker. Gas from someone now on the victim's team is refused.
+- **Saving:** one write per profile at a time, each taking the profile as
+  it is when it reaches the DataStore; nothing writes after the release;
+  shutdown waits for releases and loads already under way.
 
 ## Known bugs and limits
 
@@ -185,8 +220,9 @@ specially; an older server never writes a newer save.
   Phase 5 covers network fairness.
 - The spec harness casts rays against bounding boxes, so round cover is a
   little "boxier" in the specs than in Studio.
-- Chat test commands use `Player.Chatted`; if TextChatService doesn't
-  deliver them, use the command bar.
+- Chat test commands are a TextChatService command (`/fw`, `!fw`) and
+  `Player.Chatted` for legacy chat; if neither delivers them, use the
+  command bar. `/fw selftest` says which one is in use.
 - Sounds are empty `AudioConfig` slots until real assets are uploaded.
 - The Stink Lobber has no arc preview: aim higher to throw farther. Worth
   adding if playtesters struggle to place bombs.

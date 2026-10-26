@@ -201,5 +201,7 @@ check(
 	"exactly the planned remotes"
 )
 check(type(Remotes.RoundSnapshot.OnServerInvoke) == "function", "the snapshot can be asked for")
+local selfOk, selfSummary = TestControls.selftest(ada)
+check(selfOk and string.find(selfSummary, "0 failures", 1, true), "the in-game selftest passes here: " .. selfSummary)
 
 return { status = "PASS", checks = checks }

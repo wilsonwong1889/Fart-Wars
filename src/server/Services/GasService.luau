@@ -3,9 +3,12 @@
 -- none); it's clamped at 100. Five seconds without taking gas, it starts
 -- draining at 5% a second; taking gas stops that. At 100 the player can't
 -- fire or dash, a one-second countdown runs, and they explode: the last
--- enemy to add gas is the killer and other recent attackers assist. A
--- player who leaves or is moved off their team mid-countdown explodes on
--- the spot, so the killer still gets the credit.
+-- enemy to add gas is the killer (if they've added some in the last
+-- ASSIST_WINDOW seconds) and other recent attackers assist. A player who
+-- leaves, is moved off their team, or is respawned (a team switch, a new
+-- round) mid-countdown explodes on the spot, and one who dies some other
+-- way while gassed (Reset, a fall) is credited to their recent attacker,
+-- so nobody can dodge giving the killer the point.
 -- Clients see it on the character: "Gas" (0-100), "GasStage" (0-4) and
 -- "ExplodesAt" (server time).
 local Players = game:GetService("Players")
@@ -54,6 +57,8 @@ type Meter = {
 	cause: string,
 	chainDepth: number,
 	weapon: string?,
+	-- The team behind the gas that started the countdown.
+	finishTeam: string?,
 }
 local meters: { [Player]: Meter } = {}
 local started = false
@@ -98,6 +103,7 @@ local function meter(player: Player): Meter?
 		cause = "shot",
 		chainDepth = 0,
 		weapon = nil,
+		finishTeam = nil,
 	}
 	meters[player] = fresh
 	return fresh
@@ -113,6 +119,14 @@ local function publish(m: Meter)
 		m.stage = stage
 		m.character:SetAttribute("GasStage", stage)
 	end
+end
+
+-- An empty meter owes nobody anything: attackers and assists go.
+local function forget(m: Meter)
+	m.firstHitAt = nil
+	m.lastAttacker = nil
+	m.lastAttackerTeam = nil
+	table.clear(m.contributors)
 end
 
 function GasService.gasOf(player: Player): number
@@ -136,7 +150,7 @@ function GasService.explode(victim: Player)
 	local position = if root and root:IsA("BasePart") then root.Position else m.character:GetPivot().Position
 	local at = now()
 	local killer = m.lastAttacker
-	if killer and killer.Parent ~= Players then
+	if killer and (killer.Parent ~= Players or at - (m.contributors[killer] or -math.huge) > GAS.ASSIST_WINDOW_SECONDS) then
 		killer = nil
 	end
 	local assists = {}
@@ -167,14 +181,16 @@ function GasService.explode(victim: Player)
 		position = position,
 		killer = if killer then killer.UserId else nil,
 	})
-	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, m.lastAttackerTeam)
+	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, if killer then m.lastAttackerTeam else m.finishTeam)
 end
 
 local function beginExplosion(victim: Player, m: Meter, source: Source)
 	m.exploding = true
 	m.cause = source.cause
 	m.chainDepth = source.chainDepth or 0
-	m.weapon = source.weapon
+	-- Mastery only for gas someone fired (not a bomb whose thrower left).
+	m.weapon = if source.attacker then source.weapon else nil
+	m.finishTeam = source.team or (source.attacker and TeamService.teamOf(source.attacker))
 	local character = m.character
 	character:SetAttribute("ExplodesAt", now() + GAS.EXPLOSION_COUNTDOWN_SECONDS)
 	Telemetry.count("Gas.countdowns")
@@ -195,6 +211,11 @@ function GasService.add(victim: Player, amount: number, source: Source): boolean
 	local attackerTeam = source.team or (attacker and TeamService.teamOf(attacker))
 	if not victimTeam or attacker == victim or (attackerTeam ~= nil and attackerTeam == victimTeam) then
 		return false -- friendly fire is off
+	end
+	-- An attacker who has since joined the victim's team (a bomb, a fuse
+	-- or a chain still on its way) doesn't gas their new teammates.
+	if attacker and TeamService.teamOf(attacker) == victimTeam then
+		return false
 	end
 	if PlayerLifecycleService.stateOf(victim) ~= States.Player.ACTIVE or PlayerLifecycleService.isProtected(victim) then
 		return false
@@ -230,8 +251,7 @@ function GasService.tick(dt: number)
 			m.gas = math.max(0, m.gas - GAS.RECOVERY_PER_SECOND * dt)
 			Telemetry.count("Gas.recovered", before - m.gas)
 			if m.gas == 0 then
-				m.firstHitAt = nil
-				table.clear(m.contributors)
+				forget(m)
 			end
 			publish(m)
 		end
@@ -248,8 +268,7 @@ function GasService.vent(player: Player, amount: number): number
 	local before = m.gas
 	m.gas = math.max(0, m.gas - amount)
 	if m.gas == 0 then
-		m.firstHitAt = nil
-		table.clear(m.contributors)
+		forget(m)
 	end
 	publish(m)
 	return before - m.gas
@@ -278,8 +297,7 @@ function GasService.reset(player: Player)
 	local m = meters[player]
 	if m and not m.exploding then
 		m.gas = 0
-		m.firstHitAt = nil
-		table.clear(m.contributors)
+		forget(m)
 		publish(m)
 	end
 end
@@ -295,16 +313,52 @@ function GasService.start()
 			publish(m)
 		end
 	end)
-	-- Off the team mid-countdown (leaving, spectating, AFK): explode now.
-	PlayerLifecycleService.Leaving:Connect(function(player)
-		if GasService.isExploding(player) then
+	-- Off the team (leaving, spectating, AFK) or onto a fresh avatar (a team
+	-- switch, a new round) mid-countdown: explode now. By meter, not by
+	-- avatar: the engine may already have taken the avatar away.
+	local function explodeIfCounting(player: Player)
+		local m = meters[player]
+		if m and m.exploding and not m.exploded then
 			GasService.explode(player)
+		end
+	end
+	PlayerLifecycleService.Leaving:Connect(explodeIfCounting)
+	PlayerLifecycleService.Replacing:Connect(explodeIfCounting)
+	-- Any other death while gassed (Reset, a fall): the countdown finishes
+	-- at once, or the recent attacker is credited.
+	PlayerLifecycleService.Died:Connect(function(player, character)
+		local m = meters[player]
+		if not m or m.character ~= character or m.exploded then
+			return
+		end
+		if m.exploding then
+			GasService.explode(player)
+			return
+		end
+		local killer = m.lastAttacker
+		local at = now()
+		if killer and killer.Parent == Players and m.gas > 0 and at - (m.contributors[killer] or -math.huge) <= GAS.ASSIST_WINDOW_SECONDS then
+			m.exploded = true
+			local assists = {}
+			for helper, when in m.contributors do
+				if helper ~= killer and at - when <= GAS.ASSIST_WINDOW_SECONDS then
+					table.insert(assists, helper)
+				end
+			end
+			local credited = EliminationService.eliminate(player, character, {
+				killer = killer,
+				killerTeam = m.lastAttackerTeam,
+				victimTeam = m.victimTeam,
+				assists = assists,
+				cause = "died",
+			})
+			if credited then
+				Telemetry.count("Gas.creditedDeaths")
+			end
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
-		if GasService.isExploding(player) then
-			GasService.explode(player)
-		end
+		explodeIfCounting(player)
 		meters[player] = nil
 		for _, m in meters do
 			m.contributors[player] = nil

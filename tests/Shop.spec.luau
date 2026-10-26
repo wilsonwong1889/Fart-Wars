@@ -10,6 +10,7 @@
 --     weapon's handling comes with it; abilities and tracers likewise
 --   * the locker: tabs, each weapon's stats and button, BUY with its
 --     pending state and the answer, EQUIP, the progression track, settings
+--     (effects, sound, tips); a tip when a weapon becomes affordable
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -134,6 +135,7 @@ check(saved.player_1.Coins == 600 and table.find(saved.player_1.OwnedWeapons, "S
 local ledger = data().Ledger
 check(ledger[#ledger].reason == "purchase" and ledger[#ledger].coins == -400, "in the ledger")
 check(me:GetAttribute("Coins") == 600, "the HUD's coins")
+check((Telemetry.snapshot().counters["Shop.firstPurchases"] or 0) == 1, "a first purchase is counted (the first purchase rate)")
 check(request("buy", "weapon", "Spritzer").reason == "owned", "buying it twice: refused")
 
 -- A purchase that can't be saved.
@@ -221,6 +223,18 @@ coins(2500)
 task.wait(0.1)
 local buy = p.content.StinkLobber.Action
 check(buy.Text == "BUY 2500", "now: BUY 2500")
+-- A tip says so too (once), between fights.
+local Progress = require(Controllers.ProgressController)
+local function tipShown(fragment: string): boolean
+	for _, child in Progress.parts.lines:GetChildren() do
+		if child.Name == "Tip" and string.find(child.Text, fragment, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+task.wait(2.2)
+check(tipShown("You can buy the Stink Lobber now"), "a tip: the Stink Lobber is affordable")
 latency = 0.5
 click(buy)
 check(Locker.busy and string.find(p.status.Text, "Buying", 1, true), "while it saves: Buying...")
@@ -240,11 +254,18 @@ click(p.tabs.Progression)
 check(p.content.Track.Level.Text == "LEVEL 25" and p.content.Track.Unlock20.Text:sub(1, 3) == "✓", "progression: the level and the track")
 check(string.find(p.content.Stats.Badges.Text, "None yet", 1, true), "no badges yet")
 click(p.tabs.Settings)
-local effects = require(Controllers.EffectsController)
+local Settings = require(game.StarterPlayer.StarterPlayerScripts.Client.Settings)
+local Effects = require(Controllers.EffectsController)
 click(p.content.ReducedEffects)
-check(effects.reducedSetting and p.content.ReducedEffects.Text == "REDUCED EFFECTS: ON", "reduced effects on")
+check(Settings.reducedEffects and Effects.reduced() and p.content.ReducedEffects.Text == "REDUCED EFFECTS: ON", "reduced effects on")
 click(p.content.ReducedEffects)
-check(not effects.reducedSetting, "and off")
+check(not Settings.reducedEffects, "and off")
+click(p.content.Sound)
+check(not Settings.sound and p.content.Sound.Text == "SOUND EFFECTS: OFF", "sound effects off")
+click(p.content.Sound)
+click(p.content.Tips)
+check(not Settings.tips and p.content.Tips.Text == "TIPS: OFF", "tips off")
+click(p.content.Tips)
 click(p.screen:FindFirstChild("Close", true))
 check(not p.screen.Enabled, "closed")
 -- From the M menu.

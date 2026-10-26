@@ -1,6 +1,7 @@
 -- The new weapons and the Q abilities (masterplan 3.3), through the real
 -- remotes:
---   * Spritzer: small hits at a fast rate, nothing past its 60-stud range
+--   * Spritzer: small hits at a fast rate (never faster over time, however
+--     the shots are timed; honest jitter passes), nothing past 60 studs
 --   * Thunderclapper: heavy hits, a slow rate, and a slower walk
 --   * Stink Lobber: the throw arcs and lands; the splash and the cloud gas
 --     enemies (never teammates), the cloud stops when you step out and
@@ -149,12 +150,31 @@ check(Combat.weaponOf(me).id == "Spritzer" and me:GetAttribute("Weapon") == "Spr
 local aim = lineUp(30)
 shoot(aim)
 check(Gas.gasOf(foe) == WeaponConfig.weapons.Spritzer.gasPerHit, "a Spritzer hit: 7% gas")
-task.wait(0.05)
+task.wait(0.02)
 shoot(aim)
-check(rejects("FireWeapon", "tooFast") == 1 and Gas.gasOf(foe) == 7, "faster than its 0.1 s interval: refused")
-task.wait(0.06)
+check(rejects("FireWeapon", "tooFast") == 1 and Gas.gasOf(foe) == 7, "far faster than its 0.1 s interval: refused")
+task.wait(0.1)
 shoot(aim)
 check(Gas.gasOf(foe) == 14, "a tenth of a second later: another hit")
+-- Over time, no faster than its rate however the shots are timed (the
+-- old per-gap tolerance let 0.085 s spacing through every time).
+task.wait(1)
+local refusedBefore = rejects("FireWeapon", "tooFast")
+local up = Vector3.new(0, 1, 0) -- into the sky: only the rate matters here
+for _ = 1, 30 do
+	shoot(up)
+	task.wait(0.085)
+end
+local refused = rejects("FireWeapon", "tooFast") - refusedBefore
+check(refused >= 3, `30 shots at 0.085 s: the rate holds ({refused} refused)`)
+-- Honest jitter: two shots bunched together after a steady rhythm pass.
+task.wait(1)
+refusedBefore = rejects("FireWeapon", "tooFast")
+for _, gap in { 0.1, 0.1, 0.14, 0.06, 0.1 } do
+	shoot(up)
+	task.wait(gap)
+end
+check(rejects("FireWeapon", "tooFast") == refusedBefore, "a late shot followed by an early one (network jitter) isn't refused")
 reset()
 aim = lineUp(80)
 task.wait(0.11)

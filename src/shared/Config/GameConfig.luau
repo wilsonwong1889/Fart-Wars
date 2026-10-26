@@ -21,9 +21,12 @@ local GameConfig = {
 	RESPAWN_SECONDS = 3,
 	-- Invulnerable this long after spawning, unless they fire first.
 	SPAWN_PROTECTION_SECONDS = 3,
-	-- A shot may come this much sooner than the weapon's fire interval
-	-- (network jitter) before the server drops it.
+	-- Network slack for anything on an interval (shots, Fart Dash): two
+	-- requests may arrive this much closer together than the interval
+	-- (15% of it, and never less than FIRE_SLACK_SECONDS), but over time
+	-- nobody gets more than one per interval (see Cadence).
 	FIRE_INTERVAL_TOLERANCE = 0.85,
+	FIRE_SLACK_SECONDS = 0.05,
 
 	-- The gas meter, which replaces health. Hits fill it; at 100 a short
 	-- countdown, then the player explodes. Percentages throughout.
@@ -101,6 +104,17 @@ local GameConfig = {
 	TEST_CONTROLS = table.freeze({
 		ENABLED = true,
 		USER_IDS = table.freeze({}) :: { number },
+	}),
+
+	-- Moderation hooks. Suspicious behaviour (an abnormal rate of refused
+	-- requests, near-perfect accuracy, impossible movement, anomalous coin
+	-- gains, dashing through walls) is flagged for review. KICK_AT_FLAGS
+	-- kicks a player who collects that many flags in a session; 0 never
+	-- kicks (review only, the default until the checks are tuned on real
+	-- players). BANNED_USER_IDS can't join.
+	MODERATION = table.freeze({
+		KICK_AT_FLAGS = 0,
+		BANNED_USER_IDS = table.freeze({}) :: { number },
 	}),
 }
 

@@ -61,6 +61,10 @@ export type Data = {
 	TotalPlaytime: number,
 	CapRewards: number,
 	Ledger: { { id: string, coins: number, xp: number, reason: string, at: number } },
+	-- Visits, for the return rate: how many sessions, and when (os.time).
+	Sessions: number,
+	FirstSeen: number,
+	LastSeen: number,
 }
 export type Profile = {
 	data: Data,
@@ -69,6 +73,9 @@ export type Profile = {
 	dirty: boolean,
 	-- Another server took the lock; this one stops saving.
 	lost: boolean,
+	-- A write is under way (writes take turns), and the final one is done.
+	writing: boolean?,
+	released: boolean?,
 }
 
 local profiles: { [Player]: Profile } = {}
@@ -101,6 +108,9 @@ function DataService.defaults(): Data
 		TotalPlaytime = 0,
 		CapRewards = 0,
 		Ledger = {},
+		Sessions = 0,
+		FirstSeen = 0,
+		LastSeen = 0,
 	}
 end
 
@@ -140,6 +150,20 @@ function DataService.migrate(old: { [string]: any }?): Data
 	end
 	data.SaveVersion = DataService.VERSION
 	return data :: Data
+end
+
+-- A round trip to a scratch DataStore (never a player's): whether saving
+-- works on this server right now, and the error if not.
+function DataService.probe(): (boolean, string)
+	if not realStore then
+		return true, "stand-in store"
+	end
+	local ok, err = pcall(function()
+		DataStoreService:GetDataStore("FartWarsSelfTest"):UpdateAsync("probe", function()
+			return { at = os.time(), job = game.JobId }
+		end)
+	end)
+	return ok, if ok then "read and write OK" else tostring(err)
 end
 
 -- Test seam: use `testStore` (anything with UpdateAsync) instead of the
@@ -279,15 +303,24 @@ local function load(player: Player): (Data?, string)
 end
 
 -- Writes `profile` for `userId` (with `release`, giving up the lock).
+-- Writes take turns, one per profile at a time, and each takes the profile
+-- as it is at the moment it reaches the DataStore, so a slow or retried
+-- write can never put back older data; once the release is written,
+-- nothing writes again.
 local function write(userId: number, profile: Profile, release: boolean): boolean
-	if profile.temporary or profile.lost then
+	if profile.temporary or profile.lost or profile.released then
 		return false
 	end
+	while profile.writing do
+		task.wait(0.05)
+	end
+	if profile.lost or profile.released then
+		return false
+	end
+	profile.writing = true
 	local key = keyFor(userId)
-	local snapshot = table.clone(profile.data) :: any
-	snapshot.Lock = if release then nil else { Job = jobId(), At = now() }
+	local written, lost = false, false
 	for attempt = 1, DataService.SAVE_ATTEMPTS do
-		local lost = false
 		waitForBudget()
 		local ok, err = pcall(function()
 			getStore():UpdateAsync(key, function(old)
@@ -296,23 +329,33 @@ local function write(userId: number, profile: Profile, release: boolean): boolea
 				if lost then
 					return nil
 				end
+				local snapshot = table.clone(profile.data) :: any
+				snapshot.Lock = if release then nil else { Job = jobId(), At = now() }
 				return snapshot
 			end)
 		end)
-		if ok and lost then
-			profile.lost = true
-			Telemetry.count("Data.lockLost")
-			warn(`[FW] {userId}'s profile is held by another server now; this one stops saving it`)
-			return false
-		elseif ok then
-			profile.dirty = false
-			Telemetry.count("Data.saves")
-			return true
+		if ok then
+			written = not lost
+			break
 		end
 		Telemetry.error("Data", err)
 		if attempt < DataService.SAVE_ATTEMPTS then
 			task.wait(2 ^ attempt)
 		end
+	end
+	profile.writing = false
+	if lost then
+		profile.lost = true
+		Telemetry.count("Data.lockLost")
+		warn(`[FW] {userId}'s profile is held by another server now; this one stops saving it`)
+		return false
+	elseif written then
+		profile.dirty = false
+		if release then
+			profile.released = true
+		end
+		Telemetry.count("Data.saves")
+		return true
 	end
 	Telemetry.count("Data.saveFailures")
 	return false
@@ -364,8 +407,17 @@ local function onJoin(player: Player)
 	end
 	local profile: Profile
 	if data then
-		profile = { data = data, temporary = false, dirty = false, lost = false }
+		profile = { data = data, temporary = false, dirty = true, lost = false }
 		player:SetAttribute("DataStatus", "ready")
+		-- The return rate: session.returning over session.joins.
+		local at = os.time()
+		if data.Sessions > 0 then
+			Telemetry.count("session.returning")
+			Telemetry.sample("daysSinceLastVisit", (at - data.LastSeen) / 86400)
+		end
+		data.Sessions += 1
+		data.FirstSeen = if data.FirstSeen > 0 then data.FirstSeen else at
+		data.LastSeen = at
 	else
 		profile = { data = DataService.defaults(), temporary = true, dirty = false, lost = false }
 		player:SetAttribute("DataStatus", "unsaved")
@@ -380,20 +432,20 @@ local function onJoin(player: Player)
 end
 
 -- Shutdown: every profile's last save, together, before the server goes
--- (Roblox allows 30 seconds).
+-- (Roblox allows 30 seconds). It also waits for saves already under way
+-- (players who just left) and for loads still running (released as soon
+-- as they finish), since the server stops when this returns.
 function DataService.saveAll()
-	local pending = 0
-	for player in profiles do
-		pending += 1
-		task.spawn(function()
-			release(player)
-			pending -= 1
-		end)
-	end
 	local deadline = os.clock() + 25
-	while pending > 0 and os.clock() < deadline do
+	repeat
+		for player in profiles do
+			task.spawn(release, player)
+		end
+		if next(releasing) == nil and next(loading) == nil and next(profiles) == nil then
+			break
+		end
 		task.wait(0.1)
-	end
+	until os.clock() >= deadline
 end
 
 function DataService.start()

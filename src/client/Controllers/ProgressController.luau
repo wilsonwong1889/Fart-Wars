@@ -179,8 +179,9 @@ local function refresh()
 	p.panel.Visible = FeatureFlags.PROGRESSION and ClientState.isActive()
 end
 
--- One reward line above the panel; the oldest goes when there are too many.
-function ProgressController.line(text: string, color: Color3?)
+-- One line above the panel (a reward, or a tip, for `seconds`); the oldest
+-- goes when there are too many.
+function ProgressController.line(text: string, color: Color3?, seconds: number?, name: string?)
 	local p = ProgressController.parts
 	local shown: { TextLabel } = {}
 	for _, child in p.lines:GetChildren() do
@@ -198,14 +199,14 @@ function ProgressController.line(text: string, color: Color3?)
 	local order = (p.lines:GetAttribute("Next") or 0) + 1
 	p.lines:SetAttribute("Next", order)
 	local label = UI.label(text, 18, {
-		Name = "Line",
+		Name = name or "Line",
 		LayoutOrder = order,
 		Size = UDim2.new(1, 0, 0, 24),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextColor3 = color or C.text,
 		Parent = p.lines,
 	})
-	task.delay(UIConfig.rewardSeconds, function()
+	task.delay(seconds or UIConfig.rewardSeconds, function()
 		if label.Parent then
 			label:Destroy()
 		end

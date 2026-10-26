@@ -15,8 +15,9 @@
 --     items kept
 --   * leaving mid-load hands the lock back; rejoining the same server mid-
 --     save waits for that save; a reward granted just before leaving is
---     saved; shutdown saves everyone; ten players joining at once each get
---     their own profile
+--     saved; a retried save never lands after the final one; shutdown saves
+--     everyone and waits for saves already under way; ten players joining
+--     at once each get their own profile
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local checks = 0
@@ -113,6 +114,8 @@ check(saved.player_101.Coins == 150 and saved.player_101.Lock == nil, "leaving s
 local ada2 = join("Ada", 101)
 check(ready(ada2), "Ada's back")
 check(assert(Data.get(ada2)).data.Coins == 150, "with her 150 coins")
+check(assert(Data.get(ada2)).data.Sessions == 2 and counter("session.returning") == 1, "a returning player is counted (the return rate)")
+check(saved.player_101.FirstSeen > 0 and assert(Data.get(ada2)).data.FirstSeen == saved.player_101.FirstSeen, "first seen is kept")
 leave(ada2)
 
 -- Another server holds the lock and lets go.
@@ -243,6 +246,55 @@ check(ready(kai2, 6), "Kai's back on the same server")
 check(assert(Data.get(kai2)).data.Coins == 40, "after his last save landed, with the coins he got just before leaving")
 check(saved.player_111.Lock ~= nil and saved.player_111.Lock.Job == "studio", "and holds the lock again")
 leave(kai2)
+
+-- A save that has to retry, then a purchase, then leaving: the retry
+-- mustn't land after the final save and put back older coins (or the lock).
+local Shop = require(server.Services.ShopService)
+local liv = join("Liv", 112)
+check(ready(liv), "Liv loads")
+Economy.testGrant(liv, 500, 2000)
+failNext = 1
+task.spawn(Data.save, liv) -- fails once, retries after 2 s
+task.wait(0.1)
+task.spawn(Shop.request, liv, "buy", "weapon", "Spritzer")
+task.wait(0.1)
+liv.Parent = nil
+task.wait(6)
+local livSaved = saved.player_112
+check(livSaved.Coins == 100 and table.find(livSaved.OwnedWeapons, "Spritzer") and livSaved.Lock == nil, `the last word is the final save: {livSaved.Coins} coins, lock {tostring(livSaved.Lock)}`)
+
+-- The last players leave, and the server shuts down while their saves are
+-- still on the way: the shutdown waits for them.
+local leavers = {}
+for i = 1, 3 do
+	table.insert(leavers, join(`L{i}`, 400 + i))
+end
+check(waitFor(function()
+	for _, p in leavers do
+		if not Data.isLoaded(p) then
+			return false
+		end
+	end
+	return true
+end, 2), "three more load")
+for i, p in leavers do
+	Economy.testGrant(p, 10 * i, 0)
+end
+latency = 2
+for _, p in leavers do
+	p.Parent = nil
+end
+task.wait(0.05)
+Data.saveAll()
+latency = 0
+local landed = 0
+for i = 1, 3 do
+	local entry = saved[`player_{400 + i}`]
+	if entry and entry.Coins == 10 * i and entry.Lock == nil then
+		landed += 1
+	end
+end
+check(landed == 3, `shutdown waited for the saves already under way ({landed} of 3)`)
 
 -- Ten at once, then a shutdown.
 local crowd = {}

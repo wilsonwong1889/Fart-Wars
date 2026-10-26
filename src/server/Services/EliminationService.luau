@@ -35,7 +35,7 @@ export type Info = {
 	killerTeam: string?,
 	victimTeam: string?,
 	assists: { Player }?,
-	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "test"
+	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "died" (reset or fell while gassed), "test"
 	-- The weapon that set off the explosion (its shot, stink bomb or cloud).
 	weapon: string?,
 }
@@ -116,7 +116,8 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 	local assists = {}
 	if info.assists then
 		for _, helper in info.assists do
-			if helper ~= killer and helper ~= victim and helper.Parent == Players then
+			-- Not someone who has since joined the victim's team.
+			if helper ~= killer and helper ~= victim and helper.Parent == Players and TeamService.teamOf(helper) ~= victimTeam then
 				table.insert(assists, helper)
 			end
 		end

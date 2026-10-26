@@ -41,6 +41,15 @@ local UIConfig = {
 	rewardSeconds = 2.5,
 	levelUpSeconds = 3.5,
 
+	-- Contextual tips: each once a session, never mid-fight.
+	tipSeconds = 6,
+	tips = table.freeze({
+		dash = "Tip: SHIFT for a Fart Dash out of trouble.",
+		barrels = "Tip: shoot a gas barrel when enemies are standing near it.",
+		buy = "You can buy the %s now: press M, then Weapons.",
+		ability = "%s unlocked: press M, then Abilities, to equip it.",
+	}),
+
 	-- The locker's tabs, on the home screen and in the M menu.
 	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Settings" }),
 	-- Entries that arrive in later phases.

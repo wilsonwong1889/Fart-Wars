@@ -6,6 +6,9 @@ acceptance scenarios, with where each one is checked.
 "Studio" means it still needs a run in Studio (the spec harness has no
 physics, rendering, chat service or real network).
 
+The Studio items here are gathered into one session in
+[`studio-signoff.md`](studio-signoff.md).
+
 ## Sign-off
 
 - [ ] Private Roblox experience created and source controlled. *Studio: the
@@ -60,14 +63,16 @@ physics, rendering, chat service or real network).
 | Test commands for spawning, changing teams, resetting gas and granting weapons | Combat | `/fw spawn`, `/fw team`, `/fw resetgas`, `/fw weapon` |
 | Continuous play available behind a flag | Continuous | set `MATCH_MODE = "Continuous"` and join |
 | Low-end PC settings, clear team colours, common resolutions, stable camera | | graphics quality 1, 1366×768 and 1920×1080 windows |
+| Session duration and return rate (1.1) | Data (`session.returning`), Telemetry (`firsts.session`) | |
+| Moderation and anti-exploit hooks (1.3) | Combat (flags), Economy (anomalous coins), Moderation | decide `MODERATION.KICK_AT_FLAGS` after real sessions |
 
 ## Still to check in Studio
 
 - The screens at 1080p and smaller windows: nothing overlapping, the home
   screen readable over the live view.
-- Chat test commands: `/fw` and `!fw` use `Player.Chatted`. If a command
-  doesn't arrive under TextChatService, use the server command bar
-  (README, "Test-only controls").
+- Chat test commands: `/fw` and `!fw` arrive as a TextChatService
+  command (or through `Player.Chatted` with legacy chat). If one doesn't
+  arrive, use the server command bar (README, "Test-only controls").
 - Shooting feels right: the tracer lines up with the crosshair in first and
   third person, hits register on moving targets at normal ping.
 - Fart Dash moves a sensible distance and never through walls, and the

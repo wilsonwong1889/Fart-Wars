@@ -9,8 +9,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
+local Signal = require(Shared.Signal)
 
 local Telemetry = {}
+
+-- (player, reason, detail): something worth a moderator's look. The
+-- Moderation module decides what, if anything, to do about it.
+Telemetry.Flagged = Signal.new()
 
 local counters: { [string]: number } = {}
 local errors: { [string]: number } = {}
@@ -76,10 +81,15 @@ function Telemetry.guard(service: string, handler: (...any) -> ()): (...any) -> 
 end
 
 -- A request the server turned down. Too many from one player in a minute
--- gets them logged once as abnormal.
+-- gets them flagged once as abnormal. Cheap however many arrive: once
+-- flagged, a player's refusals are only counted, and at most
+-- ABNORMAL_REJECTS_PER_MINUTE are printed a minute.
 function Telemetry.reject(remote: string, player: Player, reason: string)
 	rejects[remote] = rejects[remote] or {}
 	rejects[remote][reason] = (rejects[remote][reason] or 0) + 1
+	if flagged[player] then
+		return
+	end
 	local at = now()
 	local recent = recentRejects[player] or {}
 	recentRejects[player] = recent
@@ -87,18 +97,26 @@ function Telemetry.reject(remote: string, player: Player, reason: string)
 	while recent[1] and at - recent[1] > 60 do
 		table.remove(recent, 1)
 	end
-	if #recent > GameConfig.ABNORMAL_REJECTS_PER_MINUTE and not flagged[player] then
-		flagged[player] = true
-		Telemetry.count("abnormal.players")
-		warn(`[FW] abnormal request rate from {player.UserId}: {#recent} rejected in a minute (latest {remote}/{reason})`)
-	end
 	if FeatureFlags.DEBUG_LOGS then
 		print(`[FW] reject {remote} {reason} player={player.UserId}`)
+	end
+	if #recent > GameConfig.ABNORMAL_REJECTS_PER_MINUTE then
+		flagged[player] = true
+		recentRejects[player] = nil
+		Telemetry.count("abnormal.players")
+		Telemetry.flag(player, "abnormalRequests", `{#recent} refused in a minute (latest {remote}/{reason})`)
 	end
 end
 
 function Telemetry.isFlagged(player: Player): boolean
 	return flagged[player] == true
+end
+
+-- Flags `player` for review: logged, counted, and passed to Moderation.
+function Telemetry.flag(player: Player, reason: string, detail: string?)
+	Telemetry.count(`flags.{reason}`)
+	warn(`[FW] flagged {player.UserId} for {reason}{if detail then ": " .. detail else ""}`)
+	Telemetry.Flagged:Fire(player, reason, detail)
 end
 
 -- Session metrics.

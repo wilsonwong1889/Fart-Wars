@@ -4,7 +4,8 @@
 --     every shot itself: 20% gas a body hit, 25% to the head
 --   * nobody takes gas during the 3 seconds of spawn protection, and
 --     firing gives up your own
---   * friendly fire is off; walls stop shots; spectators can't fire
+--   * friendly fire is off; walls stop shots; hats don't; spectators
+--     can't fire
 --   * shots faster than the fire interval, repeated shot numbers and junk
 --     payloads are refused and counted; a flood of them flags the player
 --   * 100% gas: a one-second countdown (no firing or dashing in it), then
@@ -12,7 +13,7 @@
 --     more shots land; respawn works after repeated deaths
 --   * a death resets the streak and the dash cooldown
 --   * Fart Dash: refused during the cooldown and while exploding, and an
---     avatar that travels too far is put back
+--     avatar that travels too far, or through a wall, is put back
 --   * the test commands for spawning, teams, gas and weapons work, and
 --     Telemetry records first shots, hits and eliminations
 local Players = game:GetService("Players")
@@ -242,6 +243,15 @@ check(Dash.dash(ada, HEAD), "after the cooldown, another")
 place(ada, start.X, start.Z + 60) -- far more than a dash allows
 task.wait(0.6)
 check((ada.Character.HumanoidRootPart.Position - start).Magnitude < 1 and rejects("FartDash", "tooFar") == 1, "too far: put back")
+-- Through the spawn room's front wall (z = -57): a short hop, but a wall.
+task.wait(2.6)
+place(ada, 0, -53)
+local outside = ada.Character.HumanoidRootPart.Position
+check(Dash.dash(ada, HEAD), "a dash by the spawn room's front wall")
+place(ada, 0, -61)
+task.wait(0.6)
+check((ada.Character.HumanoidRootPart.Position - outside).Magnitude < 1 and rejects("FartDash", "throughWall") == 1, "through the wall: put back")
+check((Telemetry.snapshot().counters["flags.dashThroughWall"] or 0) == 1, "and flagged for review")
 check(Dash.dash(bo, HEAD), "Bo dashes")
 place(bo, 53, -14)
 place(ada, 53, 14)
@@ -251,6 +261,15 @@ task.wait(1.05)
 check(not alive(bo), "Bo is eliminated mid-cooldown")
 task.wait(3.2)
 check(Dash.dash(bo, HEAD), "a new life, a fresh dash")
+
+-- Hats and hair don't take shots meant for the head.
+local hat = Instance.new("Accessory")
+local handle = Instance.new("Part")
+handle.Name = "Handle"
+handle.Parent = hat
+hat.Parent = bo.Character
+task.wait(0.05)
+check(handle.CanQuery == false and handle.CanCollide == false, "an accessory on an avatar can't be hit")
 
 -- Test commands.
 check(TestControls.team(ada, if adaTeam == "Stinkers" then "sharters" else "stinkers"), "/fw team moves a player")

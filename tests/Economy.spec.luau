@@ -300,6 +300,11 @@ for i = 1, 4 do
 end
 check(counter("Economy.anomalous") == 1, "400 combat coins in a minute: logged once")
 
+-- The test command splits big amounts into grants within the limit.
+local TestControls = require(server.TestControls)
+local before = data(lou).Coins
+check(TestControls.coins(lou, 5000) and data(lou).Coins == before + 5000, "/fw coins 5000 pays all 5000")
+
 -- Participation: active time only.
 local zed = Instance.new("Player")
 zed.Name = "Zed"
@@ -333,6 +338,7 @@ for _ = 1, 4 do
 	fidget()
 end
 check(data(pat).Coins == patStart + 100, "and that's all for the session")
+check(counter("session.reached10Minutes") >= 1 and counter("session.reached5Minutes") >= counter("session.reached10Minutes"), "sessions reaching 5 and 10 minutes are counted")
 -- AFK time doesn't count.
 local before = Economy.activeSecondsOf(pat)
 task.wait(150)

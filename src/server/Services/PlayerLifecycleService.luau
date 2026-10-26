@@ -46,6 +46,9 @@ export type Runtime = {
 	-- respawn that finishes late can tell it has been overtaken.
 	spawnToken: number,
 	lastSpawnAt: number?,
+	-- Disconnected on leaving: a connection on the Player that refers back
+	-- to it would keep a departed player in memory.
+	characterAdded: RBXScriptConnection?,
 }
 
 local PlayerLifecycleService = {}
@@ -61,6 +64,9 @@ PlayerLifecycleService.Died = Signal.new()
 -- (player, character?): an ACTIVE player is about to lose their slot and
 -- avatar (spectating, AFK or leaving), while both still exist.
 PlayerLifecycleService.Leaving = Signal.new()
+-- (player, character): an avatar is about to be replaced by a fresh one (a
+-- team switch, a new round, a map reload), while it still exists.
+PlayerLifecycleService.Replacing = Signal.new()
 
 local runtimes: { [Player]: Runtime } = {}
 local limiter = RateLimit.new(GameConfig.REQUEST_COOLDOWN_SECONDS)
@@ -156,6 +162,10 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 		return
 	end
 	runtime.teamId = teamId
+	local previous = player.Character
+	if previous then
+		PlayerLifecycleService.Replacing:Fire(player, previous)
+	end
 	player.RespawnLocation = MapService.safeSpawn(teamId, enemyPositions(teamId)) :: any
 	local ok, err = pcall(player.LoadCharacterAsync, player)
 	if not ok then
@@ -197,6 +207,24 @@ local function onCharacterAdded(player: Player, character: Model)
 		end)
 		return
 	end
+	-- Hats and hair don't stop shots (or hide the head from a headshot).
+	local function ignoreAccessory(item: Instance)
+		if item:IsA("Accessory") then
+			for _, part in item:GetDescendants() do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+					part.CanQuery = false
+				end
+			end
+		elseif item:IsA("BasePart") and item:FindFirstAncestorOfClass("Accessory") then
+			item.CanCollide = false
+			item.CanQuery = false
+		end
+	end
+	for _, item in character:GetDescendants() do
+		ignoreAccessory(item)
+	end
+	character.DescendantAdded:Connect(ignoreAccessory)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not (humanoid and humanoid:IsA("Humanoid")) then
 		return
@@ -370,7 +398,7 @@ local function onJoin(player: Player)
 	runtimes[player] = runtime
 	player.Neutral = true
 	player:SetAttribute("State", runtime.state)
-	player.CharacterAdded:Connect(function(character)
+	runtime.characterAdded = player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
 	end)
 	if player.Character then
@@ -395,6 +423,9 @@ local function onLeave(player: Player)
 	end
 	TeamService.release(player)
 	removeCharacter(player)
+	if runtime.characterAdded then
+		runtime.characterAdded:Disconnect()
+	end
 	runtimes[player] = nil
 	limiter:forget(player)
 	Telemetry.left(player)

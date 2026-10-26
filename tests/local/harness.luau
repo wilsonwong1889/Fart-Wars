@@ -13,7 +13,8 @@
 -- compare bounding boxes, so Studio stays the final word.
 --
 -- Prints "PASS <spec>: <what the spec returned>" or "FAIL <spec>: <error>",
--- then anything the spec printed and any errors in background threads.
+-- then anything the spec printed and any errors in background threads
+-- (any of which fails the spec).
 --
 -- Fart Wars additions: BrickColor (named palette entries); PlayerAdded and
 -- PlayerRemoving fire as Players gains and loses a Player; LoadCharacterAsync
@@ -112,6 +113,8 @@ local Connection = {}
 Connection.__index = Connection
 function Connection:Disconnect()
 	self.Connected = false
+	-- As in Roblox, a disconnected handler is let go (so leak checks work).
+	self.fn = nil
 end
 Connection.disconnect = Connection.Disconnect
 
@@ -160,6 +163,7 @@ end
 function Signal:DisconnectAll()
 	for _, connection in self.connections do
 		connection.Connected = false
+		connection.fn = nil
 	end
 	self.connections = {}
 end
@@ -2758,6 +2762,11 @@ end
 
 if finished and outcome[1] then
 	local text, passed = summary(outcome[2])
+	-- An error in any background thread fails the spec, however it ended.
+	if passed and #backgroundErrors > 0 then
+		passed = false
+		text = `{#backgroundErrors} background error(s); {text}`
+	end
 	print(`{if passed then "PASS" else "FAIL"} {name}: {text}`)
 elseif finished then
 	print(`FAIL {name}: {outcome[2]}`)

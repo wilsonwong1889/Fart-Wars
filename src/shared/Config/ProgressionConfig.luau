@@ -39,7 +39,7 @@ local ProgressionConfig = {
 		[25] = table.freeze({ kind = "weapon", id = "StinkLobber", text = "Stink Lobber in the shop" }),
 		[30] = table.freeze({ kind = "ability", id = "GasPulse", text = "Gas Pulse (Q)" }),
 		[40] = table.freeze({ kind = "cosmetic", id = "RainbowRot", text = "Rainbow Rot tracers" }),
-		[50] = table.freeze({ kind = "cap", text = "1,000 coins and the Alpha Farter badge" }),
+		[50] = table.freeze({ kind = "cap", text = "1,000 coins + Alpha Farter badge" }),
 	}) :: { [number]: Unlock },
 	CAP_REWARD = table.freeze({ coins = 1000, badge = "Alpha Farter" }),
 	-- Past level 50, every this much XP pays out again.

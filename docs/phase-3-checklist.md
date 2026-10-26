@@ -7,6 +7,9 @@ run with a real DataStore. Milestone 1 (saving, coins, XP, levels) and
 milestone 2 (shop, loadouts, the new weapons and abilities, the menu
 screens) are in.
 
+The Studio items here are gathered into one session in
+[`studio-signoff.md`](studio-signoff.md).
+
 ## 3.1 Coins and XP accounting
 
 | Item | Status | Where |
@@ -60,6 +63,8 @@ screens) are in.
 | Item | Status | Where |
 | --- | --- | --- |
 | No popups forced while shooting | done | reward lines sit bottom right; the level-up banner is short and takes no input |
+| Contextual tutorials and optional reminders | done | Shop (TipsController: dash, barrels, an affordable weapon, an unequipped ability; never mid-fight; Settings → Tips) |
+| First purchase rate, first ten-minute completion, inflation | done | `Shop.firstPurchases`, `session.reached10Minutes`, `samples.coinsPer10Minutes` (Shop, Economy) |
 | HUD: gas, coins, XP, level, weapon, cooldown, streak, kill feed | done | Economy (coins, XP, level), Arsenal (weapon, ability cooldown) |
 | Menu: Play, Weapons, Abilities, Progression, Settings | done | Shop (the locker from the home screen and the M menu) |
 | Pending purchase and saving states | done | Shop ("Buying...", buttons wait), Economy ("Loading progress...", "Progress isn't saving this session") |

@@ -76,6 +76,11 @@ function MapService.load(mapId: string): Model
 	if current then
 		current:Destroy()
 	end
+	-- The whole map stays with every client, even if the place has
+	-- streaming on: spectators have no avatar to stream around.
+	pcall(function()
+		(model :: any).ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	end)
 	model.Parent = workspace
 	current, currentEntry = model, entry
 	applyTheme(entry.theme)

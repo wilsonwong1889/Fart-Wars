@@ -24,6 +24,7 @@ local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Cadence = require(Server.Cadence)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
@@ -39,12 +40,14 @@ CombatService.Lobbed = Signal.new()
 type Shooter = {
 	weapon: string,
 	lastShotAt: number?,
+	cadence: Cadence.State,
 	lastShotId: number,
 	lastHead: Vector3?,
 	-- Shot and hit times in the last minute, for the accuracy check.
 	shots: { number },
 	hits: { number },
 	flagged: boolean,
+	movementFlagged: boolean,
 }
 local shooters: { [Player]: Shooter } = {}
 local started = false
@@ -60,7 +63,17 @@ end
 local function shooter(player: Player): Shooter
 	local entry = shooters[player]
 	if not entry then
-		entry = { weapon = WeaponConfig.default, lastShotAt = nil, lastShotId = 0, lastHead = nil, shots = {}, hits = {}, flagged = false }
+		entry = {
+			weapon = WeaponConfig.default,
+			lastShotAt = nil,
+			cadence = Cadence.new(),
+			lastShotId = 0,
+			lastHead = nil,
+			shots = {},
+			hits = {},
+			flagged = false,
+			movementFlagged = false,
+		}
 		shooters[player] = entry
 	end
 	return entry
@@ -98,19 +111,25 @@ local function checkAccuracy(player: Player, entry: Shooter, at: number)
 	if not entry.flagged and #entry.shots >= rule.SHOTS and #entry.hits / #entry.shots > rule.RATIO then
 		entry.flagged = true
 		Telemetry.count("Combat.suspiciousAccuracy")
-		warn(`[FW] suspicious accuracy from {player.UserId}: {#entry.hits}/{#entry.shots} hits in a minute`)
+		Telemetry.flag(player, "suspiciousAccuracy", `{#entry.hits}/{#entry.shots} hits in a minute`)
 	end
 end
 
 -- Logs a shooter whose head moved further since the last shot than
--- running and dashing allow (a teleport, or a lagging client).
+-- running and dashing allow (a teleport, or a lagging client); the first
+-- time in a session it's flagged for review.
 local function checkMovement(player: Player, entry: Shooter, head: Vector3, at: number)
 	if entry.lastHead and entry.lastShotAt then
 		local dash = AbilityConfig.FartDash
 		local allowed = (GameConfig.WALK_SPEED + (dash.speed :: number)) * (at - entry.lastShotAt) + 8
 		if (head - entry.lastHead).Magnitude > allowed then
+			local studs = math.floor((head - entry.lastHead).Magnitude)
 			Telemetry.count("Combat.impossibleMovement")
-			Telemetry.log("Combat", "impossibleMovement", { player = player, studs = math.floor((head - entry.lastHead).Magnitude) })
+			Telemetry.log("Combat", "impossibleMovement", { player = player, studs = studs })
+			if not entry.movementFlagged then
+				entry.movementFlagged = true
+				Telemetry.flag(player, "impossibleMovement", `{studs} studs between shots`)
+			end
 		end
 	end
 	entry.lastHead = head
@@ -155,7 +174,8 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	end
 	local weapon = WeaponConfig.weapons[entry.weapon]
 	local at = now()
-	if entry.lastShotAt and at - entry.lastShotAt < weapon.fireInterval * GameConfig.FIRE_INTERVAL_TOLERANCE then
+	local slack = math.max(weapon.fireInterval * (1 - GameConfig.FIRE_INTERVAL_TOLERANCE), GameConfig.FIRE_SLACK_SECONDS)
+	if not Cadence.take(entry.cadence, weapon.fireInterval, slack, at) then
 		reject(player, "tooFast")
 		return
 	end
@@ -226,6 +246,7 @@ function CombatService.start()
 	PlayerLifecycleService.Spawned:Connect(function(player)
 		local entry = shooter(player)
 		entry.lastShotAt = nil
+		entry.cadence = Cadence.new()
 		entry.lastHead = nil
 		player:SetAttribute("Weapon", entry.weapon)
 	end)

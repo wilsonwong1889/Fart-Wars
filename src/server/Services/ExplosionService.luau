@@ -5,8 +5,9 @@
 -- (friendly fire stays off) or anyone behind a wall from it. Each step of a
 -- chain is one deeper; past EXPLOSION.CHAIN_MAX_DEPTH it stops. Blasts
 -- queue up and at most PER_TICK resolve each tick, so a big chain costs a
--- few frames, not one spike. An explosion with nobody to credit (no killer)
--- blasts nobody.
+-- few frames, not one spike. A killer who has left still blasts for their
+-- team, credited to nobody; an explosion with no team behind it (a test
+-- gas) blasts nobody.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

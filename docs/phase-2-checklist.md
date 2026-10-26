@@ -5,6 +5,9 @@ needed. "Spec" means `python3 scripts/run_specs.py` covers it without
 Studio; the harness has no physics, rendering, sound or real network, so
 feel, performance and visuals need Studio.
 
+The Studio items here are gathered into one session in
+[`studio-signoff.md`](studio-signoff.md).
+
 ## Automated tests
 
 | Masterplan item | Spec |
@@ -39,6 +42,9 @@ Laughter, frustration and readability come from playtesters, not counters.
 
 - [ ] 20-player load test with effects on: the server stays responsive, no
       severe memory growth or repeated errors (`/fw stats` errors stay 0).
+      *Spec: Soak covers errors, memory and invariants with 20 simulated
+      players; responsiveness needs real players (`studio-signoff.md`,
+      section 6).*
 - [ ] Players keep fighting without progression rewards. (Phase 3 is under
       way; the playtest is still worth running with
       `FeatureFlags.PROGRESSION = false`.)

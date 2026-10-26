@@ -1,5 +1,43 @@
 # Changelog
 
+## Readiness pass: Phases 1-3
+
+Two independent reviews (server integrity, Roblox runtime) and a soak test
+found these; each is fixed and has a spec.
+
+- Saving: shutdown now waits for saves already under way (the last players'
+  progress could be lost when a server closed); writes take turns per
+  profile and take the latest data, so a retried save can't land after the
+  final one and bring back spent coins or a held lock.
+- Memory: departed players were kept alive by two connections (character
+  spawning, chat commands); they're disconnected on leave. The harness now
+  frees disconnected handlers like Roblox, so `Soak` can check it.
+- Nobody dodges an explosion: a team switch, a new round, Reset or any
+  other death mid-countdown (or while gassed) still credits the attacker.
+  Reset Character is off on the client.
+- Credit: no kill for an attacker whose gas drained away or was over 10 s
+  ago; no mastery for gas nobody fired; someone who switched teams can't
+  gas or assist against their new teammates.
+- Rates: shots, dash and Q use `Cadence` (no sustained rate above the
+  interval; honest jitter passes). Refused-request tracking is bounded, so
+  a flood can't slow the server. Infinite dash directions are refused.
+- Fart Dash through a wall is put back and flagged.
+- Hats and hair no longer take shots (or hide the head from a headshot).
+- The map stays streamed in for spectators even if streaming is on.
+- `/fw` is registered as a TextChatService command (legacy `Chatted`
+  still works); `/fw coins` and `/fw xp` take any amount.
+- Locker text no longer spills at 1366×768.
+- Gaps from the plans: the return rate, first purchase rate and
+  ten-minute completion are measured; moderation hooks (`Moderation`,
+  `Telemetry.flag`); Settings gains sound effects and tips; contextual
+  tips (`TipsController`).
+- `/fw selftest` checks the real server (settings, map, remotes, teams,
+  DataStores, chat); `docs/studio-signoff.md` is the one-session Studio
+  sign-off.
+- New specs: `Soak` (20 players, 20 minutes, everything on), `Dodges`;
+  regressions in `Data`, `Combat`, `Arsenal`, `Economy`, `Shop`, `Rounds`.
+  Any background error now fails a spec.
+
 ## Phase 3, milestone 2: the shop, loadouts, weapons and abilities
 
 - Three new weapons, each a different way to play: the **Spritzer**

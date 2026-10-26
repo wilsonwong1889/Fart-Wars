@@ -3,7 +3,8 @@
 -- (FartDash, with the direction). The server checks the player's state,
 -- that they aren't exploding, and the cooldown; `checkSeconds` later it
 -- checks that the avatar didn't travel further than a dash plus walking
--- allows, and puts back one that did. Refused dashes are logged. The
+-- allows, or through one of the map's walls, and puts back one that did
+-- (a wall is flagged for review too). Refused dashes are logged. The
 -- cooldown resets with each life. Everyone else sees the trail:
 --   CombatEvent { kind = "dash", player, from, direction }
 local Players = game:GetService("Players")
@@ -15,6 +16,8 @@ local AbilityConfig = require(Shared.Config.AbilityConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local Cadence = require(Server.Cadence)
+local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
@@ -25,7 +28,7 @@ local MAX_TRAVEL = DASH.maxTravelStuds :: number
 
 local DashService = {}
 
-local lastDash: { [Player]: number } = {}
+local cadences: { [Player]: Cadence.State } = {}
 local started = false
 
 local function now(): number
@@ -40,13 +43,26 @@ local function horizontal(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
+-- Whether one of the map's walls stands between two points.
+function DashService.throughWall(from: Vector3, to: Vector3): boolean
+	local map = MapService.current()
+	local walls = map and map:FindFirstChild("Walls")
+	if not walls or (to - from).Magnitude < 0.1 then
+		return false
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { walls }
+	return workspace:Raycast(from, to - from, params) ~= nil
+end
+
 function DashService.dash(player: Player, direction: unknown): boolean
 	if not FeatureFlags.FART_DASH then
 		reject(player, "disabled")
 		return false
 	end
 	local aim = if typeof(direction) == "Vector3" then direction :: Vector3 else nil
-	if not aim or aim.Magnitude ~= aim.Magnitude then
+	if not aim or aim.Magnitude ~= aim.Magnitude or aim.Magnitude > 1e3 then
 		reject(player, "badPayload")
 		return false
 	end
@@ -68,12 +84,13 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		return false
 	end
 	local at = now()
-	local previous = lastDash[player]
-	if previous and at - previous < DASH.cooldownSeconds * GameConfig.FIRE_INTERVAL_TOLERANCE then
+	local cadence = cadences[player] or Cadence.new()
+	cadences[player] = cadence
+	local slack = math.max(DASH.cooldownSeconds * (1 - GameConfig.FIRE_INTERVAL_TOLERANCE), GameConfig.FIRE_SLACK_SECONDS)
+	if not Cadence.take(cadence, DASH.cooldownSeconds, slack, at) then
 		reject(player, "cooldown")
 		return false
 	end
-	lastDash[player] = at
 	AFKService.markActive(player)
 	Telemetry.count("Dash.dashes")
 
@@ -96,6 +113,10 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		if travelled > allowed then
 			reject(player, "tooFar")
 			character:PivotTo(start)
+		elseif DashService.throughWall(start.Position, root.Position) then
+			reject(player, "throughWall")
+			Telemetry.flag(player, "dashThroughWall")
+			character:PivotTo(start)
 		end
 	end)
 	return true
@@ -110,10 +131,10 @@ function DashService.start()
 	local fartDash = remotes:WaitForChild("FartDash") :: RemoteEvent
 	fartDash.OnServerEvent:Connect(Telemetry.guard("Dash", DashService.dash))
 	PlayerLifecycleService.Died:Connect(function(player)
-		lastDash[player] = nil
+		cadences[player] = nil
 	end)
 	Players.PlayerRemoving:Connect(function(player)
-		lastDash[player] = nil
+		cadences[player] = nil
 	end)
 end
 
