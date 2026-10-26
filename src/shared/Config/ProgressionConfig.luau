@@ -70,9 +70,15 @@ local ProgressionConfig = {
 		PrestigeFlame = table.freeze({ id = "PrestigeFlame", kind = "tracer", name = "Prestige Flame", tracerColor = Color3.fromRGB(255, 110, 40), source = "Prestige 1" }),
 		PrestigeTrail = table.freeze({ id = "PrestigeTrail", kind = "trail", name = "Prestige Trail", trailColor = Color3.fromRGB(190, 120, 255), source = "Prestige 3" }),
 		CrownToot = table.freeze({ id = "CrownToot", kind = "emote", name = "Crown Toot", emoji = "👑", text = "ROYAL TOOT!", source = "Prestige 5" }),
+		-- Season 1 (SeasonConfig). Booms colour the explosions of the players
+		-- you eliminate.
+		SeasonSpark = table.freeze({ id = "SeasonSpark", kind = "boom", name = "Spark Boom", boomColor = Color3.fromRGB(255, 230, 90), source = "Season 1, tier 5" }),
+		SludgeTrail = table.freeze({ id = "SludgeTrail", kind = "trail", name = "Sludge Trail", trailColor = Color3.fromRGB(110, 150, 40), source = "Season 1, tier 10" }),
+		ToxicBoom = table.freeze({ id = "ToxicBoom", kind = "boom", name = "Toxic Boom", boomColor = Color3.fromRGB(170, 60, 255), source = "Season 1, tier 15" }),
+		BrainrotGold = table.freeze({ id = "BrainrotGold", kind = "tracer", name = "Brainrot Gold", tracerColor = Color3.fromRGB(255, 180, 0), source = "Season 1, tier 20" }),
 	}),
 	-- Cosmetics in the order the locker shows them.
-	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot" }),
+	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot", "SeasonSpark", "SludgeTrail", "ToxicBoom", "BrainrotGold" }),
 
 	-- Sanity limits on any one transaction, and how many recent ones each
 	-- profile keeps for audits.

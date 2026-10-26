@@ -62,6 +62,14 @@ you.
 Not in the beta. A free track plus a premium track, per season, was
 discussed for after launch.
 
+**What's built (off):** the free track, behind `FeatureFlags.SEASONS`
+(`SeasonConfig`, `SeasonService`, the Season screen). Season 1 runs from
+2 November to 28 December 2026: 20 tiers of coins, with a cosmetic every
+five tiers (two of them booms, which colour the explosions of players you
+eliminate) and a badge at the top, from season XP (20% of all XP, plus 500
+for each of three weekly challenges). A premium track isn't built: it's a
+purchase, so it needs its own decision on price and contents.
+
 - Every challenge can be done through normal play, with no
   mode-specific grinding that empties the main queue.
 - Rewards are cosmetic or coins. No exclusive combat power, ever.
@@ -74,6 +82,12 @@ discussed for after launch.
 
 Novelty events (bean rain, toilet eruptions, themed chaos) belong to
 expansion, not the beta.
+
+**What's built (off):** Bean Rain, behind `FeatureFlags.EVENTS`
+(`EventConfig`, `EventService`): half of rounds, at a random moment, a
+5-second warning, then 20 seconds of beans on the lanes, each shown as a
+ring before it lands. A bean pays 3 coins (8 an event) and refills the
+Fart Dash. It hurts nobody and tops out at 12 parts.
 
 - Every hazard is telegraphed (a warning, a visible build-up) before it
   can hurt anyone.

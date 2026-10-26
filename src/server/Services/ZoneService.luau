@@ -35,6 +35,8 @@ local ZoneService = {}
 
 -- (owner?, contested): fires when who holds the zone changes.
 ZoneService.Changed = Signal.new()
+-- (player, seconds): a player held the zone for another tick.
+ZoneService.Held = Signal.new()
 
 type Holder = { seconds: number, rewards: number }
 local holders: { [Player]: Holder } = {}
@@ -138,6 +140,7 @@ function ZoneService.tick(dt: number)
 			local holder = holders[player] or { seconds = 0, rewards = 0 }
 			holders[player] = holder
 			holder.seconds += dt
+			ZoneService.Held:Fire(player, dt)
 			if holder.seconds >= ZONE.REWARD_SECONDS and holder.rewards < ZONE.REWARDS_PER_ROUND then
 				holder.seconds -= ZONE.REWARD_SECONDS
 				holder.rewards += 1

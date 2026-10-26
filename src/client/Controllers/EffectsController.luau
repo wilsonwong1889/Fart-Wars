@@ -458,7 +458,10 @@ function EffectsController.start()
 		end
 		if event.kind == "explosion" and typeof(event.position) == "Vector3" then
 			Audio.play("explosion")
-			EffectsController.explosion(event.position)
+			-- In the killer's boom colour, if they have one equipped.
+			local killer = type(event.killer) == "number" and Players:GetPlayerByUserId(event.killer)
+			local boom = killer and ProgressionConfig.cosmetics[killer:GetAttribute("Boom") :: any]
+			EffectsController.explosion(event.position, if boom then boom.boomColor else nil)
 		elseif event.kind == "barrel" and typeof(event.position) == "Vector3" then
 			Audio.play("barrel")
 			EffectsController.explosion(event.position, BARREL_ORANGE, GameConfig.BARREL.RADIUS)

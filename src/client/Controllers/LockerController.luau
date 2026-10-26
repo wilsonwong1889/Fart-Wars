@@ -311,11 +311,16 @@ local function progressionTab(content: Frame)
 	text(right, "BADGES", 18, 10, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	text(right, badges, 14, 11, { Name = "Badges", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 40) })
 	text(right, "COSMETICS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
-	local grid = UI.new("Frame", {
+	-- Three rows show; the rest scroll.
+	local grid = UI.new("ScrollingFrame", {
 		Name = "Cosmetics",
 		LayoutOrder = 21,
-		Size = UDim2.new(1, 0, 0, math.ceil(#ProgressionConfig.cosmeticOrder / 3) * 44),
+		Size = UDim2.new(1, 0, 0, 3 * 44),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
 		Parent = right,
 	}, {
 		UI.new("UIGridLayout", {
@@ -328,12 +333,13 @@ local function progressionTab(content: Frame)
 		tracer = profile.equippedCosmetic,
 		trail = profile.equippedTrail,
 		emote = profile.equippedEmote or "Toot",
+		boom = profile.equippedBoom,
 	}
 	for i, id in ProgressionConfig.cosmeticOrder do
 		local cosmetic = ProgressionConfig.cosmetics[id]
 		local owned = type(profile.ownedCosmetics) == "table" and ProgressionConfig.ownsCosmetic(profile.ownedCosmetics, id)
 		local equipped = equippedBy[cosmetic.kind] == id
-		local color = cosmetic.tracerColor or cosmetic.trailColor or C.text
+		local color = cosmetic.tracerColor or cosmetic.trailColor or cosmetic.boomColor or C.text
 		local name = if cosmetic.kind == "emote" then `{cosmetic.emoji} {cosmetic.name}` else cosmetic.name
 		local label = if not owned then string.upper(cosmetic.source) elseif equipped then `{name} ✓` else name
 		local button = UI.button(label, if equipped then Color3.fromRGB(70, 64, 92) else C.panelLight, {

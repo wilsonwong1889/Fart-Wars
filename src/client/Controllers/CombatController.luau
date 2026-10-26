@@ -462,6 +462,10 @@ end
 
 local function onCombatEvent(event: { [string]: any })
 	local p = CombatController.parts
+	if event.kind == "dashRefill" then
+		lastDash = -math.huge
+		return
+	end
 	if event.kind == "shot" then
 		if event.shooter ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.to) == "Vector3" then
 			local _, color = nameOf(event.shooter)

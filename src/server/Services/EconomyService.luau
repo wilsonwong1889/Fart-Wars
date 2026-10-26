@@ -49,6 +49,8 @@ EconomyService.Changed = Signal.new()
 -- Fires for every coin movement: (player, coins (+ in, - out), reason,
 -- balance after).
 EconomyService.Transaction = Signal.new()
+-- (player, xp, reason): XP earned (seasons take a share).
+EconomyService.XPGained = Signal.new()
 
 type Session = {
 	-- Grant IDs already paid this session.
@@ -234,6 +236,7 @@ credit = function(player: Player, data: Data, events: { Event }, id: string, rea
 	table.insert(events, { kind = "grant", id = id, reason = reason, coins = coins, xp = xp })
 	if xp > 0 then
 		gainXP(player, data, events, id, xp)
+		EconomyService.XPGained:Fire(player, xp, reason)
 	end
 end
 

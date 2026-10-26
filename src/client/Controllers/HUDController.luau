@@ -106,6 +106,16 @@ local function build()
 		Visible = false,
 		Parent = hud,
 	})
+	-- Live events: the banner (Bean Rain's warning, then the rain).
+	p.event = UI.label("", 18, {
+		Name = "Event",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 200),
+		Size = UDim2.new(0, 640, 0, 24),
+		TextColor3 = Color3.fromRGB(255, 200, 80),
+		Visible = false,
+		Parent = hud,
+	})
 	-- Gas Control: who holds the zone (in words as well as colour).
 	p.zone = UI.label("", 18, {
 		Name = "Zone",
@@ -340,6 +350,7 @@ local function tick()
 		p.phase.Text = string.upper(snapshot.modeName)
 	end
 	HUDController.renderZone()
+	HUDController.renderEvent()
 	p.time.Text = if live then "LIVE" elseif phase == Phase.WAITING then "--:--" else RoundClock.format(remaining)
 	if phase == Phase.RESULTS then
 		p.resultNext.Text = `Next round in {RoundClock.format(remaining)}`
@@ -440,6 +451,24 @@ local function renderScoreboard()
 end
 HUDController.renderScoreboard = renderScoreboard
 
+-- The event banner, from Workspace's Event* attributes.
+function HUDController.renderEvent()
+	local p = HUDController.parts
+	if not p.event then
+		return
+	end
+	local id, phase = workspace:GetAttribute("Event"), workspace:GetAttribute("EventPhase")
+	local texts = type(id) == "string" and UIConfig.events[id]
+	if not (texts and (phase == "warning" or phase == "active")) then
+		p.event.Visible = false
+		return
+	end
+	local target = if phase == "warning" then workspace:GetAttribute("EventStartsAt") else workspace:GetAttribute("EventEndsAt")
+	local seconds = math.max(0, math.ceil((if type(target) == "number" then target else 0) - workspace:GetServerTimeNow()))
+	p.event.Text = string.format(texts[phase], seconds)
+	p.event.Visible = true
+end
+
 -- The zone line, from the server's Zone* attributes on Workspace.
 function HUDController.renderZone()
 	local p = HUDController.parts
@@ -494,6 +523,9 @@ function HUDController.start()
 	end)
 	for _, name in { "ZoneActive", "ZoneOwner", "ZoneContested" } do
 		workspace:GetAttributeChangedSignal(name):Connect(HUDController.renderZone)
+	end
+	for _, name in { "Event", "EventPhase" } do
+		workspace:GetAttributeChangedSignal(name):Connect(HUDController.renderEvent)
 	end
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)

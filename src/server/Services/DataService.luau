@@ -61,6 +61,7 @@ export type Data = {
 	EquippedCosmetic: string?,
 	EquippedTrail: string?,
 	EquippedEmote: string?,
+	EquippedBoom: string?,
 	Badges: { string },
 	WeaponMastery: { [string]: Mastery },
 	TotalPlaytime: number,
@@ -97,6 +98,14 @@ export type Data = {
 	Prestige: number,
 	LastPrestigeAt: number,
 	PurchasedCoins: number,
+	-- Seasons (Phase 6): the season played, its XP and the tiers paid;
+	-- this week's challenge progress (by stat) and the ones done.
+	SeasonId: string,
+	SeasonXP: number,
+	SeasonTier: number,
+	SeasonWeek: number,
+	SeasonProgress: { [string]: number },
+	SeasonDone: { string },
 }
 export type Profile = {
 	data: Data,
@@ -164,6 +173,12 @@ function DataService.defaults(): Data
 		Prestige = 0,
 		LastPrestigeAt = 0,
 		PurchasedCoins = 0,
+		SeasonId = "",
+		SeasonXP = 0,
+		SeasonTier = 0,
+		SeasonWeek = 0,
+		SeasonProgress = {},
+		SeasonDone = {},
 	}
 end
 
@@ -197,7 +212,7 @@ function DataService.migrate(old: { [string]: any }?): Data
 		Telemetry.count("Data.invalidEquip")
 		data.EquippedAbility = nil
 	end
-	for field, kind in { EquippedCosmetic = "tracer", EquippedTrail = "trail", EquippedEmote = "emote" } do
+	for field, kind in { EquippedCosmetic = "tracer", EquippedTrail = "trail", EquippedEmote = "emote", EquippedBoom = "boom" } do
 		local id = data[field]
 		local cosmetic = type(id) == "string" and ProgressionConfig.cosmetics[id]
 		if id ~= nil and not (cosmetic and cosmetic.kind == kind and ProgressionConfig.ownsCosmetic(data.OwnedCosmetics, id)) then

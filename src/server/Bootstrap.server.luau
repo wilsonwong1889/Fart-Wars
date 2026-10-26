@@ -26,6 +26,8 @@
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), the mode each round, snapshots to clients
 --   ZoneService           Gas Control's zone: who holds it, its points
+--   SeasonService         the free seasonal track and weekly challenges
+--   EventService          live events: Bean Rain (flagged off)
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
@@ -66,6 +68,8 @@ local PrestigeService = require(Services.PrestigeService)
 local MetricsService = require(Services.MetricsService)
 local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
+local SeasonService = require(Services.SeasonService)
+local EventService = require(Services.EventService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
 local Health = require(script.Parent.Health)
@@ -98,6 +102,8 @@ PrestigeService.start()
 MetricsService.start()
 RoundService.start()
 ZoneService.start()
+SeasonService.start()
+EventService.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then

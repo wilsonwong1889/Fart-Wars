@@ -105,7 +105,7 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `SeasonConfig`, `EventConfig`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
@@ -144,6 +144,8 @@ else.
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
 | `PrestigeService` | `PrestigeRequest` (behind `FeatureFlags.PRESTIGE`): an exact preview with a confirmation token, then the reset, saved before it's confirmed and undone if the save fails; cosmetic rewards only |
+| `SeasonService` | the free seasonal track (behind `FeatureFlags.SEASONS`): season XP, tiers paid once, weekly challenges from real play, new weeks and seasons |
+| `EventService` | live events (behind `FeatureFlags.EVENTS`): Bean Rain, announced, on the lanes only, capped, beans paying coins and a Fart Dash |
 | `ZoneService` | Gas Control's zone: who's in it, who holds it, a point a second for a team alone in it, holders' rewards; the HUD's zone line and the floor ring |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
@@ -262,6 +264,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |
+| `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
@@ -471,6 +475,11 @@ Where the plans left room, or disagreed, Phase 1 does this:
   safe way (no power, nothing bought with Robux lost, an exact preview
   and two confirmations) and stays off until you decide; the +10% power
   proposal isn't built.
+- **Seasons and events are free and fair.** The seasonal track is earned
+  by playing (no premium track yet), its challenges are always ones the
+  current modes allow, and its rewards are coins and cosmetics. Bean Rain
+  warns first, never lands in a spawn room, hurts nobody and pays only a
+  little. Both are off until you turn them on.
 - **Maps are built from shared pieces** (`MapKit`) and pass the same
   fairness checks as the first one before they can rotate; see
   [`docs/maps-and-modes.md`](docs/maps-and-modes.md).

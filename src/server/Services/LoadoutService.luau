@@ -58,9 +58,9 @@ function LoadoutService.resolve(data: Data): (string, string?, string?)
 	return weapon, ability, LoadoutService.cosmetic(data, "tracer")
 end
 
-local SLOTS = { tracer = "EquippedCosmetic", trail = "EquippedTrail", emote = "EquippedEmote" }
+local SLOTS = { tracer = "EquippedCosmetic", trail = "EquippedTrail", emote = "EquippedEmote", boom = "EquippedBoom" }
 
--- The equipped cosmetic of `kind` ("tracer", "trail", "emote"), owned only;
+-- The equipped cosmetic of `kind` ("tracer", "trail", "emote", "boom"), owned only;
 -- the emote falls back to the free one everybody has.
 function LoadoutService.cosmetic(data: Data, kind: string): string?
 	local id = (data :: any)[SLOTS[kind]]
@@ -75,6 +75,7 @@ local function applyCosmetic(player: Player, data: Data)
 	player:SetAttribute("Tracer", LoadoutService.cosmetic(data, "tracer"))
 	player:SetAttribute("Trail", LoadoutService.cosmetic(data, "trail"))
 	player:SetAttribute("Emote", LoadoutService.cosmetic(data, "emote"))
+	player:SetAttribute("Boom", LoadoutService.cosmetic(data, "boom"))
 end
 
 -- The weapon as something to hold: a Tool built from parts in the
@@ -218,6 +219,7 @@ function LoadoutService.view(player: Player): { [string]: any }?
 		equippedCosmetic = cosmetic,
 		equippedTrail = LoadoutService.cosmetic(data, "trail"),
 		equippedEmote = LoadoutService.cosmetic(data, "emote"),
+		equippedBoom = LoadoutService.cosmetic(data, "boom"),
 		passes = table.clone(data.PassesGranted),
 		badges = table.clone(data.Badges),
 		mastery = mastery,

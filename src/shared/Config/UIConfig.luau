@@ -25,6 +25,13 @@ local UIConfig = {
 		LIVE = "LIVE MATCH",
 	}),
 	afkWarning = "BRO FELL ASLEEP MID-FART!",
+	-- Live events' banner (%d: seconds).
+	events = table.freeze({
+		BeanRain = table.freeze({
+			warning = "🫘 BEAN RAIN IN %ds! Grab beans for coins and a Fart Dash",
+			active = "🫘 BEAN RAIN! Grab the beans: coins and a Fart Dash (%ds)",
+		}),
+	}),
 	-- Gas Control's zone line under the score boxes (%s: a team's short
 	-- name; the counts are each team's players in the zone).
 	zone = table.freeze({
@@ -46,6 +53,9 @@ local UIConfig = {
 		daily = "Daily reward",
 		spin = "Free spin",
 		squad = "Playing with friends",
+		season = "Season tier",
+		event = "Bean Rain",
+		zone = "Holding the plaza",
 		welcome = "Welcome a friend",
 		purchase = "Store",
 		test = "Test",

@@ -78,6 +78,8 @@ Services start in this order and never require one that starts later.
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
+| `SeasonService` | `start()`, `current()`, `challenges()`, `view(player)`, `push(player)`, `addXP(player, n)`, `count(player, stat, n?)`, `tick(dt)`, `setSeasons(list)`, `setClock(fn)`, `testEnable(on?)` (tests) |
+| `EventService` | `start()`, `book(at?)`, `stop()`, `phase()`, `beans()`, `spot()`, `tick(dt)`, `testEnable(on?)`, `setRandom(rng)` (tests) |
 | `PrestigeService` | `start()`, `enabled()`, `eligible(player) -> (ok, reason)`, `describe(data)`, `preview(player)`, `confirm(player, token)`, `request(player, action, token?)`, `testEnable(on?)`, `testExpire(player)` |
 | `ZoneService` | `start()`, `parts() -> (zone?, ring?)`, `inside(position, zone)`, `isActive()`, `state() -> (owner?, contested)`, `tick(dt)`, signal `Changed(owner?, contested)` |
 | `MetricsService` | `start()`, `segments(player) -> (age?, pay?)`, `setAnalytics(fake)` (tests); constants `FUNNEL`, `LENGTHS` |
@@ -235,6 +237,9 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `Spins`, `SpinsUsed`, `GiftDay`, `GiftsToday` | number | free spins banked and used (the spin's grant ID), today's gifts |
 | `EquippedTrail`, `EquippedEmote` | string? | the Fart Dash trail and emote slots (`EquippedCosmetic` is the tracer) |
 | `Receipts`, `PassesGranted` | { string } | the latest 100 purchase IDs paid, the passes whose contents were given |
+| `EquippedBoom` | string? | the boom cosmetic slot (colours the explosions of players you eliminate) |
+| `SeasonId`, `SeasonXP`, `SeasonTier`, `SeasonWeek` | string, number, number, number | the season played, its XP, the tiers paid, the challenge week |
+| `SeasonProgress`, `SeasonDone` | { [stat]: number }, { string } | this week's challenge counts by stat, and the challenges done |
 | `Prestige`, `LastPrestigeAt` | number | the prestige rank (0 before the first) and when it was last taken (os.time) |
 | `PurchasedCoins` | number | coins bought in the store since the last prestige (a prestige keeps up to this many) |
 | `SquadDay`, `SquadToday` | number | the UTC day and count of today's squad bonuses |

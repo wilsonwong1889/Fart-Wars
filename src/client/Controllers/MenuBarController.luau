@@ -13,6 +13,7 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local LockerController = require(script.Parent.LockerController)
 local RewardsController = require(script.Parent.RewardsController)
+local SeasonController = require(script.Parent.SeasonController)
 
 local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 205, 50)
@@ -106,7 +107,7 @@ local function build()
 		Name = "Rewards",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 138),
-		Size = UDim2.new(0, 300, 0, 44),
+		Size = UDim2.new(0, 450, 0, 44),
 		BackgroundTransparency = 1,
 		Parent = corner,
 	}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Right) })
@@ -126,6 +127,19 @@ local function build()
 		Parent = extras,
 	})
 	UI.onClick(p.daily, RewardsController.openDaily)
+	-- While a season is on.
+	p.season = UI.button("🏆 SEASON", Color3.fromRGB(220, 160, 40), {
+		Name = "Season",
+		LayoutOrder = 0,
+		Size = UDim2.new(0, 140, 0, 42),
+		TextSize = 18,
+		Visible = workspace:GetAttribute("SeasonActive") == true,
+		Parent = extras,
+	})
+	UI.onClick(p.season, SeasonController.open)
+	workspace:GetAttributeChangedSignal("SeasonActive"):Connect(function()
+		p.season.Visible = workspace:GetAttribute("SeasonActive") == true
+	end)
 	p.buttons = {}
 	for i, entry in BUTTONS do
 		local button = UI.new("TextButton", {

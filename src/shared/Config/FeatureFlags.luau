@@ -7,6 +7,14 @@ return table.freeze({
 	-- no results screen (the masterplan's alternative baseline).
 	MATCH_MODE = "Rounds" :: "Rounds" | "Continuous",
 
+	-- Seasons (Phase 6): a free seasonal track with weekly challenges
+	-- between SeasonConfig's dates. Off as shipped.
+	SEASONS = false,
+
+	-- Live events (Phase 6): Bean Rain now and then in a round, always
+	-- announced first (EventConfig). Off as shipped.
+	EVENTS = false,
+
 	-- Prestige (Phase 6): start again from level 50 for a rank, badges and
 	-- cosmetics (no power). Off until its design is signed off
 	-- (PrestigeConfig, docs/roadmap.md).

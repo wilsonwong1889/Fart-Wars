@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
+local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Cadence = require(Server.Cadence)
@@ -27,6 +28,9 @@ local CHECK_SECONDS = DASH.checkSeconds :: number
 local MAX_TRAVEL = DASH.maxTravelStuds :: number
 
 local DashService = {}
+
+-- (player): a Fart Dash the server accepted.
+DashService.Dashed = Signal.new()
 
 local cadences: { [Player]: Cadence.State } = {}
 local started = false
@@ -93,6 +97,7 @@ function DashService.dash(player: Player, direction: unknown): boolean
 	end
 	AFKService.markActive(player)
 	Telemetry.count("Dash.dashes")
+	DashService.Dashed:Fire(player)
 
 	local start = root.CFrame
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -120,6 +125,15 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		end
 	end)
 	return true
+end
+
+-- A Fart Dash ready again at once (Bean Rain's beans), on the server and
+-- on the player's own screen.
+function DashService.refill(player: Player)
+	cadences[player] = nil
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
+	combatEvent:FireClient(player, { kind = "dashRefill" })
 end
 
 function DashService.start()

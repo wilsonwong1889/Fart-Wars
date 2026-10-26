@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local TeamService = require(script.Parent.TeamService)
@@ -21,6 +22,9 @@ local ExplosionService = require(script.Parent.ExplosionService)
 local BARREL = GameConfig.BARREL
 
 local BarrelService = {}
+
+-- (owner?): a barrel went off; the owner is whoever finished it.
+BarrelService.Exploded = Signal.new()
 
 type Barrel = {
 	model: Model,
@@ -78,6 +82,7 @@ local function explode(barrel: Barrel)
 	setVisible(barrel.model, false)
 	publish(barrel)
 	Telemetry.count("Barrel.explosions")
+	BarrelService.Exploded:Fire(barrel.owner)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
 	combatEvent:FireAllClients({ kind = "barrel", position = at })

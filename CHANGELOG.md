@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0: Phase 6, part 3: seasons, Bean Rain and booms (all off)
+
+- Seasons, behind `FeatureFlags.SEASONS`: Season 1 (2 November to 28
+  December 2026), 20 free tiers of coins with a cosmetic every five
+  (Spark Boom, Sludge Trail, Toxic Boom, Brainrot Gold) and the Season 1
+  badge at the top. Season XP is 20% of all XP plus 500 for each of three
+  weekly challenges (eliminations, assists, dashes, barrels, minutes,
+  streaks, and plaza time when Gas Control rotates). The Season screen
+  (🏆 SEASON top right while a season is on) shows the tier, the next
+  rewards, this week's challenges and the real time left.
+- Bean Rain, behind `FeatureFlags.EVENTS`: half of rounds, a 5-second
+  warning banner, then 20 seconds of beans on the lanes, each shown first
+  as a ring. A bean pays 3 coins (8 an event) and refills your Fart Dash.
+  It never lands in a spawn room, hurts nobody and tops out at 12 parts.
+- Booms: a new cosmetic slot that colours the explosions of players you
+  eliminate. The cosmetics grid scrolls.
+- Signals for challenges: `DashService.Dashed`, `BarrelService.Exploded`,
+  `ZoneService.Held`, `EconomyService.XPGained`; `DashService.refill`.
+- New specs: `Season`, `Events`.
+
 ## 0.6.0: Phase 6, part 2: prestige (off) and the long-term economy
 
 - Prestige, cosmetic only, behind `FeatureFlags.PRESTIGE` (off): at level
