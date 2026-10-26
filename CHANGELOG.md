@@ -1,5 +1,32 @@
 # Changelog
 
+## Phase 1 aligned with the masterplan
+
+- Placeholder Starter Blaster: left click, mouse aim, server-cast hitscan,
+  25 damage, enemies only, eliminations score once per life. Crosshair,
+  tracers, hit markers, a damage direction marker, kill feed and
+  elimination cards.
+- 3 seconds of spawn protection after every spawn, ended by firing.
+- Shift is Fart Dash (cooldown and travel checked on the server); sprint is
+  gone.
+- `FeatureFlags`: 5-minute rounds stay the default; continuous play
+  (join straight onto a team, no timer) is `MATCH_MODE = "Continuous"`.
+- Team ties are broken the same way every time (team behind on score, then
+  team order) instead of at random.
+- Barrels moved from beside the spawns to the contested middle.
+- `Telemetry`: structured logs, counters, errors per service, rejected
+  requests by remote and reason, abnormal request rates, time to first
+  shot / hit / elimination.
+- Test commands: `/fw spawn`, `/fw team`, `/fw resetgas`, `/fw weapon`,
+  `/fw stats`.
+- Teammates outlined in their team colour.
+- `WeaponConfig` and three new remotes: `FireWeapon`, `FartDash`,
+  `CombatEvent`.
+- `docs/implementation-packet.md`: folder tree, module contracts, remote
+  payloads, flags, tests and known limits.
+- New specs: `Combat`, `Continuous`; churn in `Lifecycle`; barrel placement
+  in `Map`.
+
 ## Phase 1: foundation and first playable prototype
 
 - Rojo project with the plan's structure: shared config (`GameConfig`,

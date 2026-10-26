@@ -5,21 +5,29 @@
 --   TeamService           active team slots and balancing
 --   PlayerLifecycleService  join, PLAY, spawn, spectate, leave
 --   AFKService            idle warning and AFK spectating
---   RoundService          WAITING -> ACTIVE -> RESULTS, snapshots to clients
---   TestControls          test-only scoring and timing (Studio / allow-list)
+--   CombatService         the placeholder blaster, hits and eliminations
+--   DashService           Fart Dash checks
+--   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
+--                         match), snapshots to clients
+--   TestControls          test-only commands (Studio / allow-list)
+-- Telemetry (logs, counters, rejected requests) is used by all of them.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Before anyone can spawn: avatars only come from PLAY.
 Players.CharacterAutoLoads = false
 
-local GameConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.GameConfig)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local GameConfig = require(Shared.Config.GameConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Services = script.Parent.Services
 local MapService = require(Services.MapService)
 local MatchScoreService = require(Services.MatchScoreService)
 local TeamService = require(Services.TeamService)
 local PlayerLifecycleService = require(Services.PlayerLifecycleService)
 local AFKService = require(Services.AFKService)
+local CombatService = require(Services.CombatService)
+local DashService = require(Services.DashService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
 
@@ -28,10 +36,12 @@ MatchScoreService.reset()
 TeamService.start()
 PlayerLifecycleService.start()
 AFKService.start()
+CombatService.start()
+DashService.start()
 RoundService.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then
 	warn(`[Fart Wars] Max Players is {Players.MaxPlayers}; set it to {GameConfig.MAX_PLAYERS} in Game Settings → Places`)
 end
-print(`[Fart Wars] server ready: {GameConfig.DEFAULT_MAP}, {RoundService.getMode().displayName}`)
+print(`[Fart Wars] server ready: {GameConfig.DEFAULT_MAP}, {RoundService.getMode().displayName}, {FeatureFlags.MATCH_MODE}`)

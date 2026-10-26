@@ -12,7 +12,8 @@
 -- Each spawn room is walled on its front and sides with its doors at the
 -- back, onto a corridor along the end wall that opens into the side lanes,
 -- so nothing out in the lanes or the enemy half can see the spawn pads.
--- Barrels are decoration only in Phase 1.
+-- Barrels sit in the contested middle, never by a spawn; they're
+-- decoration only until Phase 2 makes them explode.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -205,12 +206,12 @@ local function build(entry: MapConfig.MapEntry): Model
 	local barrel = cylinder(theme.barrel, Enum.Material.Metal)
 	local band = cylinder(theme.barrelBand, Enum.Material.Neon)
 	for _, spot in {
-		Vector3.new(68, 0, -40),
-		Vector3.new(72, 0, -36),
 		Vector3.new(66, 0, -12),
-		Vector3.new(34, 0, -50),
-		Vector3.new(-34, 0, -50),
-		Vector3.new(-72, 0, -44),
+		Vector3.new(70, 0, -16),
+		Vector3.new(-70, 0, -14),
+		Vector3.new(12, 0, -16),
+		Vector3.new(-18, 0, -14),
+		Vector3.new(36, 0, -28),
 	} do
 		pair(decor, "Barrel", Vector3.new(5, 4, 4), CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT, barrel)
 		pair(decor, "BarrelBand", Vector3.new(0.6, 4.2, 4.2), CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT, band)

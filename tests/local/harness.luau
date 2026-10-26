@@ -1347,10 +1347,47 @@ local function findChild(instance, name)
 	return nil
 end
 
+-- The part's world-axis bounding box, rotation included.
 local function boundsOf(part)
-	local position = part.Position
-	local size = part.Size
-	return position - size / 2, position + size / 2
+	local frame = part.CFrame
+	local half = part.Size / 2
+	local _, _, _, r00, r01, r02, r10, r11, r12, r20, r21, r22 = frame:GetComponents()
+	local extent = v3(
+		math.abs(r00) * half.X + math.abs(r01) * half.Y + math.abs(r02) * half.Z,
+		math.abs(r10) * half.X + math.abs(r11) * half.Y + math.abs(r12) * half.Z,
+		math.abs(r20) * half.X + math.abs(r21) * half.Y + math.abs(r22) * half.Z
+	)
+	local position = frame.Position
+	return position - extent, position + extent
+end
+
+-- Where a ray first enters a box, as a fraction of `direction`, and the
+-- face's normal; nil if it misses.
+local function rayBox(origin, direction, lo, hi)
+	local enter, leave, normal = 0, 1, nil
+	for _, axis in { "X", "Y", "Z" } do
+		local o, d = origin[axis], direction[axis]
+		if math.abs(d) < 1e-12 then
+			if o < lo[axis] or o > hi[axis] then
+				return nil
+			end
+		else
+			local a, b = (lo[axis] - o) / d, (hi[axis] - o) / d
+			local face = if d > 0 then -1 else 1
+			if a > b then
+				a, b = b, a
+			end
+			if a > enter then
+				enter = a
+				normal = v3(if axis == "X" then face else 0, if axis == "Y" then face else 0, if axis == "Z" then face else 0)
+			end
+			leave = math.min(leave, b)
+			if enter > leave then
+				return nil
+			end
+		end
+	end
+	return enter, normal or v3(0, 0, 0)
 end
 
 local function worldParts(params)
@@ -1843,8 +1880,29 @@ METHODS = {
 		BreakJoints = function() end,
 	},
 	WorldRoot = {
-		Raycast = function()
-			return nil
+		-- Rays hit parts' bounding boxes (rotation included, shapes not).
+		Raycast = function(_, origin, direction, raycastParams)
+			local best, bestT, bestNormal = nil, math.huge, nil
+			for _, part in worldParts(raycastParams) do
+				if not (raycastParams and raycastParams.RespectCanCollide and not part.CanCollide) then
+					local lo, hi = boundsOf(part)
+					local t, normal = rayBox(origin, direction, lo, hi)
+					if t and t < bestT then
+						best, bestT, bestNormal = part, t, normal
+					end
+				end
+			end
+			if not best then
+				return nil
+			end
+			local position = origin + direction * bestT
+			return {
+				Instance = best,
+				Position = position,
+				Normal = bestNormal,
+				Distance = (direction * bestT).Magnitude,
+				Material = best.Material,
+			}
 		end,
 		Blockcast = function()
 			return nil

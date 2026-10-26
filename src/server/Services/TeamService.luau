@@ -11,6 +11,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local TeamBalance = require(Shared.TeamBalance)
 local Signal = require(Shared.Signal)
+local MatchScoreService = require(script.Parent.MatchScoreService)
 
 local TeamService = {}
 
@@ -23,8 +24,6 @@ TeamService.checkFriends = function(a: Player, b: Player): boolean
 	local ok, result = pcall(a.IsFriendsWithAsync, a, b.UserId)
 	return ok and result == true
 end
-
-TeamService.random = Random.new()
 
 local teamInstances: { [string]: Team } = {}
 local teamOf: { [Player]: string } = {}
@@ -111,7 +110,7 @@ function TeamService.assign(player: Player, preferred: string?): (string?, TeamB
 	local team, why = TeamBalance.choose(TeamService.counts(), TeamConfig.order, GameConfig.MAX_TEAM_SIZE, {
 		preferred = preferred,
 		friends = TeamService.friendCounts(player),
-		random = TeamService.random,
+		scores = MatchScoreService.getScores(),
 	})
 	if team then
 		setTeam(player, team)
@@ -133,6 +132,19 @@ function TeamService.switch(player: Player, to: string): boolean
 		return false
 	end
 	setTeam(player, to)
+	return true
+end
+
+-- Test-only: moves an active player to `team` whatever the balance (but
+-- never into a full team).
+function TeamService.testSetTeam(player: Player, team: string): boolean
+	if not GameConfig.TEST_CONTROLS.ENABLED or not teamOf[player] or not teamInstances[team] then
+		return false
+	end
+	if teamOf[player] ~= team and TeamService.counts()[team] >= GameConfig.MAX_TEAM_SIZE then
+		return false
+	end
+	setTeam(player, team)
 	return true
 end
 

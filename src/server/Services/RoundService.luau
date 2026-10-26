@@ -9,10 +9,13 @@
 -- end times; clients work out the countdown themselves, and can ask for the
 -- current snapshot at any time (RoundSnapshot). The map and the game mode
 -- are both swappable without changes here.
+-- With FeatureFlags.MATCH_MODE = "Continuous" there are no rounds: one
+-- ACTIVE match with no end time starts with the server and scores run on.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local MapConfig = require(Shared.Config.MapConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local States = require(Shared.States)
@@ -53,6 +56,7 @@ local state: State = {
 }
 local lastStep: number? = nil
 local started = false
+local continuous = FeatureFlags.MATCH_MODE == "Continuous"
 local publishQueued = false
 
 local function now(): number
@@ -82,6 +86,7 @@ function RoundService.snapshot(): RoundClock.Snapshot
 		activePlayersByTeam = TeamService.counts(),
 		result = state.result,
 		mode = mode.id,
+		matchMode = FeatureFlags.MATCH_MODE,
 		map = if entry then entry.id else GameConfig.DEFAULT_MAP,
 		serverTime = now(),
 	}
@@ -139,6 +144,16 @@ local function endRound(at: number)
 	enter(Phase.RESULTS, at, at + mode.intermissionSeconds)
 end
 
+-- Continuous play: one match that runs as long as the server does.
+local function startContinuous(at: number)
+	state.roundId = 1
+	MatchScoreService.reset()
+	MatchScoreService.open(mode, context(), math.huge)
+	PlayerLifecycleService.beginRound(state.roundId)
+	mode:onRoundStart(context())
+	enter(Phase.ACTIVE, at, nil)
+end
+
 local function waitForPlayers(at: number)
 	state.result = nil
 	MatchScoreService.reset()
@@ -154,6 +169,9 @@ function RoundService.step(at: number)
 		PlayerLifecycleService.accrue(math.max(0, until_ - lastStep))
 	end
 	lastStep = at
+	if continuous then
+		return
+	end
 	if state.phase == Phase.WAITING then
 		if canStart() then
 			startRound(at)
@@ -183,6 +201,9 @@ end
 function RoundService.testEndPhaseIn(seconds: number): (boolean, string)
 	if not GameConfig.TEST_CONTROLS.ENABLED then
 		return false, "test controls are off (GameConfig.TEST_CONTROLS.ENABLED)"
+	end
+	if continuous then
+		return false, "continuous play has no rounds to end"
 	end
 	if state.phase == Phase.WAITING then
 		return false, "nothing to end while waiting for players"
@@ -216,6 +237,9 @@ function RoundService.start()
 	TeamService.Changed:Connect(publishSoon)
 
 	state.phaseStartTime = now()
+	if continuous then
+		startContinuous(now())
+	end
 	task.spawn(function()
 		while true do
 			RoundService.step(now())

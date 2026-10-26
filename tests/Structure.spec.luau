@@ -3,6 +3,8 @@
 --     module that requires itself through others, as Roblox does)
 --   * GameConfig holds the plan's numbers
 --   * ReplicatedStorage.Remotes holds exactly the planned remotes
+--   * the feature flags default to 5-minute rounds with Phase 1 combat on,
+--     and the weapon config keeps the masterplan's weapon contract
 --   * the configured mode and map exist and fit their contracts, and every
 --     map lists only modes that exist
 --   * the teams are the Skibidi Stinkers (green) and Sigma Sharters (yellow)
@@ -47,13 +49,28 @@ local remotes = {
 	RoundUpdate = "RemoteEvent",
 	TeamUpdate = "RemoteEvent",
 	UIMessage = "RemoteEvent",
+	FireWeapon = "RemoteEvent",
+	FartDash = "RemoteEvent",
+	CombatEvent = "RemoteEvent",
 }
 local present = 0
 for _, child in ReplicatedStorage.Remotes:GetChildren() do
 	check(remotes[child.Name] == child.ClassName, `{child.Name} is a planned {remotes[child.Name] or "?"}`)
 	present += 1
 end
-check(present == 7, "all seven remotes, nothing else")
+check(present == 10, "all ten remotes, nothing else")
+
+local FeatureFlags = require(shared.Config.FeatureFlags)
+check(FeatureFlags.MATCH_MODE == "Rounds", "5-minute rounds by default")
+check(FeatureFlags.PLACEHOLDER_BLASTER and FeatureFlags.FART_DASH and FeatureFlags.SPAWN_PROTECTION, "Phase 1 combat is on")
+check(table.isfrozen(FeatureFlags), "flags can't change at runtime")
+local WeaponConfig = require(shared.Config.WeaponConfig)
+check(WeaponConfig.weapons[WeaponConfig.default], "the default weapon exists")
+for id, weapon in WeaponConfig.weapons do
+	check(weapon.id == id and weapon.damage > 0 and weapon.fireInterval > 0 and weapon.range > 0, `{id} has damage, interval and range`)
+	check(weapon.projectile == "hitscan" and weapon.unlock ~= nil and typeof(weapon.tracerColor) == "Color3", `{id} has projectile, unlock and effects`)
+end
+check(GameConfig.SPAWN_PROTECTION_SECONDS == 3, "3 seconds of spawn protection")
 
 local GameModeBase = require(shared.Interfaces.GameModeBase)
 local MapBase = require(shared.Interfaces.MapBase)

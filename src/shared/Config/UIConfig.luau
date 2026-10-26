@@ -21,6 +21,8 @@ local UIConfig = {
 		WAITING = "WAITING FOR PLAYERS",
 		ACTIVE = "ROUND",
 		RESULTS = "NEXT ROUND IN",
+		-- Continuous play: a match that never ends.
+		LIVE = "LIVE MATCH",
 	}),
 	afkWarning = "BRO FELL ASLEEP MID-FART!",
 
@@ -28,7 +30,8 @@ local UIConfig = {
 	comingSoon = table.freeze({ "Weapons", "Abilities", "Shop", "Rewards", "Profile", "Settings", "Leaderboard" }),
 
 	keys = table.freeze({
-		sprint = Enum.KeyCode.LeftShift,
+		dash = Enum.KeyCode.LeftShift,
+		fire = Enum.UserInputType.MouseButton1,
 		camera = Enum.KeyCode.V,
 		menu = Enum.KeyCode.M,
 		scoreboard = Enum.KeyCode.Tab,
@@ -38,7 +41,9 @@ local UIConfig = {
 	-- The one-time card on a player's first PLAY.
 	controls = table.freeze({
 		{ "WASD", "Move" },
-		{ "SHIFT", "Sprint" },
+		{ "MOUSE", "Aim" },
+		{ "LEFT CLICK", "Fire" },
+		{ "SHIFT", "Fart Dash" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "M", "Menu" },

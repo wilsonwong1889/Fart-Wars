@@ -7,18 +7,23 @@
 --   leave           -> forgotten, slot released
 -- Characters only exist for ACTIVE players: Players.CharacterAutoLoads is
 -- off, spawns go through here, and an avatar that turns up for anyone else
--- is removed. Clients see their state as the Player's "State" attribute.
+-- is removed. Every spawn is at the team's safest pad, with a few seconds of
+-- protection (the character's "ProtectedUntil" attribute and a ForceField)
+-- that firing ends early. In continuous play, joining is PLAY.
+-- Clients see their state as the Player's "State" attribute.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Messages = require(Server.Messages)
 local RateLimit = require(Server.RateLimit)
+local Telemetry = require(Server.Telemetry)
 local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
 
@@ -47,6 +52,11 @@ local PlayerLifecycleService = {}
 -- (player, state, previous): fires on every state change. A player who
 -- leaves fires with state nil.
 PlayerLifecycleService.StateChanged = Signal.new()
+-- (player, character): a fresh avatar is on its pad.
+PlayerLifecycleService.Spawned = Signal.new()
+-- (player, character): an active player's avatar died. Per-life state
+-- (streaks, cooldowns, later gas) resets on this.
+PlayerLifecycleService.Died = Signal.new()
 
 local runtimes: { [Player]: Runtime } = {}
 local limiter = RateLimit.new(GameConfig.REQUEST_COOLDOWN_SECONDS)
@@ -84,6 +94,42 @@ local function removeCharacter(player: Player)
 	end
 end
 
+-- Spawn protection.
+
+local function protect(character: Model)
+	if not FeatureFlags.SPAWN_PROTECTION then
+		return
+	end
+	character:SetAttribute("ProtectedUntil", now() + GameConfig.SPAWN_PROTECTION_SECONDS)
+	local field = Instance.new("ForceField")
+	field.Name = "SpawnProtection"
+	field.Visible = true
+	field.Parent = character
+	task.delay(GameConfig.SPAWN_PROTECTION_SECONDS, function()
+		if field.Parent then
+			field:Destroy()
+		end
+	end)
+end
+
+function PlayerLifecycleService.isProtected(player: Player): boolean
+	local character = player.Character
+	local protectedUntil = character and character:GetAttribute("ProtectedUntil")
+	return type(protectedUntil) == "number" and now() < protectedUntil
+end
+
+-- Attacking gives up the rest of the protection.
+function PlayerLifecycleService.endProtection(player: Player)
+	local character = player.Character
+	if character and character:GetAttribute("ProtectedUntil") ~= nil then
+		character:SetAttribute("ProtectedUntil", nil)
+		local field = character:FindFirstChild("SpawnProtection")
+		if field then
+			field:Destroy()
+		end
+	end
+end
+
 local function enemyPositions(teamId: string): { Vector3 }
 	local positions = {}
 	for _, other in Players:GetPlayers() do
@@ -105,6 +151,7 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	if not teamId then
 		return
 	end
+	runtime.teamId = teamId
 	player.RespawnLocation = MapService.safeSpawn(teamId, enemyPositions(teamId)) :: any
 	local ok, err = pcall(player.LoadCharacterAsync, player)
 	if not ok then
@@ -114,6 +161,22 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	-- newer spawn replaces this one by itself.)
 	if runtimes[player] == runtime and runtime.state ~= PlayerState.ACTIVE then
 		removeCharacter(player)
+		return
+	end
+	local character = player.Character
+	if character and runtimes[player] == runtime then
+		protect(character)
+		Telemetry.log("Lifecycle", "spawned", { player = player, team = teamId })
+		PlayerLifecycleService.Spawned:Fire(player, character)
+	end
+end
+
+-- A fresh avatar at the team's spawn for an ACTIVE player (team switches,
+-- test controls).
+function PlayerLifecycleService.respawn(player: Player)
+	local runtime = runtimes[player]
+	if runtime and runtime.state == PlayerState.ACTIVE then
+		spawnPlayer(player, runtime)
 	end
 end
 
@@ -135,6 +198,8 @@ local function onCharacterAdded(player: Player, character: Model)
 	end
 	local token = runtime.spawnToken
 	humanoid.Died:Connect(function()
+		Telemetry.log("Lifecycle", "died", { player = player })
+		PlayerLifecycleService.Died:Fire(player, character)
 		task.wait(GameConfig.RESPAWN_SECONDS)
 		if runtimes[player] == runtime and runtime.state == PlayerState.ACTIVE and runtime.spawnToken == token and player.Character == character then
 			spawnPlayer(player, runtime)
@@ -302,7 +367,12 @@ local function onJoin(player: Player)
 	if player.Character then
 		onCharacterAdded(player, player.Character)
 	end
+	Telemetry.joined(player)
 	PlayerLifecycleService.StateChanged:Fire(player, runtime.state, nil)
+	if FeatureFlags.MATCH_MODE == "Continuous" then
+		-- No home screen gate: straight onto a team.
+		task.defer(PlayerLifecycleService.requestPlay, player, nil)
+	end
 end
 
 local function onLeave(player: Player)
@@ -315,6 +385,7 @@ local function onLeave(player: Player)
 	removeCharacter(player)
 	runtimes[player] = nil
 	limiter:forget(player)
+	Telemetry.left(player)
 	PlayerLifecycleService.StateChanged:Fire(player, nil, runtime.state)
 end
 
@@ -330,21 +401,27 @@ function PlayerLifecycleService.start()
 	local requestSpectate = remotes:WaitForChild("RequestSpectate") :: RemoteEvent
 
 	-- Clients only state intent; everything is re-checked here.
-	requestPlay.OnServerEvent:Connect(function(player, preferred)
+	requestPlay.OnServerEvent:Connect(Telemetry.guard("Lifecycle", function(player, preferred)
 		if limiter:allow(player, "play") then
 			PlayerLifecycleService.requestPlay(player, preferred)
+		else
+			Telemetry.reject("RequestPlay", player, "rateLimited")
 		end
-	end)
-	requestTeam.OnServerEvent:Connect(function(player, team)
+	end))
+	requestTeam.OnServerEvent:Connect(Telemetry.guard("Lifecycle", function(player, team)
 		if limiter:allow(player, "team") then
 			PlayerLifecycleService.requestTeam(player, team)
+		else
+			Telemetry.reject("RequestTeam", player, "rateLimited")
 		end
-	end)
-	requestSpectate.OnServerEvent:Connect(function(player)
+	end))
+	requestSpectate.OnServerEvent:Connect(Telemetry.guard("Lifecycle", function(player)
 		if limiter:allow(player, "spectate") then
 			PlayerLifecycleService.requestSpectate(player)
+		else
+			Telemetry.reject("RequestSpectate", player, "rateLimited")
 		end
-	end)
+	end))
 
 	Players.PlayerAdded:Connect(onJoin)
 	Players.PlayerRemoving:Connect(onLeave)

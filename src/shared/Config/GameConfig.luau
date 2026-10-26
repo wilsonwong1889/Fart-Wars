@@ -19,6 +19,26 @@ local GameConfig = {
 	AFK_MOVE_STUDS = 6,
 
 	RESPAWN_SECONDS = 3,
+	-- Invulnerable this long after spawning, unless they fire first.
+	SPAWN_PROTECTION_SECONDS = 3,
+	-- A shot may come this much sooner than the weapon's fire interval
+	-- (network jitter) before the server drops it.
+	FIRE_INTERVAL_TOLERANCE = 0.85,
+
+	-- Shift. The client pushes the avatar at SPEED for SECONDS; the server
+	-- checks the cooldown and, CHECK_SECONDS later, that it didn't travel
+	-- further than a dash plus walking allows (or puts it back).
+	FART_DASH = table.freeze({
+		COOLDOWN_SECONDS = 3,
+		SPEED = 70,
+		SECONDS = 0.2,
+		CHECK_SECONDS = 0.5,
+		MAX_TRAVEL_STUDS = 30,
+	}),
+
+	-- A player with more rejected requests than this in a minute is logged
+	-- as abnormal (a broken client or an exploit).
+	ABNORMAL_REJECTS_PER_MINUTE = 30,
 	-- Requests from one player closer together than this are dropped.
 	REQUEST_COOLDOWN_SECONDS = 0.5,
 	-- How often the round loop and the AFK check run.
@@ -26,7 +46,6 @@ local GameConfig = {
 	AFK_TICK_SECONDS = 1,
 
 	WALK_SPEED = 16,
-	SPRINT_SPEED = 24,
 
 	DEFAULT_MAP = "BrainrotBattlefield",
 	DEFAULT_MODE = "TeamElimination",

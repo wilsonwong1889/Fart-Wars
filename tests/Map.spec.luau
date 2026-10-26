@@ -6,7 +6,8 @@
 --   * each team's spawn pads are on its own half, and no straight line from
 --     anywhere in the lanes or the enemy half (standing, or up on cover)
 --     reaches a pad through the walls
---   * barrels are decoration: nothing on them to interact with
+--   * barrels sit in the contested middle, well away from both spawns, and
+--     are decoration for now: nothing on them to interact with
 --   * reloading swaps the map cleanly and spawn lookups follow the new one
 local ServerStorage = game:GetService("ServerStorage")
 local shared = game.ReplicatedStorage.Shared
@@ -185,6 +186,19 @@ check(looked > 5000, "plenty of lines checked")
 for _, item in map.Decor:GetDescendants() do
 	check(not (item:IsA("ClickDetector") or item:IsA("ProximityPrompt") or item:IsA("LuaSourceContainer")), "barrels do nothing")
 end
+local barrels = 0
+for _, barrel in map.Decor:GetChildren() do
+	if barrel.Name == "Barrel" then
+		barrels += 1
+		check(math.abs(barrel.Position.Z) <= 30, `the barrel at {barrel.Position} is in the contested middle`)
+		for _, team in { "Stinkers", "Sharters" } do
+			for _, pad in pads[team] do
+				check((barrel.Position - pad.Position).Magnitude >= 30, `the barrel at {barrel.Position} is well away from {team} spawns`)
+			end
+		end
+	end
+end
+check(barrels >= 6, "barrels on both halves")
 
 -- Reload.
 local oldPad = pads.Stinkers[1]

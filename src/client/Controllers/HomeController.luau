@@ -252,7 +252,9 @@ local function statusText(): string
 		table.insert(counts, tostring(ClientState.counts[team] or 0))
 	end
 	local versus = table.concat(counts, "v")
-	if snapshot.phase == Phase.ACTIVE then
+	if snapshot.phase == Phase.ACTIVE and not snapshot.phaseEndTime then
+		return `Live match · {versus}`
+	elseif snapshot.phase == Phase.ACTIVE then
 		return `Round in progress · {RoundClock.format(ClientState.remaining())} left · {versus}`
 	elseif snapshot.phase == Phase.RESULTS then
 		return `Next round in {RoundClock.format(ClientState.remaining())} · {versus}`
@@ -354,7 +356,6 @@ function HomeController.setMenu(open: boolean)
 		p.comingSoon.Enabled = false
 	end
 	InputController.menuOpen = open
-	InputController.applySpeed()
 end
 
 function HomeController.switchTeam()

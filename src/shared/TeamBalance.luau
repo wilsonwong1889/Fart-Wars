@@ -7,14 +7,17 @@
 --     placement (with two teams: only when the teams are level, or toward
 --     the smaller one)
 --   * friends break a tie, never more
+--   * any tie left goes the same way every time: to the team behind on
+--     score, then the first team in order
 --   * a voluntary switch has to make the spread smaller
 export type Counts = { [string]: number }
-export type Why = "full" | "preferred" | "preferenceRejected" | "balance" | "friends" | "random"
+export type Why = "full" | "preferred" | "preferenceRejected" | "balance" | "friends" | "behind" | "order"
 export type Options = {
 	preferred: string?,
 	-- How many of the player's friends are active on each team.
 	friends: Counts?,
-	random: Random?,
+	-- This round's score for each team.
+	scores: Counts?,
 }
 
 local TeamBalance = {}
@@ -78,7 +81,7 @@ function TeamBalance.choose(counts: Counts, order: { string }, maxSize: number, 
 	end
 
 	-- Tied. Friends first, then the smallest team (only differs with more
-	-- than two teams), then chance.
+	-- than two teams), then the team behind on score, then team order.
 	local friends = opts.friends or {}
 	local mostFriends = 0
 	for _, team in candidates do
@@ -106,8 +109,22 @@ function TeamBalance.choose(counts: Counts, order: { string }, maxSize: number, 
 			table.insert(smallest, team)
 		end
 	end
-	local pick = if #smallest == 1 then smallest[1] else smallest[(opts.random or Random.new()):NextInteger(1, #smallest)]
-	return pick, if rejected then "preferenceRejected" elseif #smallest == 1 then "balance" else "random"
+	if #smallest == 1 then
+		return smallest[1], if rejected then "preferenceRejected" else "balance"
+	end
+	local scores = opts.scores or {}
+	local lowest = math.huge
+	for _, team in smallest do
+		lowest = math.min(lowest, scores[team] or 0)
+	end
+	local behind = {}
+	for _, team in smallest do
+		if (scores[team] or 0) == lowest then
+			table.insert(behind, team)
+		end
+	end
+	-- `smallest` kept `order`'s order, so the first one left is first in order.
+	return behind[1], if rejected then "preferenceRejected" elseif #behind == 1 then "behind" else "order"
 end
 
 -- Whether an active player may move from `from` to `to`: only when it

@@ -11,6 +11,7 @@ export type Snapshot = {
 	activePlayersByTeam: { [string]: number },
 	result: { winner: string?, draw: boolean, scores: { [string]: number } }?,
 	mode: string,
+	matchMode: string, -- "Rounds" or "Continuous" (FeatureFlags.MATCH_MODE)
 	map: string,
 	serverTime: number,
 }

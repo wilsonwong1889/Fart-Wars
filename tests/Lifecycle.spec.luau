@@ -8,7 +8,8 @@
 --   * spectating removes the avatar and frees the slot; a death respawns
 --     after 3 seconds, but not for someone who spectated meanwhile
 --   * a voluntary switch only goes through when it evens the teams
---   * leaving frees everything; reconnecting starts fresh
+--   * leaving frees everything; reconnecting starts fresh; joining and
+--     leaving over and over never duplicates an avatar or skews the counts
 --   * round time only counts while ACTIVE
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -191,5 +192,42 @@ local frozen = watching and watching.activeSecondsThisRound
 task.wait(10)
 check(active and active.activeSecondsThisRound >= 9, "an active player's round time counts")
 check(watching and watching.state == "MENU_SPECTATOR" and watching.activeSecondsThisRound == frozen, "a spectator's doesn't")
+
+-- Churn: players come and go, some mid-PLAY.
+local churn = {}
+for i = 1, 30 do
+	local p = join(`Churn{i}`, 900 + i)
+	Lifecycle.requestPlay(p, nil)
+	table.insert(churn, p)
+	if i % 3 == 0 then
+		churn[i - 1].Parent = nil
+	end
+	if i % 5 == 0 then
+		Remotes.RequestSpectate.OnServerEvent:Fire(churn[i - 2])
+	end
+	if i % 7 == 0 then
+		Lifecycle.requestPlay(p, nil) -- again, at once
+	end
+end
+task.wait(1)
+local active = 0
+local byTeam = { Stinkers = 0, Sharters = 0 }
+for _, p in Players:GetPlayers() do
+	if p:GetAttribute("State") == "ACTIVE" then
+		active += 1
+		byTeam[p:GetAttribute("TeamId")] += 1
+		check(avatars(p.Name) == 1, `{p.Name} has exactly one avatar`)
+	else
+		check(avatars(p.Name) == 0 and p:GetAttribute("TeamId") == nil, `{p.Name} (not playing) has no avatar or team`)
+	end
+end
+local counts = TeamService.counts()
+check(TeamService.activeCount() == active and counts.Stinkers == byTeam.Stinkers and counts.Sharters == byTeam.Sharters, "team counts match who is playing")
+check(counts.Stinkers <= 10 and counts.Sharters <= 10, "and never past ten a team")
+for _, p in churn do
+	if not p.Parent then
+		check(avatars(p.Name) == 0 and Lifecycle.get(p) == nil, `{p.Name} left nothing behind`)
+	end
+end
 
 return { status = "PASS", checks = checks }

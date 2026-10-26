@@ -5,8 +5,11 @@
 --   * PLAY: the home screen goes, the HUD shows your team, the controls card
 --     shows once, and the camera follows the avatar in third person
 --   * V toggles first/third person, repeatedly, without breaking anything
---   * Shift sprints; M opens the menu with the mouse freed and stops the
---     sprint; Tab (held) shows the scoreboard
+--   * Shift: Fart Dash (a push the server accepts, then a cooldown); M opens
+--     the menu with the mouse freed, and no firing or dashing in it; Tab
+--     (held) shows the scoreboard
+--   * the crosshair shows in a match; left click fires (the server sees
+--     the shot)
 --   * the HUD follows the server's scores and clock; the results screen
 --     names the winner; the AFK warning shows and clears
 --   * SPECTATE from the menu goes back home, and team choices that would
@@ -144,17 +147,42 @@ task.wait(0.05)
 check(me.CameraMode == Enum.CameraMode.Classic and me.CameraMinZoomDistance == defaultMin, "and back, zoom limits intact")
 check(cam.CameraType == Enum.CameraType.Custom, "the camera still follows")
 
--- Shift, M and Tab.
-local humanoid = me.Character.Humanoid
-key(Enum.KeyCode.LeftShift, true)
-check(humanoid.WalkSpeed == 24, "Shift sprints")
+-- Shift, left click, M and Tab.
+local Combat = require(client.Controllers.CombatController)
+local combat = Combat.parts
+local root = me.Character.HumanoidRootPart
+local dashes, shots = 0, 0
+ReplicatedStorage.Remotes.FartDash.OnServerEvent:Connect(function()
+	dashes += 1
+end)
+ReplicatedStorage.Remotes.FireWeapon.OnServerEvent:Connect(function()
+	shots += 1
+end)
+me.Character.Humanoid.FloorMaterial = Enum.Material.Grass
+RunService.RenderStepped:Fire(0.016)
+check(combat.crosshair.Visible and not UserInputService.MouseIconEnabled, "a crosshair instead of the cursor")
+check(combat.dash.Text == "FART DASH READY (SHIFT)", "the dash is ready")
+press(Enum.KeyCode.LeftShift)
+check(dashes == 1 and root:FindFirstChild("FartDash") and root.FartDash:IsA("LinearVelocity"), "Shift: a Fart Dash push, sent to the server")
+press(Enum.KeyCode.LeftShift)
+check(dashes == 1, "not again until the cooldown is up")
+RunService.RenderStepped:Fire(0.016)
+check(string.find(combat.dash.Text, "FART DASH %ds"), "the meter counts down")
+UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+task.wait(0.05)
+UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+check(shots == 1, "a left click fires one shot")
 press(Enum.KeyCode.M)
 check(home.menu.Enabled and home.resume.Modal, "M opens the menu with the mouse free")
-check(humanoid.WalkSpeed == 16, "no sprinting in the menu")
+RunService.RenderStepped:Fire(0.016)
+check(not combat.crosshair.Visible and UserInputService.MouseIconEnabled, "with the cursor back")
+task.wait(0.4)
+UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+task.wait(0.05)
+check(shots == 1, "no firing in the menu")
 press(Enum.KeyCode.M)
-check(not home.menu.Enabled and humanoid.WalkSpeed == 24, "M closes it; still holding Shift")
-key(Enum.KeyCode.LeftShift, false)
-check(humanoid.WalkSpeed == 16, "let go: walking")
+check(not home.menu.Enabled, "M closes it")
 key(Enum.KeyCode.Tab, true)
 check(hud.scoreboard.Enabled, "Tab shows the scoreboard")
 check(hud.columns.Stinkers:FindFirstChild("Me"), "with me under the Stinkers")

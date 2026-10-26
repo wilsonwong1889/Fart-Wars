@@ -28,6 +28,15 @@
         },
         "UIMessage": {
           "$className": "RemoteEvent"
+        },
+        "FireWeapon": {
+          "$className": "RemoteEvent"
+        },
+        "FartDash": {
+          "$className": "RemoteEvent"
+        },
+        "CombatEvent": {
+          "$className": "RemoteEvent"
         }
       }
     },

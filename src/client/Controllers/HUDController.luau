@@ -318,8 +318,9 @@ local function tick()
 	local snapshot = ClientState.snapshot
 	local remaining = ClientState.remaining()
 	local phase = if snapshot then snapshot.phase else Phase.WAITING
-	p.phase.Text = UIConfig.phaseLabels[phase] or phase
-	p.time.Text = if phase == Phase.WAITING then "--:--" else RoundClock.format(remaining)
+	local live = phase == Phase.ACTIVE and snapshot ~= nil and snapshot.phaseEndTime == nil
+	p.phase.Text = if live then UIConfig.phaseLabels.LIVE else UIConfig.phaseLabels[phase] or phase
+	p.time.Text = if live then "LIVE" elseif phase == Phase.WAITING then "--:--" else RoundClock.format(remaining)
 	if phase == Phase.RESULTS then
 		p.resultNext.Text = `Next round in {RoundClock.format(remaining)}`
 	end

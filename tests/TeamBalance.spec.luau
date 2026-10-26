@@ -1,7 +1,8 @@
 -- The team rules on their own (Shared/TeamBalance):
 --   * joins fill 1v1, 3v3 and 10v10 evenly, and nobody joins a full team
 --   * a choice counts only when it is as balanced as the best placement
---   * friends only break a tie; chance breaks what's left
+--   * friends only break a tie; what's left goes the same way every time
+--     (the team behind on score, then team order)
 --   * a voluntary switch must make the teams more even
 --   * a round needs enough players and someone on every team
 local TeamBalance = require(game.ReplicatedStorage.Shared.TeamBalance)
@@ -14,25 +15,25 @@ end
 local ORDER = { "Stinkers", "Sharters" }
 local MAX = 10
 
--- N players join one after another with no preferences.
-local function fill(n: number, seed: number): { [string]: number }
+-- N players join one after another with no preferences, with the round
+-- score at `scores`.
+local function fill(n: number, scores: { [string]: number }): { [string]: number }
 	local counts = { Stinkers = 0, Sharters = 0 }
-	local random = Random.new(seed)
 	for _ = 1, n do
-		local team = TeamBalance.choose(counts, ORDER, MAX, { random = random })
+		local team = TeamBalance.choose(counts, ORDER, MAX, { scores = scores })
 		assert(team, "a slot")
 		counts[team] += 1
 	end
 	return counts
 end
 
-for seed = 1, 5 do
-	local two, six, twenty = fill(2, seed), fill(6, seed), fill(20, seed)
+for _, scores in { {}, { Stinkers = 5 }, { Sharters = 2 }, { Stinkers = 3, Sharters = 3 } } do
+	local two, six, twenty = fill(2, scores), fill(6, scores), fill(20, scores)
 	check(two.Stinkers == 1 and two.Sharters == 1, "2 players make a 1v1")
 	check(six.Stinkers == 3 and six.Sharters == 3, "6 players make a 3v3")
 	check(twenty.Stinkers == 10 and twenty.Sharters == 10, "20 players make a 10v10")
 	for n = 1, 20 do
-		local counts = fill(n, seed)
+		local counts = fill(n, scores)
 		check(math.abs(counts.Stinkers - counts.Sharters) <= 1, `{n} joins stay within one`)
 		check(counts.Stinkers <= MAX and counts.Sharters <= MAX, "never more than ten a team")
 	end
@@ -64,13 +65,14 @@ team, why = TeamBalance.choose({ Stinkers = 3, Sharters = 2 }, ORDER, MAX, { fri
 check(team == "Sharters" and why == "balance", "friends never outweigh balance")
 team, why = TeamBalance.choose({ Stinkers = 2, Sharters = 2 }, ORDER, MAX, { preferred = "Stinkers", friends = { Sharters = 2 } })
 check(team == "Stinkers" and why == "preferred", "the player's own choice comes before friends")
-local seen = {}
-local random = Random.new(7)
-for _ = 1, 40 do
-	local pick = TeamBalance.choose({ Stinkers = 4, Sharters = 4 }, ORDER, MAX, { random = random })
-	seen[pick :: string] = true
+team, why = TeamBalance.choose({ Stinkers = 4, Sharters = 4 }, ORDER, MAX, { scores = { Stinkers = 6, Sharters = 2 } })
+check(team == "Sharters" and why == "behind", "a tie goes to the team behind on score")
+team, why = TeamBalance.choose({ Stinkers = 4, Sharters = 4 }, ORDER, MAX, { friends = { Stinkers = 1 }, scores = { Stinkers = 6 } })
+check(team == "Stinkers" and why == "friends", "friends come before the score")
+for _ = 1, 20 do
+	team, why = TeamBalance.choose({ Stinkers = 4, Sharters = 4 }, ORDER, MAX, { scores = { Stinkers = 1, Sharters = 1 } })
+	check(team == "Stinkers" and why == "order", "level on everything: the first team, every time")
 end
-check(seen.Stinkers and seen.Sharters, "untied by anything else, either team can get the join")
 
 -- Switching.
 check(TeamBalance.canSwitch({ Stinkers = 5, Sharters = 3 }, ORDER, MAX, "Stinkers", "Sharters"), "5v3: moving across evens it")
