@@ -96,7 +96,9 @@ local function build(entry: MapConfig.MapEntry): Model
 	-- Sharters). Solid front and sides; two doors in the back wall
 	-- (x ±17..24) open onto the corridor along the end wall (z -80..-76),
 	-- which leads out to both side lanes.
-	pair(walls, "SpawnFront", Vector3.new(52, SPAWN_WALL_HEIGHT, 2), CFrame.new(0, SPAWN_WALL_HEIGHT / 2, -57), wall)
+	-- The front stops against the side walls (which fill the corners), so
+	-- the two don't overlap.
+	pair(walls, "SpawnFront", Vector3.new(48, SPAWN_WALL_HEIGHT, 2), CFrame.new(0, SPAWN_WALL_HEIGHT / 2, -57), wall)
 	pair(walls, "SpawnFrontTrim", Vector3.new(52.4, 1, 2.4), CFrame.new(0, SPAWN_WALL_HEIGHT + 0.5, -57), {
 		Material = Enum.Material.Neon,
 	}, true)

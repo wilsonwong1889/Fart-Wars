@@ -787,7 +787,8 @@ def map_renders():
     # Roblox coordinates: the throne at the centre, the Stinkers at -Z.
     map_render(items, art, "plaza.png", (46, 30, -60), (0, 4, -6), 30)
     map_render(items, art, "map.png", (150, 150, -175), (0, 0, -8), 32)
-    map_render(items, art, "spawn.png", (36, 22, -36), (0, 5, -66), 26)
+    # Over the Stinkers' spawn room's front wall, looking down inside.
+    map_render(items, art, "spawn.png", (14, 34, -50), (-4, 0, -68), 24)
 
 
 def write_luau(manifest):
