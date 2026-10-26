@@ -50,17 +50,23 @@ function MatchScoreService.getScores(): { [string]: number }
 	return table.clone(scores)
 end
 
--- Adds a point if the round is open and the mode accepts the event.
-function MatchScoreService.recordElimination(event: GameModeBase.ScoreEvent): boolean
+-- Adds `points` (1 by default) if the round is open and the mode accepts
+-- the event: an elimination, a zone tick, a test point.
+function MatchScoreService.record(event: GameModeBase.ScoreEvent, points: number?): boolean
 	if not (MatchScoreService.isOpen() and mode and context) then
 		return false
 	end
 	if not mode:validateScoreEvent(event, context) then
 		return false
 	end
-	scores[event.team] = (scores[event.team] or 0) + 1
+	scores[event.team] = (scores[event.team] or 0) + (points or 1)
 	MatchScoreService.Changed:Fire()
 	return true
+end
+
+-- An elimination's point (if the mode scores eliminations).
+function MatchScoreService.recordElimination(event: GameModeBase.ScoreEvent): boolean
+	return MatchScoreService.record(event)
 end
 
 -- Test-only: `count` simulated eliminations for `team`. Server code only

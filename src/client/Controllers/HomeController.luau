@@ -370,7 +370,8 @@ local function statusText(): string
 	if snapshot.phase == Phase.ACTIVE and not snapshot.phaseEndTime then
 		return `Live match · {versus}`
 	elseif snapshot.phase == Phase.ACTIVE then
-		return `Round in progress · {RoundClock.format(ClientState.remaining())} left · {versus}`
+		local name = if snapshot.modeName and snapshot.mode ~= "TeamElimination" then ` ({snapshot.modeName})` else ""
+		return `Round in progress{name} · {RoundClock.format(ClientState.remaining())} left · {versus}`
 	elseif snapshot.phase == Phase.RESULTS then
 		return `Next round in {RoundClock.format(ClientState.remaining())} · {versus}`
 	end

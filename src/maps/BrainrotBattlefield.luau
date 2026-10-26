@@ -14,10 +14,11 @@
 -- so nothing out in the lanes or the enemy half can see the spawn pads.
 -- Gas barrels sit in the contested middle, never by a spawn; each is a
 -- GasBarrel model (Barrel and Band) that BarrelService makes explosive.
+-- The pieces (mirroring, pads, barrels, markers, the control zone) come
+-- from MapKit, so the next arena is built the same way.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local TeamConfig = require(Shared.Config.TeamConfig)
 local MapConfig = require(Shared.Config.MapConfig)
 
 local HALF = 80 -- half the arena's width and length
@@ -27,74 +28,16 @@ local DIVIDER_HEIGHT = 14
 local DIVIDER_X = 26
 -- Divider wall segments along Z (the gaps between them join the lanes).
 local DIVIDER_SEGMENTS = { { -45, -24 }, { -12, 12 }, { 24, 45 } }
-local UPRIGHT = CFrame.Angles(0, 0, math.rad(90)) -- turns a cylinder's axis from X to Y
+local MapKit = require(script.Parent.MapKit)
+local UPRIGHT = MapKit.UPRIGHT
+local mirror = MapKit.mirror
+local folder = MapKit.folder
+local part = MapKit.part
+local marker = MapKit.marker
+local pair = MapKit.pair
+local cylinder = MapKit.cylinder
 
--- The other half's copy of a CFrame: reflected across z = 0. The rotation
--- is conjugated by the reflection, which mirrors any shape that is
--- symmetric front to back in its own space (blocks and cylinders).
-local function mirror(frame: CFrame): CFrame
-	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = frame:GetComponents()
-	return CFrame.new(x, y, -z, r00, r01, -r02, r10, r11, -r12, -r20, -r21, r22)
-end
-
-local function folder(name: string, parent: Instance): Folder
-	local f = Instance.new("Folder")
-	f.Name = name
-	f.Parent = parent
-	return f
-end
-
-type Props = { [string]: any }
-
-local function part(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?): BasePart
-	local className = if props and props.ClassName then props.ClassName else "Part"
-	local p = Instance.new(className) :: BasePart
-	p.Name = name
-	p.Anchored = true
-	p.Size = size
-	p.CFrame = frame
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	if props then
-		for key, value in props do
-			if key ~= "ClassName" then
-				(p :: any)[key] = value
-			end
-		end
-	end
-	p.Parent = parent
-	return p
-end
-
--- A marker part: invisible, never in the way of players, rays or touches.
-local function marker(parent: Instance, name: string, size: Vector3, frame: CFrame): BasePart
-	return part(parent, name, size, frame, {
-		Transparency = 1,
-		CanCollide = false,
-		CanQuery = false,
-		CanTouch = false,
-		CastShadow = false,
-	})
-end
-
--- A part on the Stinkers half and its mirror on the Sharters half. With
--- `tint`, each copy takes its own team's colour.
-local function pair(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?, tint: boolean?)
-	local function copy(at: CFrame, team: string)
-		local p = part(parent, name, size, at, props)
-		if tint then
-			p.Color = TeamConfig.teams[team].color
-			p:SetAttribute("TeamTint", team)
-		end
-		return p
-	end
-	copy(frame, "Stinkers")
-	copy(mirror(frame), "Sharters")
-end
-
-local function cylinder(color: Color3, material: Enum.Material?): Props
-	return { Shape = Enum.PartType.Cylinder, Color = color, Material = material or Enum.Material.SmoothPlastic }
-end
+type Props = MapKit.Props
 
 local function build(entry: MapConfig.MapEntry): Model
 	local theme = entry.theme
@@ -164,15 +107,7 @@ local function build(entry: MapConfig.MapEntry): Model
 		Transparency = 0.35,
 	}, true)
 
-	local stinkerPads = folder("Stinkers", spawns)
-	local sharterPads = folder("Sharters", spawns)
-	for i, x in { -15, -5, 5, 15 } do
-		local frame = CFrame.new(x, 0.5, -66)
-		local props = { ClassName = "SpawnLocation", Material = Enum.Material.Neon, CanCollide = true }
-		part(stinkerPads, `Pad{i}`, Vector3.new(6, 1, 6), frame, props).Color = TeamConfig.teams.Stinkers.color
-		-- The mirror keeps the pad order: Pad1 is at the same x on both sides.
-		part(sharterPads, `Pad{i}`, Vector3.new(6, 1, 6), mirror(frame), props).Color = TeamConfig.teams.Sharters.color
-	end
+	MapKit.spawnPads(spawns, { -15, -5, 5, 15 }, -66)
 
 	-- Porcelain Plaza: the throne (two giant toilets back to back across the
 	-- centre line) and low cover on the way to it.
@@ -203,8 +138,6 @@ local function build(entry: MapConfig.MapEntry): Model
 			Material = Enum.Material.WoodPlanks,
 		})
 	end
-	local barrel = cylinder(theme.barrel, Enum.Material.Metal)
-	local band = cylinder(theme.barrelBand, Enum.Material.Neon)
 	for _, spot in {
 		Vector3.new(66, 0, -12),
 		Vector3.new(70, 0, -16),
@@ -213,15 +146,7 @@ local function build(entry: MapConfig.MapEntry): Model
 		Vector3.new(-18, 0, -14),
 		Vector3.new(36, 0, -28),
 	} do
-		local frame = CFrame.new(spot.X, 2.5, spot.Z) * UPRIGHT
-		for _, at in { frame, mirror(frame) } do
-			local gasBarrel = Instance.new("Model")
-			gasBarrel.Name = "GasBarrel"
-			local body = part(gasBarrel, "Barrel", Vector3.new(5, 4, 4), at, barrel)
-			part(gasBarrel, "Band", Vector3.new(0.6, 4.2, 4.2), at, band)
-			gasBarrel.PrimaryPart = body
-			gasBarrel.Parent = barrels
-		end
+		MapKit.gasBarrels(barrels, spot, theme)
 	end
 
 	-- Zones: where players walk (the lanes and the plazas joining them) and
@@ -233,6 +158,10 @@ local function build(entry: MapConfig.MapEntry): Model
 	stinkerZone:SetAttribute("TeamId", "Stinkers")
 	local sharterZone = marker(zones, "SpawnZone", Vector3.new(52, 10, 24), mirror(CFrame.new(0, 5, -68)))
 	sharterZone:SetAttribute("TeamId", "Sharters")
+	-- Gas Control's zone: Porcelain Plaza around the throne (the same
+	-- distance from both spawns), and the floor ring that shows who holds
+	-- it (hidden unless a zone mode is on).
+	MapKit.controlZone(zones, floorFolder, Vector3.zero, Vector3.new(36, 12, 40), theme)
 
 	-- Fixed views for the home screen's live battlefield, all from outside
 	-- the walls so they show the whole field and favour nobody.
@@ -242,9 +171,7 @@ local function build(entry: MapConfig.MapEntry): Model
 		{ Vector3.new(100, 70, 100), Vector3.new(0, 0, 0) },
 		{ Vector3.new(0, 120, -20), Vector3.new(0, 0, 0) },
 	}
-	for i, view in views do
-		marker(cameras, `View{i}`, Vector3.new(1, 1, 1), CFrame.lookAt(view[1], view[2]))
-	end
+	MapKit.cameraViews(cameras, views)
 
 	marker(model, "Bounds", entry.bounds.size, CFrame.new(entry.bounds.center))
 	model.PrimaryPart = model:FindFirstChild("Bounds") :: BasePart

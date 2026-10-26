@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.6.0: Phase 6, part 1: Gas Control and the map kit
+
+- A second mode, **Gas Control**: a team alone in Porcelain Plaza scores a
+  point a second; a contested plaza scores nothing; eliminations clear the
+  plaza but don't score. Holders earn 2 coins and 5 XP every 10 seconds
+  (15 times a round). The HUD names the mode and says who holds the
+  plaza in words and colour; a floor ring shows it on the map.
+- Mode rotation behind `FeatureFlags.MODE_ROTATION` (off): rounds take
+  turns through `GameConfig.MODE_ROTATION` once six players are on teams;
+  smaller servers stay on Team Elimination. `/fw mode <id>` picks the next
+  round's mode on a test server.
+- `GameModeBase` modes have an `objective` and a `hint`;
+  `MatchScoreService.record(event, points)` scores any event the mode
+  accepts.
+- `MapKit`: the map pieces (mirroring, pads, barrels, markers, camera
+  views, the control zone), now used by Brainrot Battlefield; maps that
+  list a zone mode must have a control zone (`MapBase.validate`).
+- The scoreboard's leftover "arrives with combat (Phase 2)" note is gone.
+- Docs: [`docs/maps-and-modes.md`](docs/maps-and-modes.md).
+- New spec: `GasControl`.
+
 ## 0.5.0: Phase 5, part 2: performance, networking and live metrics
 
 - Budgets (`GameConfig.BUDGET`): at most 16 stink clouds on the server

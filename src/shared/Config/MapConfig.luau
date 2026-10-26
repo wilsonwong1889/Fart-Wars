@@ -4,6 +4,8 @@
 --   spawns: the folder inside the map that holds each team's SpawnLocations
 --   bounds: the playable box, centred on `center`
 --   modes: the game modes the layout supports
+--   zone: the control zone's marker Part (for zone modes such as Gas
+--     Control), and the floor ring that shows who holds it
 --   theme: lighting and the palette the builder paints with
 export type Theme = {
 	ground: Color3,
@@ -27,6 +29,8 @@ export type MapEntry = {
 	spawns: { [string]: string },
 	bounds: { center: Vector3, size: Vector3 },
 	modes: { string },
+	zone: string?,
+	zoneRing: string?,
 	theme: Theme,
 }
 
@@ -37,7 +41,10 @@ local maps: { [string]: MapEntry } = {
 		template = "BrainrotBattlefield",
 		spawns = table.freeze({ Stinkers = "Spawns/Stinkers", Sharters = "Spawns/Sharters" }),
 		bounds = table.freeze({ center = Vector3.new(0, 30, 0), size = Vector3.new(160, 60, 160) }),
-		modes = table.freeze({ "TeamElimination" }),
+		modes = table.freeze({ "TeamElimination", "GasControl" }),
+		-- Porcelain Plaza, around the throne.
+		zone = "Zones/ControlZone",
+		zoneRing = "Floor/ControlZoneFloor",
 		theme = table.freeze({
 			ground = Color3.fromRGB(86, 74, 52),
 			wall = Color3.fromRGB(70, 62, 86),

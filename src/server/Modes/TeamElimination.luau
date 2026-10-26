@@ -10,6 +10,8 @@ local GameModeBase = require(Shared.Interfaces.GameModeBase)
 return GameModeBase.new({
 	id = "TeamElimination",
 	displayName = "Team Elimination",
+	objective = "eliminations",
+	hint = "Most eliminations wins.",
 	roundSeconds = GameConfig.ROUND_SECONDS,
 	intermissionSeconds = GameConfig.INTERMISSION_SECONDS,
 	validateScoreEvent = function(_, event: GameModeBase.ScoreEvent, context: GameModeBase.Context): boolean

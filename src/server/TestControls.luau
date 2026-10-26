@@ -13,6 +13,7 @@
 --   /fw weapon gasblaster   /fw barrels   /fw stats
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
 --   /fw selftest   /fw daily   /fw spins 3   /fw health   /fw perf
+--   /fw mode gascontrol (the next round's mode)
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -145,6 +146,19 @@ function TestControls.gas(player: Player, value: number?): (boolean, string)
 		return false, `can't set {player.Name}'s gas (playing? exploding?)`
 	end
 	return true, `{player.Name} has {math.clamp(value, 0, 100)}% gas`
+end
+
+-- The next round's mode, by ID (any case).
+function TestControls.mode(id: string): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	for _, module in script.Parent.Modes:GetChildren() do
+		if string.lower(module.Name) == string.lower(id) then
+			return RoundService.testSetMode(module.Name)
+		end
+	end
+	return false, `no mode "{id}"`
 end
 
 function TestControls.weapon(player: Player, id: string): (boolean, string)
@@ -454,7 +468,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf, mode <id>"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -471,6 +485,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.resetGas(player)
 	elseif command == "gas" then
 		ok, message = TestControls.gas(player, tonumber(words[3]))
+	elseif command == "mode" and words[3] then
+		ok, message = TestControls.mode(words[3])
 	elseif command == "weapon" and words[3] then
 		ok, message = TestControls.weapon(player, words[3])
 	elseif command == "barrels" then

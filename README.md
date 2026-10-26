@@ -111,8 +111,8 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
-| `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
-| `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code |
+| `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
+| `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
 | `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI` and the controllers |
 
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
@@ -143,6 +143,7 @@ else.
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
+| `ZoneService` | Gas Control's zone: who's in it, who holds it, a point a second for a team alone in it, holders' rewards; the HUD's zone line and the floor ring |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
 | `SocialService` | playing with friends: the squad bonus (a friend on your team), the one-time newcomer welcome, co-play counts |
@@ -260,6 +261,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
 | `Release` | the version and channel on every screen; health (every loop watched, a stopped loop FAILING and recovering, a tick's error counted and the loop going on, an error burst, saving's check, `/fw health`); client reports (averaged, junk and spam refused); player reports (reasons, not yourself, once each, the session cap, three reporters flag once); the Players screen (block, hide emotes, report and the answer) |
@@ -457,6 +459,15 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Metrics are split by segment**: new or returning, paying or free, the
   same split in our counters and in what goes to Roblox's analytics. Only
   segments go to Roblox, never anything personal.
+
+## Phase 6 decisions
+
+- **New modes need their own objective.** Gas Control scores for holding
+  the plaza, not for eliminations. Modes rotate only with
+  `FeatureFlags.MODE_ROTATION`, and never on servers under six players.
+- **Maps are built from shared pieces** (`MapKit`) and pass the same
+  fairness checks as the first one before they can rotate; see
+  [`docs/maps-and-modes.md`](docs/maps-and-modes.md).
 
 ## Handoff to Phase 6: Expansion and live operations
 

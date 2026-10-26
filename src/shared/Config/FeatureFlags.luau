@@ -7,6 +7,12 @@ return table.freeze({
 	-- no results screen (the masterplan's alternative baseline).
 	MATCH_MODE = "Rounds" :: "Rounds" | "Continuous",
 
+	-- Mode rotation (Phase 6): each round takes the next mode in
+	-- GameConfig.MODE_ROTATION that the map supports, once at least
+	-- ROTATION_MIN_PLAYERS are on teams; smaller servers stay on
+	-- GameConfig.DEFAULT_MODE. Off: every round is the default mode.
+	MODE_ROTATION = false,
+
 	-- Gas combat: the Gas Blaster (left click), the gas meter, inflation and
 	-- explosions.
 	GAS_COMBAT = true,

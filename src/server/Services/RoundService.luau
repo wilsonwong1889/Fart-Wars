@@ -11,6 +11,9 @@
 -- are both swappable without changes here.
 -- With FeatureFlags.MATCH_MODE = "Continuous" there are no rounds: one
 -- ACTIVE match with no end time starts with the server and scores run on.
+-- With FeatureFlags.MODE_ROTATION each round picks the next mode in
+-- GameConfig.MODE_ROTATION that the map supports, once the server has
+-- ROTATION_MIN_PLAYERS on teams; otherwise every round is DEFAULT_MODE.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -38,7 +41,15 @@ local RoundService = {}
 -- (phase, snapshot): fires on every phase change.
 RoundService.PhaseChanged = Signal.new()
 
-local mode: GameModeBase.GameMode = require(Server.Modes:FindFirstChild(GameConfig.DEFAULT_MODE) :: ModuleScript) :: any
+local function loadMode(id: string): GameModeBase.GameMode?
+	local module = Server.Modes:FindFirstChild(id)
+	return if module and module:IsA("ModuleScript") then require(module) :: any else nil
+end
+local defaultMode = assert(loadMode(GameConfig.DEFAULT_MODE), "GameConfig.DEFAULT_MODE isn't in ServerScriptService.Server.Modes")
+local mode: GameModeBase.GameMode = defaultMode
+local rotationIndex = 0
+local nextOverride: GameModeBase.GameMode? = nil
+local rotationOverride: boolean? = nil
 
 type State = {
 	roundId: number,
@@ -88,6 +99,8 @@ function RoundService.snapshot(): RoundClock.Snapshot
 		activePlayersByTeam = TeamService.counts(),
 		result = state.result,
 		mode = mode.id,
+		modeName = mode.displayName,
+		objective = mode.objective,
 		matchMode = FeatureFlags.MATCH_MODE,
 		map = if entry then entry.id else GameConfig.DEFAULT_MAP,
 		serverTime = now(),
@@ -125,8 +138,33 @@ local function canStart(): boolean
 	return TeamBalance.canStart(TeamService.counts(), TeamConfig.order, GameConfig.MIN_ACTIVE_PLAYERS)
 end
 
+-- The mode for the next round.
+function RoundService.nextMode(): GameModeBase.GameMode
+	if nextOverride then
+		local chosen = nextOverride
+		nextOverride = nil
+		return chosen
+	end
+	local rotating = if rotationOverride ~= nil then rotationOverride else FeatureFlags.MODE_ROTATION
+	if not rotating or TeamService.activeCount() < GameConfig.ROTATION_MIN_PLAYERS then
+		return defaultMode
+	end
+	local _, entry = MapService.current()
+	local rotation = GameConfig.MODE_ROTATION
+	for _ = 1, #rotation do
+		rotationIndex = rotationIndex % #rotation + 1
+		local id = rotation[rotationIndex]
+		local candidate = loadMode(id)
+		if candidate and (not entry or table.find(entry.modes, id)) then
+			return candidate
+		end
+	end
+	return defaultMode
+end
+
 local function startRound(at: number)
 	state.roundId += 1
+	mode = RoundService.nextMode()
 	state.result = nil
 	state.participation = {}
 	local endsAt = at + mode.roundSeconds
@@ -197,6 +235,24 @@ end
 -- Phase 4 completion rewards.
 function RoundService.lastParticipation(): { [number]: number }
 	return table.clone(state.participation)
+end
+
+-- Test-only: the next round's mode (`id`), whatever the rotation says.
+function RoundService.testSetMode(id: string): (boolean, string)
+	if not GameConfig.TEST_CONTROLS.ENABLED then
+		return false, "test controls are off (GameConfig.TEST_CONTROLS.ENABLED)"
+	end
+	local chosen = loadMode(id)
+	if not chosen then
+		return false, `no mode "{id}"`
+	end
+	nextOverride = chosen
+	return true, `the next round is {chosen.displayName}`
+end
+
+-- Test seam: rotation on or off whatever FeatureFlags says (nil: the flag).
+function RoundService.testRotation(enabled: boolean?)
+	rotationOverride = enabled
 end
 
 -- Test-only: ends the current round or intermission `seconds` from now.

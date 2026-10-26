@@ -25,6 +25,13 @@ local UIConfig = {
 		LIVE = "LIVE MATCH",
 	}),
 	afkWarning = "BRO FELL ASLEEP MID-FART!",
+	-- Gas Control's zone line under the score boxes (%s: a team's short
+	-- name; the counts are each team's players in the zone).
+	zone = table.freeze({
+		held = "%s HOLD THE PLAZA · +1 A SECOND",
+		contested = "PLAZA CONTESTED (%d v %d)",
+		empty = "STAND IN THE PLAZA TO SCORE",
+	}),
 
 	-- What each reward line says it was for.
 	rewardReasons = table.freeze({

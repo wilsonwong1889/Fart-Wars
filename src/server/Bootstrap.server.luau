@@ -23,7 +23,8 @@
 --   MonetizationService   the store: coin packs (receipts) and passes
 --   MetricsService        live metrics by segment, the onboarding funnel
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
---                         match), snapshots to clients
+--                         match), the mode each round, snapshots to clients
+--   ZoneService           Gas Control's zone: who holds it, its points
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
@@ -62,6 +63,7 @@ local SocialService = require(Services.SocialService)
 local MonetizationService = require(Services.MonetizationService)
 local MetricsService = require(Services.MetricsService)
 local RoundService = require(Services.RoundService)
+local ZoneService = require(Services.ZoneService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
 local Health = require(script.Parent.Health)
@@ -92,6 +94,7 @@ SocialService.start()
 MonetizationService.start()
 MetricsService.start()
 RoundService.start()
+ZoneService.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then

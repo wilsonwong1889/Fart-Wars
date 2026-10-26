@@ -107,6 +107,22 @@ local GameConfig = {
 
 	DEFAULT_MAP = "BrainrotBattlefield",
 	DEFAULT_MODE = "TeamElimination",
+	-- The rotation, when FeatureFlags.MODE_ROTATION is on, and the server
+	-- size it starts at (below it, the default mode: a stable queue for
+	-- small servers).
+	MODE_ROTATION = table.freeze({ "TeamElimination", "GasControl" }),
+	ROTATION_MIN_PLAYERS = 6,
+	-- Gas Control's zone: every TICK_SECONDS, a team alone in it scores
+	-- POINTS; a player holding it earns COINS and XP every REWARD_SECONDS,
+	-- at most REWARDS_PER_ROUND times a round.
+	ZONE = table.freeze({
+		TICK_SECONDS = 1,
+		POINTS = 1,
+		REWARD_SECONDS = 10,
+		COINS = 2,
+		XP = 5,
+		REWARDS_PER_ROUND = 15,
+	}),
 
 	-- Test-only scoring and timing controls (TestControls.luau). They work in
 	-- Studio, and in live servers only for these user IDs. Turn ENABLED off

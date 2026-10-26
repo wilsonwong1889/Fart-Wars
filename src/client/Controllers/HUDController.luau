@@ -106,6 +106,15 @@ local function build()
 		Visible = false,
 		Parent = hud,
 	})
+	-- Gas Control: who holds the zone (in words as well as colour).
+	p.zone = UI.label("", 18, {
+		Name = "Zone",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 174),
+		Size = UDim2.new(0, 560, 0, 24),
+		Visible = false,
+		Parent = hud,
+	})
 	p.waiting = UI.label("", 18, {
 		Name = "Waiting",
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -326,6 +335,11 @@ local function tick()
 	local phase = if snapshot then snapshot.phase else Phase.WAITING
 	local live = phase == Phase.ACTIVE and snapshot ~= nil and snapshot.phaseEndTime == nil
 	p.phase.Text = if live then UIConfig.phaseLabels.LIVE else UIConfig.phaseLabels[phase] or phase
+	-- Any mode but the default says its name while it's on.
+	if phase == Phase.ACTIVE and snapshot and snapshot.modeName and snapshot.mode ~= "TeamElimination" then
+		p.phase.Text = string.upper(snapshot.modeName)
+	end
+	HUDController.renderZone()
 	p.time.Text = if live then "LIVE" elseif phase == Phase.WAITING then "--:--" else RoundClock.format(remaining)
 	if phase == Phase.RESULTS then
 		p.resultNext.Text = `Next round in {RoundClock.format(remaining)}`
@@ -420,9 +434,36 @@ local function renderScoreboard()
 			watching += 1
 		end
 	end
-	p.spectators.Text = `Spectating: {watching}   ·   Eliminations and K/D arrive with combat (Phase 2)`
+	p.spectators.Text = `Spectating: {watching}`
 end
 HUDController.renderScoreboard = renderScoreboard
+
+-- The zone line, from the server's Zone* attributes on Workspace.
+function HUDController.renderZone()
+	local p = HUDController.parts
+	if not p.zone then
+		return
+	end
+	local on = workspace:GetAttribute("ZoneActive") == true
+	p.zone.Visible = on
+	if not on then
+		return
+	end
+	local owner = workspace:GetAttribute("ZoneOwner")
+	local team = type(owner) == "string" and TeamConfig.teams[owner]
+	if team then
+		p.zone.Text = string.format(UIConfig.zone.held, team.shortName)
+		p.zone.TextColor3 = team.color
+	elseif workspace:GetAttribute("ZoneContested") == true then
+		local a = workspace:GetAttribute(`Zone_{TeamConfig.order[1]}`) or 0
+		local b = workspace:GetAttribute(`Zone_{TeamConfig.order[2]}`) or 0
+		p.zone.Text = string.format(UIConfig.zone.contested, a :: number, b :: number)
+		p.zone.TextColor3 = C.text
+	else
+		p.zone.Text = UIConfig.zone.empty
+		p.zone.TextColor3 = C.muted
+	end
+end
 
 function HUDController.start()
 	if started then
@@ -449,6 +490,9 @@ function HUDController.start()
 			renderScoreboard()
 		end
 	end)
+	for _, name in { "ZoneActive", "ZoneOwner", "ZoneContested" } do
+		workspace:GetAttributeChangedSignal(name):Connect(HUDController.renderZone)
+	end
 	local elapsed = 0
 	RunService.Heartbeat:Connect(function(dt)
 		elapsed += dt

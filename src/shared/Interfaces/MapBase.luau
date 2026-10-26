@@ -5,6 +5,8 @@
 --   CameraPoints      invisible Parts; each CFrame is a fixed spectator view
 --   Bounds            an invisible, non-colliding Part covering the playable box
 --   Zones (optional)  invisible marker Parts: lanes, spawn zones, cover lines
+--   the control zone  a marker Part at MapConfig's `zone` path, for maps
+--                     that list a zone mode (Gas Control)
 -- Every BasePart is anchored. A map module in ServerStorage.Maps returns a
 -- MapDefinition; a Model there is used as it is.
 local MapConfig = require(script.Parent.Parent.Config.MapConfig)
@@ -82,6 +84,14 @@ function MapBase.validate(model: Instance, entry: MapConfig.MapEntry, teamIds: {
 			if bounds and not inside(spawn.Position, bounds :: BasePart) then
 				table.insert(problems, `{spawn:GetFullName()} is outside the bounds`)
 			end
+		end
+	end
+	if entry.zone then
+		local zone = resolve(model, entry.zone)
+		if not (zone and zone:IsA("BasePart")) then
+			table.insert(problems, `no control zone part at {entry.zone}`)
+		elseif bounds and not inside(zone.Position, bounds :: BasePart) then
+			table.insert(problems, `the control zone is outside the bounds`)
 		end
 	end
 	if #MapBase.cameraPoints(model) == 0 then

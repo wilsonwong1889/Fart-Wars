@@ -6,7 +6,7 @@ export type Scores = { [string]: number }
 export type Result = { winner: string?, draw: boolean, scores: Scores }
 export type ScoreEvent = {
 	team: string, -- the team the point goes to
-	source: string, -- "elimination", or "test" from the test-only controls
+	source: string, -- "elimination", "zone", or "test" from the test-only controls
 	killer: Player?,
 	victim: Player?,
 	-- Teams when it happened; a mode uses these over the current ones.
@@ -21,6 +21,10 @@ export type Context = {
 export type GameMode = {
 	id: string,
 	displayName: string,
+	-- What scores: "eliminations" or "zone" (holding the map's control zone).
+	objective: string,
+	-- One line for the HUD and the home screen.
+	hint: string,
 	roundSeconds: number,
 	intermissionSeconds: number,
 	validateScoreEvent: (GameMode, ScoreEvent, Context) -> boolean,
@@ -63,6 +67,8 @@ function GameModeBase.new(definition: { [string]: any }): GameMode
 	local mode = {
 		id = definition.id,
 		displayName = definition.displayName or definition.id,
+		objective = definition.objective or "eliminations",
+		hint = definition.hint or "Most eliminations wins.",
 		roundSeconds = definition.roundSeconds,
 		intermissionSeconds = definition.intermissionSeconds,
 		validateScoreEvent = definition.validateScoreEvent or function(_, event: ScoreEvent, context: Context)
