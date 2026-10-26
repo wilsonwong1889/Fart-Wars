@@ -53,13 +53,14 @@ local UIConfig = {
 	}),
 
 	-- The locker's tabs, on the home screen and in the M menu.
-	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Settings" }),
+	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Store", "Settings" }),
 	-- Entries that arrive in later phases.
 	comingSoon = table.freeze({ "Leaderboard" }),
 
 	keys = table.freeze({
 		dash = Enum.KeyCode.LeftShift,
 		ability = Enum.KeyCode.Q,
+		emote = Enum.KeyCode.E,
 		-- Hotbar slots 1-4: your weapons.
 		slots = table.freeze({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }),
 		fire = Enum.UserInputType.MouseButton1,
@@ -77,6 +78,7 @@ local UIConfig = {
 		{ "SHIFT", "Fart Dash" },
 		{ "Q", "Ability (once unlocked)" },
 		{ "1-4", "Pick a weapon" },
+		{ "E", "Emote" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "M", "Menu" },

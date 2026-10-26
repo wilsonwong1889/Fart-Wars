@@ -55,14 +55,21 @@ local ProgressionConfig = {
 		table.freeze({ eliminations = 300, coins = 1000, badge = "Platinum" }),
 	}),
 
-	-- Cosmetics: tracer colours, nothing that changes combat.
+	-- Cosmetics, nothing that changes combat, three kinds: tracers (your
+	-- shots' colour), trails (your Fart Dash puffs) and emotes (E). `source`
+	-- says how to get one; `free` ones everybody has.
 	cosmetics = table.freeze({
-		GoldenGas = table.freeze({ id = "GoldenGas", name = "Golden Gas", tracerColor = Color3.fromRGB(255, 200, 40) }),
-		RainbowRot = table.freeze({ id = "RainbowRot", name = "Rainbow Rot", tracerColor = Color3.fromRGB(200, 90, 255) }),
-		-- From the daily track (day 7) and the free spin (rare).
-		StinkSparkle = table.freeze({ id = "StinkSparkle", name = "Stink Sparkle", tracerColor = Color3.fromRGB(255, 120, 200) }),
-		LuckyLime = table.freeze({ id = "LuckyLime", name = "Lucky Lime", tracerColor = Color3.fromRGB(170, 255, 120) }),
+		GoldenGas = table.freeze({ id = "GoldenGas", kind = "tracer", name = "Golden Gas", tracerColor = Color3.fromRGB(255, 200, 40), source = "Level 20" }),
+		RainbowRot = table.freeze({ id = "RainbowRot", kind = "tracer", name = "Rainbow Rot", tracerColor = Color3.fromRGB(200, 90, 255), source = "Level 40" }),
+		StinkSparkle = table.freeze({ id = "StinkSparkle", kind = "tracer", name = "Stink Sparkle", tracerColor = Color3.fromRGB(255, 120, 200), source = "Daily day 7" }),
+		LuckyLime = table.freeze({ id = "LuckyLime", kind = "tracer", name = "Lucky Lime", tracerColor = Color3.fromRGB(170, 255, 120), source = "Free spin" }),
+		StarterSwirl = table.freeze({ id = "StarterSwirl", kind = "tracer", name = "Starter Swirl", tracerColor = Color3.fromRGB(90, 220, 255), source = "Starter Pack" }),
+		LimeTrail = table.freeze({ id = "LimeTrail", kind = "trail", name = "Lime Trail", trailColor = Color3.fromRGB(150, 255, 90), source = "Starter Pack" }),
+		Toot = table.freeze({ id = "Toot", kind = "emote", name = "Toot", emoji = "💨", text = "TOOT!", free = true, source = "Everyone" }),
+		VictoryToot = table.freeze({ id = "VictoryToot", kind = "emote", name = "Victory Toot", emoji = "🎺", text = "VICTORY TOOT!", source = "Starter Pack" }),
 	}),
+	-- Cosmetics in the order the locker shows them.
+	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot" }),
 
 	-- Sanity limits on any one transaction, and how many recent ones each
 	-- profile keeps for audits.
@@ -74,6 +81,12 @@ local ProgressionConfig = {
 	-- with a streak is about 140.
 	ANOMALY_COINS_PER_MINUTE = 300,
 }
+
+-- Whether `owned` (a profile's OwnedCosmetics) includes cosmetic `id`.
+function ProgressionConfig.ownsCosmetic(owned: { string }, id: string): boolean
+	local cosmetic = ProgressionConfig.cosmetics[id]
+	return cosmetic ~= nil and (cosmetic.free == true or table.find(owned, id) ~= nil)
+end
 
 -- XP from `level` to the next: 100 at level 1, rising on a gentle curve.
 function ProgressionConfig.xpToNext(level: number): number

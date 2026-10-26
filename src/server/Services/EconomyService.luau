@@ -62,6 +62,15 @@ type Session = {
 	flagged: boolean,
 }
 local sessions: { [Player]: Session } = {}
+-- (Set below.) A session for a player in the game, if there isn't one yet:
+-- a reward can arrive before this service's own PlayerAdded handler runs.
+local onJoin: (Player) -> ()
+local function sessionOf(player: Player): Session?
+	if not sessions[player] and player.Parent == Players then
+		onJoin(player)
+	end
+	return sessions[player]
+end
 local testGrants = 0
 local started = false
 
@@ -227,7 +236,7 @@ end
 -- Pays `player` once for `id` (unique per session). Returns whether it was
 -- accepted (paid now, or when their profile loads).
 function EconomyService.grant(player: Player, id: string, reason: string, coins: number, xp: number): boolean
-	local session = sessions[player]
+	local session = sessionOf(player)
 	if not FeatureFlags.PROGRESSION or not session or player.Parent ~= Players then
 		return false
 	end
@@ -261,6 +270,38 @@ function EconomyService.spend(player: Player, id: string, reason: string, coins:
 	Telemetry.count(`Economy.spent.{reason}`, coins)
 	EconomyService.publish(player)
 	return true
+end
+
+-- Coins someone paid Robux for (a store product, a pass's bonus): once per
+-- `id` (the receipt), whatever FeatureFlags.PROGRESSION says and with no
+-- per-grant limit (the store sets the amounts), in the ledger as a
+-- "purchase". Returns whether they were added.
+function EconomyService.grantPurchase(player: Player, id: string, coins: number): boolean
+	local session = sessionOf(player)
+	if not validAmount(coins, math.huge) or not session or session.granted[id] or not DataService.isLoaded(player) then
+		return false
+	end
+	session.granted[id] = true
+	withProfile(player, function(data, events)
+		credit(player, data, events, id, "purchase", coins, 0)
+	end)
+	return true
+end
+
+-- Takes back coins from a purchase that couldn't be saved (as many as are
+-- left), so the store can try again without paying twice.
+function EconomyService.revoke(player: Player, id: string, coins: number)
+	local session = sessions[player]
+	if session then
+		session.granted[id] = nil
+	end
+	DataService.update(player, function(data)
+		local taken = math.min(coins, data.Coins)
+		data.Coins -= taken
+		addToLedger(data, `{id}:revoked`, "revoked", -taken, 0)
+	end)
+	Telemetry.count("Economy.revoked", coins)
+	EconomyService.publish(player)
 end
 
 -- Gives back coins taken by `spend` for `id` (a purchase that didn't save).
@@ -374,7 +415,7 @@ function EconomyService.testGrant(player: Player, coins: number, xp: number): bo
 	return EconomyService.grant(player, `test:{testGrants}`, "test", coins, xp)
 end
 
-local function onJoin(player: Player)
+onJoin = function(player: Player)
 	if sessions[player] then
 		return
 	end

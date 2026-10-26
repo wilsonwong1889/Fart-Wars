@@ -55,7 +55,10 @@ export type Data = {
 	UnlockedAbilities: { string },
 	EquippedAbility: string?,
 	OwnedCosmetics: { string },
+	-- The equipped tracer, Fart Dash trail and emote.
 	EquippedCosmetic: string?,
+	EquippedTrail: string?,
+	EquippedEmote: string?,
 	Badges: { string },
 	WeaponMastery: { [string]: Mastery },
 	TotalPlaytime: number,
@@ -74,6 +77,10 @@ export type Data = {
 	SpinsUsed: number,
 	GiftDay: number,
 	GiftsToday: number,
+	-- Store (Phase 4): Roblox purchase IDs already granted (the latest
+	-- RECEIPT_MEMORY), and game passes whose contents were given.
+	Receipts: { string },
+	PassesGranted: { string },
 }
 export type Profile = {
 	data: Data,
@@ -127,6 +134,8 @@ function DataService.defaults(): Data
 		SpinsUsed = 0,
 		GiftDay = 0,
 		GiftsToday = 0,
+		Receipts = {},
+		PassesGranted = {},
 	}
 end
 
@@ -160,9 +169,13 @@ function DataService.migrate(old: { [string]: any }?): Data
 		Telemetry.count("Data.invalidEquip")
 		data.EquippedAbility = nil
 	end
-	if data.EquippedCosmetic ~= nil and not table.find(data.OwnedCosmetics, data.EquippedCosmetic) then
-		Telemetry.count("Data.invalidEquip")
-		data.EquippedCosmetic = nil
+	for field, kind in { EquippedCosmetic = "tracer", EquippedTrail = "trail", EquippedEmote = "emote" } do
+		local id = data[field]
+		local cosmetic = type(id) == "string" and ProgressionConfig.cosmetics[id]
+		if id ~= nil and not (cosmetic and cosmetic.kind == kind and ProgressionConfig.ownsCosmetic(data.OwnedCosmetics, id)) then
+			Telemetry.count("Data.invalidEquip")
+			data[field] = nil
+		end
 	end
 	data.SaveVersion = DataService.VERSION
 	return data :: Data

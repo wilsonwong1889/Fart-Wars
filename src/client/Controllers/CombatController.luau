@@ -565,6 +565,11 @@ function CombatController.start()
 	end)
 	InputController.DashPressed:Connect(CombatController.dash)
 	InputController.AbilityPressed:Connect(CombatController.useAbility)
+	InputController.EmotePressed:Connect(function()
+		if ClientState.isActive() and not InputController.menuOpen then
+			ClientState.send("Emote")
+		end
+	end)
 	local combatEvent = ClientState.remote("CombatEvent") :: RemoteEvent
 	combatEvent.OnClientEvent:Connect(function(event)
 		if type(event) == "table" then

@@ -6,7 +6,10 @@
 --   Abilities    Fart Dash (everyone's) and the Q abilities: what they do,
 --                the cooldown, EQUIP or the level that unlocks them
 --   Progression  level, XP, coins, the next goal and the unlock track,
---                lifetime stats, badges, tracer cosmetics to equip
+--                lifetime stats, badges, and every cosmetic (tracers,
+--                Fart Dash trails, emotes): equip it, or how to get it
+--   Store        the Starter Pack and coin packs, contents in full, prices
+--                from Roblox (cosmetics and coins only)
 --   Settings     reduced effects, sound effects, tips, and the controls
 -- Every button only asks (ShopRequest); while a request is out the buttons
 -- wait and the status line says so, and the answer (or the refusal) is
@@ -14,11 +17,13 @@
 -- and level from their attributes.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
@@ -30,7 +35,6 @@ local ProgressController = require(script.Parent.ProgressController)
 
 local C = UIConfig.colors
 local ABILITY_ORDER = { "FartDash", "RecoveryBurst", "GasPulse" }
-local COSMETIC_ORDER = { "GoldenGas", "RainbowRot" }
 
 local LockerController = {}
 
@@ -265,47 +269,138 @@ local function progressionTab(content: Frame)
 	local badges = if type(profile.badges) == "table" and #profile.badges > 0 then table.concat(profile.badges, ", ") else "None yet"
 	text(right, "BADGES", 18, 10, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	text(right, badges, 14, 11, { Name = "Badges", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 40) })
-	text(right, "TRACERS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
-	local row = UI.new("Frame", {
+	text(right, "COSMETICS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
+	local grid = UI.new("Frame", {
 		Name = "Cosmetics",
 		LayoutOrder = 21,
-		Size = UDim2.new(1, 0, 0, 40),
+		Size = UDim2.new(1, 0, 0, 3 * 44),
 		BackgroundTransparency = 1,
 		Parent = right,
-	}, { UI.list(Enum.FillDirection.Horizontal, 6) })
-	local none = UI.button(if profile.equippedCosmetic == nil then "NONE ✓" else "NONE", C.panelLight, {
-		Name = "None",
-		Size = UDim2.new(0, 96, 0, 38),
-		TextSize = 15,
-		Parent = row,
+	}, {
+		UI.new("UIGridLayout", {
+			CellSize = UDim2.new(0, 112, 0, 40),
+			CellPadding = UDim2.new(0, 6, 0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
 	})
-	UI.setEnabled(none, profile.equippedCosmetic ~= nil and not LockerController.busy)
-	UI.onClick(none, function()
-		LockerController.request("equip", "cosmetic", nil)
-	end)
-	for i, id in COSMETIC_ORDER do
+	local equippedBy = {
+		tracer = profile.equippedCosmetic,
+		trail = profile.equippedTrail,
+		emote = profile.equippedEmote or "Toot",
+	}
+	for i, id in ProgressionConfig.cosmeticOrder do
 		local cosmetic = ProgressionConfig.cosmetics[id]
-		local owned = owns(profile.ownedCosmetics, id)
-		local unlockLevel = 0
-		for at, entry in ProgressionConfig.unlocks do
-			if entry.id == id then
-				unlockLevel = at
-			end
-		end
-		local label = if not owned then `LEVEL {unlockLevel}` elseif profile.equippedCosmetic == id then `{string.upper(cosmetic.name)} ✓` else string.upper(cosmetic.name)
-		local button = UI.button(label, C.panelLight, {
+		local owned = type(profile.ownedCosmetics) == "table" and ProgressionConfig.ownsCosmetic(profile.ownedCosmetics, id)
+		local equipped = equippedBy[cosmetic.kind] == id
+		local color = cosmetic.tracerColor or cosmetic.trailColor or C.text
+		local name = if cosmetic.kind == "emote" then `{cosmetic.emoji} {cosmetic.name}` else cosmetic.name
+		local label = if not owned then string.upper(cosmetic.source) elseif equipped then `{name} ✓` else name
+		local button = UI.button(label, if equipped then Color3.fromRGB(70, 64, 92) else C.panelLight, {
 			Name = id,
 			LayoutOrder = i,
-			Size = UDim2.new(0, 140, 0, 38),
-			TextSize = 15,
-			TextColor3 = cosmetic.tracerColor,
-			Parent = row,
+			TextSize = 13,
+			TextWrapped = true,
+			TextColor3 = if owned then color else C.muted,
 		})
-		UI.setEnabled(button, owned and profile.equippedCosmetic ~= id and not LockerController.busy)
+		button.Parent = grid
+		-- Owned: equip it; equipped (a tracer or trail): take it off.
+		local canToggle = equipped and cosmetic.kind ~= "emote"
+		UI.setEnabled(button, owned and (not equipped or canToggle) and not LockerController.busy)
 		UI.onClick(button, function()
-			LockerController.request("equip", "cosmetic", id)
+			if equipped then
+				LockerController.request("equip", cosmetic.kind, nil)
+			else
+				LockerController.request("equip", "cosmetic", id)
+			end
 		end)
 	end
+end
+
+-- The store: passes and coin packs from MonetizationConfig, contents in
+-- full, prices from Roblox. Roblox's own purchase window does the buying.
+local priceCache: { [string]: string } = {}
+local function price(kind: Enum.InfoType, id: number): string
+	local key = `{kind.Name}:{id}`
+	if priceCache[key] then
+		return priceCache[key]
+	end
+	priceCache[key] = "..."
+	task.spawn(function()
+		local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, id, kind)
+		priceCache[key] = if ok and type(info) == "table" and info.PriceInRobux then `R$ {info.PriceInRobux}` else "BUY"
+		if LockerController.isOpen and LockerController.tab == "Store" then
+			render()
+		end
+	end)
+	return priceCache[key]
+end
+
+local function storeTab(content: Frame)
+	local profile = LockerController.profile or {}
+	UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center).Parent = content
+	for i, pass in MonetizationConfig.passes do
+		local card = UI.box(pass.key, Color3.fromRGB(150, 90, 230), UDim2.new(1, 0, 0, 150), { LayoutOrder = i })
+		card.Parent = content
+		UI.label(string.upper(pass.name), 28, {
+			Name = "Name",
+			Position = UDim2.new(0, 16, 0, 8),
+			Size = UDim2.new(0.6, 0, 0, 32),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		for j, line in pass.contents do
+			UI.label(`• {line}`, 15, {
+				Name = `Line{j}`,
+				Position = UDim2.new(0, 20, 0, 40 + (j - 1) * 24),
+				Size = UDim2.new(0.62, 0, 0, 22),
+				Font = UIConfig.bodyFont,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = card,
+			})
+		end
+		local owned = type(profile.passes) == "table" and table.find(profile.passes, pass.key) ~= nil
+		local label = if owned then "OWNED" elseif pass.id == 0 then "UNAVAILABLE" else price(Enum.InfoType.GamePass, pass.id)
+		local button = UI.button(label, C.play, {
+			Name = "Action",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -18, 0.5, 0),
+			Size = UDim2.new(0, 200, 0, 56),
+			TextSize = 24,
+			Parent = card,
+		})
+		UI.setEnabled(button, not owned and pass.id ~= 0)
+		UI.onClick(button, function()
+			pcall(MarketplaceService.PromptGamePassPurchase, MarketplaceService, player, pass.id)
+		end)
+	end
+	local packs = UI.new("Frame", {
+		Name = "Coins",
+		LayoutOrder = 10,
+		Size = UDim2.new(1, 0, 0, 150),
+		BackgroundTransparency = 1,
+		Parent = content,
+	}, { UI.list(Enum.FillDirection.Horizontal, 10, Enum.HorizontalAlignment.Center) })
+	for i, product in MonetizationConfig.products do
+		local card = UI.box(product.key, Color3.fromRGB(255, 205, 50), UDim2.new(0, 220, 1, 0), { LayoutOrder = i })
+		card.Parent = packs
+		UI.label("💰", 40, { Name = "Icon", Position = UDim2.new(0, 0, 0, 6), Size = UDim2.new(1, 0, 0, 46), Parent = card })
+		UI.label(string.upper(product.name), 22, { Name = "Name", Position = UDim2.new(0, 0, 0, 54), Size = UDim2.new(1, 0, 0, 28), Parent = card })
+		local button = UI.button(if product.id == 0 then "UNAVAILABLE" else price(Enum.InfoType.Product, product.id), C.play, {
+			Name = "Action",
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -10),
+			Size = UDim2.new(1, -24, 0, 44),
+			TextSize = 20,
+			Parent = card,
+		})
+		UI.setEnabled(button, product.id ~= 0)
+		UI.onClick(button, function()
+			pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, product.id)
+		end)
+	end
+	text(content, "Everything here is cosmetic or coins: nothing you can buy makes your weapons stronger.", 14, 20, {
+		TextColor3 = C.muted,
+	})
 end
 
 local function settingsTab(content: Frame)
@@ -341,7 +436,7 @@ local function settingsTab(content: Frame)
 	})
 end
 
-local TABS = { Weapons = weaponsTab, Abilities = abilitiesTab, Progression = progressionTab, Settings = settingsTab }
+local TABS = { Weapons = weaponsTab, Abilities = abilitiesTab, Progression = progressionTab, Store = storeTab, Settings = settingsTab }
 
 render = function()
 	local p = LockerController.parts
@@ -382,7 +477,7 @@ local function build()
 		local button = UI.button(string.upper(name), C.panelLight, {
 			Name = name,
 			LayoutOrder = i,
-			Size = UDim2.new(0, 148, 0, 42),
+			Size = UDim2.new(0, 118, 0, 42),
 			TextSize = 18,
 			Parent = tabs,
 		})

@@ -24,6 +24,7 @@ InputController.FireHeld = Signal.new() -- (held)
 InputController.DashPressed = Signal.new()
 InputController.AbilityPressed = Signal.new()
 InputController.SlotPressed = Signal.new() -- (slot number)
+InputController.EmotePressed = Signal.new()
 
 -- Set by the menu: no firing or dashing while it's open.
 InputController.menuOpen = false
@@ -92,6 +93,8 @@ function InputController.start()
 			InputController.DashPressed:Fire()
 		elseif key == keys.ability then
 			InputController.AbilityPressed:Fire()
+		elseif key == keys.emote then
+			InputController.EmotePressed:Fire()
 		else
 			local slot = table.find(keys.slots, key)
 			if slot then

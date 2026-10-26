@@ -23,6 +23,7 @@ local Debris = game:GetService("Debris")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
@@ -124,7 +125,7 @@ function EffectsController.explosion(position: Vector3, color: Color3?, radius: 
 	Debris:AddItem(cloud, 1.6)
 end
 
-function EffectsController.dashPuff(from: Vector3, direction: Vector3)
+function EffectsController.dashPuff(from: Vector3, direction: Vector3, color: Color3?)
 	Audio.play("dash")
 	if EffectsController.reduced() then
 		return
@@ -132,7 +133,7 @@ function EffectsController.dashPuff(from: Vector3, direction: Vector3)
 	for i = 0, 2 do
 		local puff = effectPart("DashPuff")
 		puff.Material = Enum.Material.SmoothPlastic
-		puff.Color = Color3.fromRGB(170, 200, 90)
+		puff.Color = color or Color3.fromRGB(170, 200, 90)
 		puff.Size = Vector3.one * (2.4 - i * 0.5)
 		puff.CFrame = CFrame.new(from + direction * i * 4 + Vector3.new(0, -1, 0))
 		puff.Transparency = 0.4
@@ -177,6 +178,34 @@ function EffectsController.cloud(position: Vector3, radius: number, endsAt: numb
 	cloud.Parent = workspace
 	Debris:AddItem(cloud, math.max(0.1, endsAt - workspace:GetServerTimeNow()))
 	return cloud
+end
+
+-- An emote over someone's head for a moment (and a little puff).
+function EffectsController.emote(userId: number, id: string): BillboardGui?
+	local other = Players:GetPlayerByUserId(userId)
+	local head = other and other.Character and other.Character:FindFirstChild("Head")
+	local cosmetic = ProgressionConfig.cosmetics[id]
+	if not (head and head:IsA("BasePart") and cosmetic and cosmetic.kind == "emote") then
+		return nil
+	end
+	local old = head:FindFirstChild("Emote")
+	if old then
+		old:Destroy()
+	end
+	local board = Instance.new("BillboardGui")
+	board.Name = "Emote"
+	board.Size = UDim2.new(0, 260, 0, 64)
+	board.StudsOffset = Vector3.new(0, 3.2, 0)
+	board.AlwaysOnTop = true
+	board.Adornee = head
+	UI.label(`{cosmetic.emoji} {cosmetic.text}`, 30, { Size = UDim2.new(1, 0, 1, 0), Parent = board })
+	board.Parent = head
+	Debris:AddItem(board, 2.5)
+	Audio.play("emote")
+	if not EffectsController.reduced() then
+		EffectsController.ability("RecoveryBurst", head.Position - Vector3.new(0, 2, 0))
+	end
+	return board
 end
 
 -- Someone used their Q ability: a vent puff or a pulse ring.
@@ -405,7 +434,11 @@ function EffectsController.start()
 			Audio.play("barrel")
 			EffectsController.explosion(event.position, BARREL_ORANGE, GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
-			EffectsController.dashPuff(event.from, event.direction)
+			local dasher = Players:GetPlayerByUserId(event.player)
+			local trail = dasher and ProgressionConfig.cosmetics[dasher:GetAttribute("Trail") :: any]
+			EffectsController.dashPuff(event.from, event.direction, if trail then trail.trailColor else nil)
+		elseif event.kind == "emote" and type(event.player) == "number" and type(event.emote) == "string" then
+			EffectsController.emote(event.player, event.emote)
 		elseif event.kind == "lob" and type(event.path) == "table" and type(event.flight) == "number" then
 			local path = {}
 			for _, point in event.path do

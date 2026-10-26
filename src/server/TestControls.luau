@@ -42,6 +42,7 @@ local TeamConfig = require(Shared.Config.TeamConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local AudioConfig = require(Shared.Config.AudioConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local Messages = require(script.Parent.Messages)
 local Telemetry = require(script.Parent.Telemetry)
 
@@ -271,6 +272,7 @@ local REMOTES = {
 	ShopRequest = "RemoteFunction",
 	ProfileUpdate = "RemoteEvent",
 	RewardsRequest = "RemoteFunction",
+	Emote = "RemoteEvent",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
@@ -308,7 +310,7 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		end
 	end
 	table.sort(missing)
-	expect(#missing == 0, "Remotes", "all 15 present", `missing or wrong: {table.concat(missing, ", ")}`)
+	expect(#missing == 0, "Remotes", "all 16 present", `missing or wrong: {table.concat(missing, ", ")}`)
 	local teamsOk = true
 	for _, id in TeamConfig.order do
 		teamsOk = teamsOk and game:GetService("Teams"):FindFirstChild(TeamConfig.teams[id].name) ~= nil
@@ -330,6 +332,14 @@ function TestControls.selftest(player: Player?): (boolean, string)
 	end
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
 	report("WARN", "Release", `test controls on (allow-list: {#GameConfig.TEST_CONTROLS.USER_IDS}); turn GameConfig.TEST_CONTROLS.ENABLED off before a public release`)
+	local forSale = 0
+	for _, item in MonetizationConfig.passes do
+		forSale += if item.id ~= 0 then 1 else 0
+	end
+	for _, item in MonetizationConfig.products do
+		forSale += if item.id ~= 0 then 1 else 0
+	end
+	expect(forSale > 0, "Store", `{forSale} items set up`, "no pass or product IDs in MonetizationConfig yet: the store shows everything as unavailable", "WARN")
 	local silent = 0
 	for _, id in AudioConfig :: any do
 		if id == "" then

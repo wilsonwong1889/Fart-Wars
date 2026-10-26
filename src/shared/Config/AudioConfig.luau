@@ -18,6 +18,7 @@ return table.freeze({
 	vent = "", -- Recovery Burst
 	pulse = "", -- Gas Pulse
 	purchase = "", -- a shop purchase
+	emote = "", -- an emote (E)
 	coins = "", -- you earned coins
 	levelUp = "", -- you reached a new level
 })

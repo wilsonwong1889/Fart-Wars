@@ -4,9 +4,10 @@
 -- load). A change made while fighting waits for the next respawn, so
 -- nobody swaps stats mid-combat; one made from the home screen, while
 -- dead or in the first seconds of a spawn (still protected) applies at
--- once. Cosmetics change nothing in combat and apply at once. Each spawn
--- applies the saved loadout: the weapon (held in the avatar's hand, with
--- its walking speed), the ability, the "Tracer" attribute.
+-- once. Cosmetics (a tracer, a Fart Dash trail, an emote for E) change
+-- nothing in combat and apply at once. Each spawn applies the saved
+-- loadout: the weapon (held in the avatar's hand, with its walking speed),
+-- the ability, and the "Tracer", "Trail" and "Emote" attributes.
 -- The client's screens get a view of the profile:
 --   ProfileUpdate { ownedWeapons, equippedWeapon, unlockedAbilities,
 --     equippedAbility?, ownedCosmetics, equippedCosmetic?, badges,
@@ -23,6 +24,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
+local RateLimit = require(Server.RateLimit)
 local DataService = require(script.Parent.DataService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local CombatService = require(script.Parent.CombatService)
@@ -35,6 +37,7 @@ local LoadoutService = {}
 
 -- Players whose saved loadout differs from what they're holding.
 local pending: { [Player]: boolean } = {}
+local emoteLimiter = RateLimit.new(3)
 local started = false
 
 local function profileUpdate(): RemoteEvent
@@ -51,16 +54,26 @@ function LoadoutService.resolve(data: Data): (string, string?, string?)
 	if ability and not (AbilityConfig[ability] and table.find(data.UnlockedAbilities, ability)) then
 		ability = nil
 	end
-	local cosmetic = data.EquippedCosmetic
-	if cosmetic and not (ProgressionConfig.cosmetics[cosmetic] and table.find(data.OwnedCosmetics, cosmetic)) then
-		cosmetic = nil
+	return weapon, ability, LoadoutService.cosmetic(data, "tracer")
+end
+
+local SLOTS = { tracer = "EquippedCosmetic", trail = "EquippedTrail", emote = "EquippedEmote" }
+
+-- The equipped cosmetic of `kind` ("tracer", "trail", "emote"), owned only;
+-- the emote falls back to the free one everybody has.
+function LoadoutService.cosmetic(data: Data, kind: string): string?
+	local id = (data :: any)[SLOTS[kind]]
+	local cosmetic = type(id) == "string" and ProgressionConfig.cosmetics[id]
+	if cosmetic and cosmetic.kind == kind and ProgressionConfig.ownsCosmetic(data.OwnedCosmetics, id) then
+		return id
 	end
-	return weapon, ability, cosmetic
+	return if kind == "emote" then "Toot" else nil
 end
 
 local function applyCosmetic(player: Player, data: Data)
-	local _, _, cosmetic = LoadoutService.resolve(data)
-	player:SetAttribute("Tracer", cosmetic)
+	player:SetAttribute("Tracer", LoadoutService.cosmetic(data, "tracer"))
+	player:SetAttribute("Trail", LoadoutService.cosmetic(data, "trail"))
+	player:SetAttribute("Emote", LoadoutService.cosmetic(data, "emote"))
 end
 
 -- The weapon as something to hold: a Tool built from parts in the
@@ -195,6 +208,9 @@ function LoadoutService.view(player: Player): { [string]: any }?
 		equippedAbility = ability,
 		ownedCosmetics = table.clone(data.OwnedCosmetics),
 		equippedCosmetic = cosmetic,
+		equippedTrail = LoadoutService.cosmetic(data, "trail"),
+		equippedEmote = LoadoutService.cosmetic(data, "emote"),
+		passes = table.clone(data.PassesGranted),
 		badges = table.clone(data.Badges),
 		mastery = mastery,
 		stats = {
@@ -216,9 +232,10 @@ function LoadoutService.push(player: Player)
 	end
 end
 
--- Equips `id` (a weapon, ability or cosmetic) if the player owns it.
--- Returns (ok, why): why is "now", "respawn" (it waits for the next
--- spawn), or the reason it was refused.
+-- Equips `id` (a weapon, ability or cosmetic) if the player owns it. A
+-- cosmetic goes in its kind's slot; kind "tracer", "trail" or "emote" with
+-- no id empties that slot. Returns (ok, why): why is "now", "respawn" (it
+-- waits for the next spawn), or the reason it was refused.
 function LoadoutService.equip(player: Player, kind: string, id: string?): (boolean, string)
 	local profile = DataService.get(player)
 	if not profile then
@@ -233,9 +250,15 @@ function LoadoutService.equip(player: Player, kind: string, id: string?): (boole
 		if id ~= nil and not (AbilityConfig[id] and table.find(data.UnlockedAbilities, id)) then
 			return false, "notOwned"
 		end
-	elseif kind == "cosmetic" then
-		if id ~= nil and not (ProgressionConfig.cosmetics[id] and table.find(data.OwnedCosmetics, id)) then
+	elseif kind == "cosmetic" or SLOTS[kind] then
+		local cosmetic = id and ProgressionConfig.cosmetics[id]
+		if id ~= nil and not (cosmetic and ProgressionConfig.ownsCosmetic(data.OwnedCosmetics, id)) then
 			return false, "notOwned"
+		end
+		if cosmetic then
+			kind = cosmetic.kind
+		elseif kind == "cosmetic" then
+			kind = "tracer"
 		end
 	else
 		return false, "badPayload"
@@ -246,12 +269,12 @@ function LoadoutService.equip(player: Player, kind: string, id: string?): (boole
 		elseif kind == "ability" then
 			d.EquippedAbility = id
 		else
-			d.EquippedCosmetic = id
+			(d :: any)[SLOTS[kind]] = id
 		end
 	end)
 	Telemetry.count(`Loadout.equip.{kind}`)
 	local why = "now"
-	if kind == "cosmetic" then
+	if SLOTS[kind] then
 		applyCosmetic(player, data)
 	elseif inCombat(player) then
 		why = waitForRespawn(player, data)
@@ -286,11 +309,35 @@ function LoadoutService.testGive(player: Player, kind: string, id: string): bool
 	return true
 end
 
+-- E: the player's emote, seen by everyone (cosmetic only, a few seconds
+-- apart).
+--   CombatEvent { kind = "emote", player, emote }
+function LoadoutService.emote(player: Player): boolean
+	local profile = DataService.get(player)
+	local character = player.Character
+	if not (profile and character and PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE) then
+		return false
+	end
+	if not emoteLimiter:allow(player, "emote") then
+		Telemetry.reject("Emote", player, "rateLimited")
+		return false
+	end
+	local id = LoadoutService.cosmetic(profile.data, "emote")
+	Telemetry.count("Loadout.emotes")
+	local combatEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CombatEvent") :: RemoteEvent
+	combatEvent:FireAllClients({ kind = "emote", player = player.UserId, emote = id })
+	return true
+end
+
 function LoadoutService.start()
 	if started then
 		return
 	end
 	started = true
+	local emoteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Emote") :: RemoteEvent
+	emoteRemote.OnServerEvent:Connect(Telemetry.guard("Loadout", function(player)
+		LoadoutService.emote(player)
+	end))
 	DataService.Loaded:Connect(function(player, profile)
 		if inCombat(player) then
 			waitForRespawn(player, profile.data)

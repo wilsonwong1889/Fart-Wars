@@ -71,9 +71,11 @@ repository holds credentials or API keys, and nothing should.
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 | Daily rewards | a 7-day track (100 to 500 coins, a free spin on days 3 and 6, the Stink Sparkle tracer on day 7), one claim per UTC day; it loops, and a missed day doesn't reset it |
 | Free spins | one for every 10 minutes of active play (6 a day, banked up to 10), plus the daily ones; every prize's chance is on the spin screen |
+| Cosmetics | tracers (your shots' colour), Fart Dash trails and emotes (E, over your head); from levels, the daily track, the spin and the store. None changes combat |
+| Store | the Starter Pack (a tracer, a trail, an emote, 500 coins once) and coin packs; nothing for sale changes combat. Set the IDs in `MonetizationConfig` to sell them; until then the store shows them as unavailable |
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
-Q ability (once unlocked), 1-4 pick a weapon from the hotbar, Space jump,
+Q ability (once unlocked), 1-4 pick a weapon from the hotbar, E emote, Space jump,
 V first/third person, M menu, Tab (hold) scoreboard. R and F are kept free
 for later mechanics.
 
@@ -140,6 +142,7 @@ else.
 | `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry; spending and refunds |
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
+| `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
 | `RewardsService` | `RewardsRequest`: the daily track, ten-minute gifts (active play only, capped per day), free spins drawn by published weights; every claim recorded before it pays |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
@@ -250,6 +253,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
 | `Data` | saving against a stand-in DataStore: defaults, autosave, leave and rejoin, session locks (waiting, taking a stuck or stale one, losing one), outages, newer saves, migrations, failed writes, leaving mid-load, rejoining mid-save, shutdown, ten joins at once |
 | `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
+| `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws), unsaved sessions refused; the daily and spin screens |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |

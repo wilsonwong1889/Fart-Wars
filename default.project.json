@@ -52,6 +52,9 @@
         },
         "RewardsRequest": {
           "$className": "RemoteFunction"
+        },
+        "Emote": {
+          "$className": "RemoteEvent"
         }
       }
     },

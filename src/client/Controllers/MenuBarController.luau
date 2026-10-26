@@ -1,4 +1,4 @@
--- The top-right corner while playing: your coins (+ opens the shop), the
+-- The top-right corner while playing: your coins (+ opens the store), the
 -- menu's sections as big buttons: Shop (weapons), Abilities, Levels
 -- (progression) and Settings, each opening that page of the locker; and
 -- below them the free spin (how many, or the time to the next) and the
@@ -89,7 +89,7 @@ local function build()
 		Parent = wallet,
 	})
 	UI.onClick(plus, function()
-		LockerController.open("Weapons")
+		LockerController.open("Store")
 	end)
 
 	-- The sections.

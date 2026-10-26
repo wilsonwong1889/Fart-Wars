@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 4, part 2: the store and cosmetics
+
+- `MonetizationService` and `MonetizationConfig`: coin packs (developer
+  products) through ProcessReceipt, paid once per receipt (remembered in
+  the profile), saved before Roblox is told "granted", answered "not yet"
+  (coins taken back) when the player is away, the profile isn't saving or
+  the save fails; passes (the Starter Pack: a tracer, a Fart Dash trail, an
+  emote, 500 coins once) given once when owned, checked with Roblox. IDs
+  are 0 until you set them; the store then shows items as unavailable.
+- Cosmetics now come in three kinds with their own slots: tracers, Fart
+  Dash trails (puff colour) and emotes (E, shown over your head; Toot is
+  free for everyone). New: Starter Swirl, Lime Trail, Toot, Victory Toot.
+- Locker: a Store tab (contents in full, prices from Roblox, "nothing you
+  can buy makes your weapons stronger") and a cosmetics grid (equip, take
+  off, or where it comes from). The + by your coins opens the store.
+- `EconomyService.grantPurchase` / `revoke`; reward sessions are created
+  on demand; the `Emote` remote; `/fw selftest` warns while no store IDs
+  are set.
+- New spec: `Store`.
+
 ## Phase 4, part 1: daily rewards, gifts and free spins
 
 - `RewardsService` and `RewardsConfig`: a seven-day track, one claim per
