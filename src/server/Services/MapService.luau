@@ -43,6 +43,7 @@ local function applyTheme(theme: MapConfig.Theme)
 	Lighting.Ambient = theme.ambient
 	Lighting.OutdoorAmbient = theme.outdoorAmbient
 	Lighting.ClockTime = theme.clockTime
+	Lighting.Brightness = theme.brightness
 end
 
 -- Builds or clones the map, checks it and swaps it in for the old one.

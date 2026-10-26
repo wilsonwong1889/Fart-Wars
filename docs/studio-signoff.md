@@ -188,19 +188,24 @@ turn it back off unless you're keeping it):
 
 ## 9. The map (Blender art)
 
-- [ ] Import the nineteen FBX files in `art/export/props` into
+- [ ] Import the seventeen FBX files in `art/export/props` into
       **ReplicatedStorage → Assets → Props**
       ([`../art/README.md`](../art/README.md)); `/fw selftest` says
-      **Map props: all 19 imported**.
+      **Map props: all 17 imported**.
 - [ ] Play: the throne is two toilets back to back, each tank facing its
       own bowl; the Gas Gutter's sideways toilet faces its bowl; bean cans
       wear their labels; the cover walls, crates and gas barrels are the
       Blender shapes, all in the map's colours.
-- [ ] Walls are rows of panelled sections with a neon trim on top, the
-      plaza is square tiles, the side lanes are flagstones, the spawn
-      rooms have see-through team-coloured floors and round pads. No
-      visible seams or flicker where modules meet, and the materials'
-      textures (concrete, slate, marble) show on the meshes, not smeared.
+- [ ] Before importing: the map is bright studded plastic, like
+      building bricks (studs on the tops of the blocks, not on the
+      cylinders), under a bright midday sky.
+- [ ] After importing: walls are rows of panelled sections with studded
+      plates along the tops, the plaza is smooth lavender tiles, the
+      ground and side lanes are studded baseplates, the spawn rooms have
+      see-through team-coloured floors and round pads; the cover walls
+      and crates have studs on top. No visible seams or flicker where
+      modules meet, and the plastic's texture shows on the meshes, not
+      smeared.
 - [ ] Nothing plays differently: you bump into each prop and wall where
       you did before and shots and blasts stop at the same places. Where a
       mesh is narrower than its part (the bowl's foot, the barrel's ends)

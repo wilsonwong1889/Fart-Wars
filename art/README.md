@@ -17,7 +17,7 @@ match.
 | --- | --- |
 | `art/blender/build_weapons.py` | models the Gas Blaster, Spritzer, Thunderclapper and Stink Lobber |
 | `art/blender/build_effects.py` | the particle textures: puff, cloud, spark, ring, droplet |
-| `art/blender/build_props.py` | the map: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean; the walls (two heights), the neon wall trim, the plaza's tiles, the side lanes' flagstones, the ground, the spawn floors and the spawn pads |
+| `art/blender/build_props.py` | the map: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean; the walls (two heights), the studded wall-top plates, the plaza's tiles, the spawn floors and the spawn pads |
 | `scripts/map_layout.py` | writes `art/export/props/layout.txt`: the map as the game builds it, dressed (run on the spec harness), for the map renders |
 | `art/blender/kit.py` | shared helpers (axes, materials, rendering) |
 | `art/export/weapons/<Weapon>.fbx` | the model for Roblox: one mesh per part of the gun (Body, Metal, Grip, Trim, Glass, Gas, and the Stink Lobber's Bomb) |
@@ -68,18 +68,23 @@ The map's props dress the parts the map is built from (`MapDressing`,
   toilet turns to face its bowl, and a gas barrel's mesh goes and comes
   back with the barrel. Bean Rain's beans use the bean mesh.
 - Walls, wall trims and floors are **modules**: a wall is a row of 8-stud
-  wall sections, a floor a grid of 10-stud tiles (20 for the ground, 8
-  for the spawn floors), as many as fit, each stretched a little so they
-  come out even. So a 164-stud wall isn't one stretched mesh. The
-  modules' ends are made to meet: wall sections share a post (and an
-  open end of a wall shows a clean post), floor tiles keep the same gaps
-  across their edges, and the ground's dips flatten out at its edges.
-  Walls, trims and the see-through spawn floor are single shapes with no
-  faces lying on each other, so nothing flickers.
+  wall sections, a floor a grid of 10-stud tiles (8 for the spawn
+  floors), as many as fit, each stretched a little so they come out
+  even. So a 164-stud wall isn't one stretched mesh. The modules' ends
+  are made to meet: wall sections share a post (and an open end of a
+  wall shows a clean post) and floor tiles keep the same gaps across
+  their edges. Walls, trims and the see-through spawn floor are single
+  shapes with no faces lying on each other, so nothing flickers.
 - The spawn pads are dressed too, and still work as spawns.
-- Every mesh has UVs measured in studs, so Roblox's material textures
-  (Concrete, Slate, Marble, Wood planks, Metal) land on the meshes at an
-  even size, and run on from one module to the next.
+- **The look is building bricks**: bright toy colours (`MapConfig`'s
+  theme) on plastic, with studs. The tops of the walls, the wall-top
+  plates, the cover walls and the crates have real studs, one stud
+  apart. The ground and the side lanes aren't meshes at all: they're
+  plastic baseplates with Roblox's own stud surface (the plain map's
+  plastic blocks all get it, `MapKit.studded`), which no mesh could match
+  for the cost on floors that big. The plaza keeps its smooth tiles.
+- Every mesh has UVs measured in studs, so Roblox's material textures land
+  on the meshes at an even size and run on from one module to the next.
 
 ## Import the meshes into Studio (once)
 
@@ -107,7 +112,7 @@ right-click **Weapons** → **Save to File** → `art/export/Weapons.rbxm`.
 1. **Import 3D** each FBX in `art/export/props` (ToiletTank, TankLid,
    ToiletBowl, ToiletSeat, BeanCan, BeanLabel, GasBarrel, BarrelBand,
    Crate, CoverWall, Bean, Wall, TallWall, WallTrim, PlazaTiles,
-   Flagstones, GroundTile, SpawnTiles, SpawnPad), with the same
+   SpawnTiles, SpawnPad), with the same
    orientation as the weapons (forward **-Z**, up **+Y**). The importer
    takes several files at once.
 2. Drag each one into **ReplicatedStorage → Assets → Props** and keep its
@@ -115,8 +120,8 @@ right-click **Weapons** → **Save to File** → `art/export/Weapons.rbxm`.
    are both fine.
 3. For performance: select them all and set **CollisionFidelity** to
    **Box** (the meshes never collide; the parts under them do). The
-   dressed map is about 470 meshes, mostly wall and floor modules.
-4. Play, and `/fw selftest`: **Map props: all 19 imported**. A prop that's
+   dressed map is about 370 meshes, mostly wall and floor modules.
+4. Play, and `/fw selftest`: **Map props: all 17 imported**. A prop that's
    "the wrong way round" is left off the map (its parts show as before);
    import it again. You can import a few at a time: each one dresses its
    parts as soon as it's there (on the next map load).
@@ -167,10 +172,11 @@ model in Assets → Weapons).
 Each prop is a function in `build_props.py` (`toilet_tank`, `bean_can`,
 ...), modelled at the exact size of the map part named in `PROPS`, so it
 isn't stretched in the game. A wall or floor module (`wall_tile`,
-`floor_module`, `ground_tile`) is one section of its part; `tile` in
-`PROPS` says which way it repeats, and `studs` how big the material's
+`floor_module`, `spawn_tiles`) is one section of its part; `tile` in
+`PROPS` says which way it repeats, and `texture` how big the material's
 texture is on it (a size that divides the module, so the texture runs on
-across modules). The map renders come from `layout.txt`, which the script
+across modules). `studs` puts building-brick studs on a top (modelled
+`STUD_HEIGHT` below the part's top, so the studs stay inside its box). The map renders come from `layout.txt`, which the script
 refreshes with `scripts/map_layout.py` when `luau` is installed;
 `python art/blender/build_props.py renders` redoes just the renders. Cylinder props (bowl, seat, can, label,
 barrel, band) are turned shapes around Blender's X, the axis a Roblox

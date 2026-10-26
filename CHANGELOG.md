@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0: a building-brick look
+
+- Brainrot Battlefield is repainted in bright toy colours (grass-green
+  ground, salmon walls with grassy tops, a lavender plaza, peach and
+  green side lanes, orange crates) under a brighter midday sky
+  (`MapConfig`'s theme, now with `brightness`).
+- Studded plastic, like building bricks: the map's plastic blocks get
+  Roblox's stud surface on top (`MapKit.studded`; not the cylinders), and
+  the Blender meshes have real studs one stud apart on the tops of the
+  walls, the wall-top plates (which replace the neon rails on the
+  boundary and spawn rooms), the cover walls and the crates.
+- The ground and the side lanes are no longer dressed with meshes: as
+  studded baseplates they look the part for nothing. The Flagstones and
+  GroundTile meshes are gone (17 to import now). The plaza keeps its
+  smooth tiles.
+- `MapArt` spec checks the studs and the baseplates.
+
 ## 0.9.0: the map's walls and floors, made in Blender
 
 - Walls, trims and floors made in Blender (`art/blender/build_props.py`)

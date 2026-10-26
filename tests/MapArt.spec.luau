@@ -10,7 +10,9 @@
 --     mesh can't be hit, touched or collided with
 --   * walls, trims and floors are modules repeated along their parts (a
 --     wall's modules run along it), none stretched more than a quarter;
---     the spawn pads still work as spawns under theirs
+--     the spawn pads still work as spawns under theirs; the ground and
+--     side lanes stay studded plastic, and the plain map's plastic blocks
+--     have studs on top (cylinders don't)
 --   * the throne's mirrored tank turns round to face its own bowl; the
 --     Gas Gutter's sideways tank turns to face its bowl, sized to fit
 --   * a gas barrel's mesh goes and comes back with it; the hitbox under
@@ -121,6 +123,15 @@ for name in MapArt.parts do
 	end
 end
 local plain = solid(map)
+local studdedBlocks = 0
+for _, item in map:GetDescendants() do
+	if item:IsA("Part") and item.Material == Enum.Material.Plastic then
+		local block = item.Shape == Enum.PartType.Block
+		check((item.TopSurface == Enum.SurfaceType.Studs) == block, `{item:GetFullName()}: studs on top only if it's a block`)
+		studdedBlocks += if block then 1 else 0
+	end
+end
+check(studdedBlocks > 30, `the plain map is studded plastic blocks ({studdedBlocks})`)
 
 -- Imported.
 local function import(prop: string, size: Vector3, wrap: boolean?): MeshPart
@@ -201,7 +212,12 @@ end
 check(arts == wanted and dressed > 60 and arts > 300, `every named part dressed ({dressed} parts, {arts} meshes)`)
 local sideWall = partsNamed(map, "SideWall")[1]
 check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
-check(#MapDressing.pieces(map.Floor.Ground, MapArt.parts.Ground) == 64, "the ground is 8 x 8 modules")
+-- The big floors stay studded plastic baseplates (Roblox's own studs).
+for _, name in { "Ground", "LaneLeftFloor", "LaneRightFloor" } do
+	local floor = map.Floor:FindFirstChild(name) :: BasePart
+	check(MapArt.parts[name] == nil and floor.Transparency == 0, `{name} isn't dressed: it shows as it is`)
+	check(floor.Material == Enum.Material.Plastic and floor.TopSurface == Enum.SurfaceType.Studs, `{name} is studded plastic`)
+end
 for _, team in { "Stinkers", "Sharters" } do
 	local pads = Map.spawns(team)
 	check(#pads == 4, `{team} still have their four spawn pads`)

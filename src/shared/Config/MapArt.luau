@@ -47,11 +47,10 @@ MapArt.parts = {
 	SideTrim = { mesh = "WallTrim", long = true },
 	EndTrim = { mesh = "WallTrim", long = true },
 	SpawnFrontTrim = { mesh = "WallTrim", long = true },
-	-- Floors (modules both ways).
-	Ground = { mesh = "GroundTile" },
+	-- Floors (modules both ways). The ground and the side lanes stay as
+	-- they are: studded plastic baseplates (Roblox's own studs, which no
+	-- mesh can match for the cost on floors this big).
 	LaneCenterFloor = { mesh = "PlazaTiles" },
-	LaneLeftFloor = { mesh = "Flagstones" },
-	LaneRightFloor = { mesh = "Flagstones" },
 	SpawnFloor = { mesh = "SpawnTiles" },
 	-- The SpawnLocations.
 	Pad1 = { mesh = "SpawnPad" },

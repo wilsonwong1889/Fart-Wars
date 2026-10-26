@@ -473,7 +473,8 @@ Where the plans left room, or disagreed, Phase 1 does this:
 ## Art
 
 The weapons, their icons, the effect textures and the map (props, walls
-and floors) are made in Blender, from scripts: see
+and floors) are made in Blender, from scripts, in a bright building-brick
+look: toy colours on studded plastic: see
 [`art/README.md`](art/README.md) for how to change them, import the meshes
 into Studio and upload the images. Until they're imported the game builds
 each gun from the Blender model's own pieces, so it always looks like the

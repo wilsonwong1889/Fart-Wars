@@ -222,10 +222,45 @@ def barrel_band():
     return [lathe("Band", profile, closed=True)]
 
 
+STUD_RADIUS, STUD_HEIGHT = 0.3, 0.2
+
+
+def studs(name, xs, ys, top, sides=12):
+    """Building-brick studs, one stud apart like Roblox's own: a short
+    cylinder at each (x, y) standing on the surface at height `top` (sunk
+    a little into it, so there's no seam), no bottoms. They're inside the
+    part's box: a studded top is modelled STUD_HEIGHT below the box's top."""
+    bm = bmesh.new()
+    for x in xs:
+        for y in ys:
+            low, high = [], []
+            for i in range(sides):
+                t = 2 * math.pi * i / sides
+                cx, cy = x + STUD_RADIUS * math.cos(t), y + STUD_RADIUS * math.sin(t)
+                low.append(bm.verts.new((cx, cy, top - 0.03)))
+                high.append(bm.verts.new((cx, cy, top + STUD_HEIGHT)))
+            for i in range(sides):
+                j = (i + 1) % sides
+                bm.faces.new((low[i], low[j], high[j], high[i]))
+            bm.faces.new(high)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    # recalc can't close open cylinders: make each top face up.
+    flip = [f for f in bm.faces if len(f.verts) == sides and f.normal.z < 0]
+    bmesh.ops.reverse_faces(bm, faces=flip)
+    return mesh_object(name, bm)
+
+
+def stud_rows(length, width):
+    """Stud centres along a top `length` x `width` studs (pitch 1)."""
+    return ([-length / 2 + 0.5 + i for i in range(int(round(length)))],
+            [-width / 2 + 0.5 + j for j in range(int(round(width)))])
+
+
 def crate():
     # Crate: 8 wide, 8 deep, 6 tall: corner posts, rails and braces, each
-    # a little behind the one before so no two faces meet (they'd flicker).
-    w, d, h = 8, 8, 6
+    # a little behind the one before so no two faces meet (they'd flicker),
+    # under a studded lid.
+    w, d, h = 8, 8, 5.5
     parts = [rounded_box("Core", (w - 0.6, d - 0.6, h - 0.6), bevel=0.15)]
     for x in (-w / 2 + 0.35, w / 2 - 0.35):
         for y in (-d / 2 + 0.35, d / 2 - 0.35):
@@ -244,15 +279,23 @@ def crate():
         brace = rounded_box("Brace", (0.4, math.hypot(d - 1.6, h - 1.6), 0.6), (x, 0, 0), bevel=0.1)
         brace.rotation_euler = (angle, 0, 0)
         parts.append(brace)
+    # The body is 5.5 of the 6: from the bottom up to 2.5, then the lid.
+    for part in parts:
+        part.location.z -= 0.25
+    parts.append(chamfered("Lid", (w, d, 0.3), (0, 0, 2.65), bevel=0.08))
+    xs, ys = stud_rows(w, d)
+    parts.append(studs("Studs", xs, ys, 2.8))
     return parts
 
 
 def cover_wall():
-    # PlazaWall: 10 wide, 2 deep, 5 tall: blocks under a cap.
+    # PlazaWall: 10 wide, 2 deep, 5 tall: blocks under a studded cap.
+    xs, ys = stud_rows(10, 2)
     parts = [
-        rounded_box("Block", (9.8, 1.8, 4.2), (0, 0, -0.3), bevel=0.25),
-        rounded_box("Cap", (10, 2, 0.6), (0, 0, 2.2), bevel=0.2),
+        rounded_box("Block", (9.8, 1.8, 4.3), (0, 0, -0.25), bevel=0.25),
+        rounded_box("Cap", (10, 2, 0.4), (0, 0, 2.1), bevel=0.12),
         rounded_box("Base", (10, 2, 0.4), (0, 0, -2.3), bevel=0.12),
+        studs("Studs", xs, ys, 2.3),
     ]
     for z in (-1.0, 0.6):
         parts.append(rounded_box("Ridge", (9.9, 1.9, 0.14), (0, 0, z), bevel=0.05))
@@ -298,47 +341,53 @@ def extrude(name, profile, x0, x1):
     return mesh_object(name, bm)
 
 
-def wall_tile(height, bands):
+def wall_tile(height, bands, studded=False):
     """A wall module 8 long (X), 2 thick (Y), `height` tall: half a post at
     each end (two neighbours make a whole one; an open end of a wall shows
     a clean post) and between them a panel with a base and a cap moulding
     and raised bands. The same on both faces, so it can face either way.
-    The panel stops at the posts, so no two end faces lie on each other."""
+    The panel stops at the posts, so no two end faces lie on each other.
+    `studded`: two rows of studs along the top, like a brick."""
     length, depth = 8.0, 2.0
     half, post = height / 2, 0.7
+    top = half - STUD_HEIGHT if studded else half
     inner = length / 2 - post
     profile = [
         (-0.95, -half), (0.95, -half), (0.95, -half + 0.8), (0.75, -half + 1.0),
-        (0.75, half - 0.8), (0.95, half - 0.6), (0.95, half), (-0.95, half),
-        (-0.95, half - 0.6), (-0.75, half - 0.8), (-0.75, -half + 1.0), (-0.95, -half + 0.8),
+        (0.75, top - 0.8), (0.95, top - 0.6), (0.95, top), (-0.95, top),
+        (-0.95, top - 0.6), (-0.75, top - 0.8), (-0.75, -half + 1.0), (-0.95, -half + 0.8),
     ]
     parts = [extrude("Panel", profile, -inner, inner)]
     for x in (-length / 2 + post / 2, length / 2 - post / 2):
-        parts.append(chamfered("Post", (post, depth, height), (x, 0, 0), bevel=0.1))
+        parts.append(chamfered("Post", (post, depth, top + half), (x, 0, (top - half) / 2), bevel=0.1))
     for z in bands:
         parts.append(chamfered("Band", (2 * inner, 1.75, 0.35), (0, 0, z), bevel=0.08))
+    if studded:
+        xs, ys = stud_rows(length, depth)
+        parts.append(studs("Studs", xs, ys, top))
     return parts
 
 
 def wall():
     # Divider: 14 tall; also the spawn rooms' walls (16, a little taller).
-    return wall_tile(14, (-3.0, 2.4))
+    # Studded on top, like a brick.
+    return wall_tile(14, (-3.0, 2.4), studded=True)
 
 
 def tall_wall():
-    # SideWall and EndWall: the arena's 24-tall boundary.
+    # SideWall and EndWall: the arena's 24-tall boundary. No studs: the
+    # wall trim's studded plates sit on top of it.
     return wall_tile(24, (-6.5, -0.5, 5.5))
 
 
 def wall_trim():
-    # SideTrim, EndTrim, SpawnFrontTrim: 8 long, 1 tall, 2.4 deep: a neon
-    # rail with a rounded bead along its top, as one swept outline.
-    profile = [(-1.2, -0.5), (1.2, -0.5), (1.2, -0.12), (1.08, 0.0), (0.5, 0.0)]
-    for i in range(1, 12):
-        t = math.pi * i / 12
-        profile.append((0.5 * math.cos(t), 0.5 * math.sin(t)))
-    profile += [(-0.5, 0.0), (-1.08, 0.0), (-1.2, -0.12)]
-    return [extrude("Trim", profile, -4, 4)]
+    # SideTrim, EndTrim, SpawnFrontTrim: 8 long, 1 tall, 2.4 deep: a
+    # studded plate along the top of a wall (grass on the boundary, the
+    # team's colour on a spawn room), the plate one swept outline.
+    top = 0.5 - STUD_HEIGHT
+    profile = [(-1.2, -0.5), (1.2, -0.5), (1.2, top - 0.08), (1.12, top), (-1.12, top), (-1.2, top - 0.08)]
+    xs, ys = stud_rows(8, 2)
+    return [extrude("Plate", profile, -4, 4), studs("Studs", xs, ys, top)]
 
 
 def drop_bottoms(obj):
@@ -378,27 +427,6 @@ def plaza_tiles():
         for j in range(4):
             stones.append((-5 + i * 2.5, -5 + j * 2.5, -5 + (i + 1) * 2.5, -5 + (j + 1) * 2.5, 0.2))
     return floor_module(stones, 0.14)
-
-
-def flagstones():
-    # LaneLeftFloor and LaneRightFloor: flagstones in running courses, a
-    # few a little lower than the rest.
-    rows = [
-        (3.0, 2.5, 4.5),
-        (2.0, 4.0, 4.0),
-        (3.5, 3.0, 3.5),
-        (4.0, 2.5, 3.5),
-    ]
-    heights = [0.2, 0.17, 0.2, 0.18, 0.2, 0.16, 0.19, 0.2, 0.17, 0.2, 0.18, 0.2]
-    stones = []
-    k = 0
-    for r, widths in enumerate(rows):
-        x = -5.0
-        for w in widths:
-            stones.append((x, -5 + r * 2.5, x + w, -5 + (r + 1) * 2.5, heights[k % len(heights)]))
-            x += w
-            k += 1
-    return floor_module(stones, 0.18)
 
 
 def heightfield(name, xs, ys, height, bottom, closed=True):
@@ -444,23 +472,6 @@ def spawn_tiles():
     return [heightfield("Panels", lines, lines, height, -0.1, closed=False)]
 
 
-def ground_tile():
-    """Ground: 20 x 20 modules 4 thick, the top gently dipped. The dips
-    are zero along the edges so modules meet without a step, and never
-    above the top, so the mesh fills the part's box exactly."""
-    size, depth, steps = 20.0, 4.0, 10
-    blobs = [(-4.0, 3.0, 4.5, 0.32), (5.0, -2.0, 5.0, 0.26), (-1.0, -6.0, 3.5, 0.2), (6.0, 6.0, 3.0, 0.18)]
-
-    def height(x, y):
-        u, v = (x + size / 2) / size, (y + size / 2) / size
-        window = (math.sin(math.pi * u) * math.sin(math.pi * v)) ** 2
-        dip = sum(d * math.exp(-((x - bx) ** 2 + (y - by) ** 2) / (r * r)) for bx, by, r, d in blobs)
-        return depth / 2 - min(dip, 0.4) * window
-
-    grid = [-size / 2 + size * i / steps for i in range(steps + 1)]
-    return [heightfield("Ground", grid, grid, height, -depth / 2)]
-
-
 def spawn_pad():
     # Pad1-Pad4 (SpawnLocations): 6 x 6, 1 tall: a round pad with a raised
     # ring and a dome in the middle.
@@ -479,34 +490,32 @@ def spawn_pad():
 # part's box, or one module of it), its builder and preview colour.
 #   upright  its long axis is Blender X, standing up in the map (preview)
 #   tile     the axes (Roblox x, y, z) MapDressing repeats it along
-#   studs    studs per repeat of the material's texture (it divides the
+#   texture  studs per repeat of the material's texture (it divides the
 #            module, so the texture runs on across modules)
 
 
-def prop(name, modelled_on, builder, color, upright=False, tile="", studs=4.0):
+def prop(name, modelled_on, builder, color, upright=False, tile="", texture=4.0):
     return {"name": name, "modelledOn": modelled_on, "builder": builder, "color": color,
-            "upright": upright, "tile": tile, "studs": studs}
+            "upright": upright, "tile": tile, "texture": texture}
 
 
 PROPS = [
-    prop("ToiletTank", "ThroneTank", toilet_tank, (240, 240, 235)),
-    prop("TankLid", "ThroneLid", tank_lid, (150, 120, 200)),
-    prop("ToiletBowl", "ThroneBowl", toilet_bowl, (240, 240, 235), upright=True),
-    prop("ToiletSeat", "ThroneSeat", toilet_seat, (150, 120, 200), upright=True),
-    prop("BeanCan", "BeanCan", bean_can, (196, 92, 40), upright=True),
-    prop("BeanLabel", "BeanLabel", bean_label, (240, 210, 120), upright=True),
-    prop("GasBarrel", "Barrel", gas_barrel, (70, 110, 60), upright=True),
-    prop("BarrelBand", "Band", barrel_band, (190, 240, 60), upright=True),
-    prop("Crate", "Crate", crate, (120, 90, 50)),
-    prop("CoverWall", "PlazaWall", cover_wall, (70, 62, 86)),
-    prop("Bean", "Bean", bean, (196, 92, 40)),
-    prop("Wall", "Divider", wall, (70, 62, 86), tile="x"),
-    prop("TallWall", "SideWall", tall_wall, (70, 62, 86), tile="x"),
-    prop("WallTrim", "SideTrim", wall_trim, (150, 120, 200), tile="x"),
-    prop("PlazaTiles", "LaneCenterFloor", plaza_tiles, (196, 200, 206), tile="xz", studs=5.0),
-    prop("Flagstones", "LaneLeftFloor", flagstones, (120, 92, 60), tile="xz", studs=5.0),
+    prop("ToiletTank", "ThroneTank", toilet_tank, (250, 250, 250)),
+    prop("TankLid", "ThroneLid", tank_lid, (176, 140, 255)),
+    prop("ToiletBowl", "ThroneBowl", toilet_bowl, (250, 250, 250), upright=True),
+    prop("ToiletSeat", "ThroneSeat", toilet_seat, (176, 140, 255), upright=True),
+    prop("BeanCan", "BeanCan", bean_can, (255, 122, 44), upright=True),
+    prop("BeanLabel", "BeanLabel", bean_label, (255, 222, 92), upright=True),
+    prop("GasBarrel", "Barrel", gas_barrel, (64, 176, 84), upright=True),
+    prop("BarrelBand", "Band", barrel_band, (222, 255, 72), upright=True),
+    prop("Crate", "Crate", crate, (245, 146, 64)),
+    prop("CoverWall", "PlazaWall", cover_wall, (236, 132, 124)),
+    prop("Bean", "Bean", bean, (255, 122, 44)),
+    prop("Wall", "Divider", wall, (236, 132, 124), tile="x"),
+    prop("TallWall", "SideWall", tall_wall, (236, 132, 124), tile="x"),
+    prop("WallTrim", "SideTrim", wall_trim, (96, 214, 74), tile="x"),
+    prop("PlazaTiles", "LaneCenterFloor", plaza_tiles, (204, 198, 246), tile="xz", texture=5.0),
     prop("SpawnTiles", "SpawnFloor", spawn_tiles, (102, 255, 51), tile="xz"),
-    prop("GroundTile", "Ground", ground_tile, (86, 74, 52), tile="xz", studs=5.0),
     prop("SpawnPad", "Pad1", spawn_pad, (102, 255, 51)),
 ]
 
@@ -573,7 +582,7 @@ def build_mesh(entry):
     swept wall outlines have many-sided, inward-cornered ends, and this
     way they're split here rather than however an importer guesses)."""
     obj = join(entry["name"], entry["builder"]())
-    kit.uv_box(obj, entry["studs"])
+    kit.uv_box(obj, entry["texture"])
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
@@ -658,7 +667,8 @@ MATERIALS = {
     "Neon": (0.4, 0.0, 1.6),
     "Metal": (0.35, 0.6, 0.0),
     "Marble": (0.25, 0.0, 0.0),
-    "SmoothPlastic": (0.35, 0.0, 0.0),
+    "SmoothPlastic": (0.3, 0.0, 0.0),
+    "Plastic": (0.4, 0.0, 0.0),
 }
 
 
@@ -708,6 +718,41 @@ def place_matrix(cframe, scale):
     return matrix
 
 
+def stud_bump(mat):
+    """Roblox's stud surface, for the renders: a stud every stud across the
+    tops of a plain plastic block (MapKit.studded), as a bump."""
+    nodes, links = mat.node_tree.nodes, mat.node_tree.links
+    bsdf = nodes.get("Principled BSDF")
+    geometry = nodes.new("ShaderNodeNewGeometry")
+    position = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(geometry.outputs["Position"], position.inputs[0])
+
+    def math_node(operation, a, b=None):
+        node = nodes.new("ShaderNodeMath")
+        node.operation = operation
+        for socket, value in ((node.inputs[0], a), (node.inputs[1], b)):
+            if value is None:
+                continue
+            if isinstance(value, (int, float)):
+                socket.default_value = value
+            else:
+                links.new(value, socket)
+        return node.outputs[0]
+
+    dx = math_node("SUBTRACT", math_node("FRACT", position.outputs["X"]), 0.5)
+    dy = math_node("SUBTRACT", math_node("FRACT", position.outputs["Y"]), 0.5)
+    distance = math_node("SQRT", math_node("ADD", math_node("MULTIPLY", dx, dx), math_node("MULTIPLY", dy, dy)))
+    stud = math_node("LESS_THAN", distance, STUD_RADIUS)
+    normal = nodes.new("ShaderNodeSeparateXYZ")
+    links.new(geometry.outputs["Normal"], normal.inputs[0])
+    on_top = math_node("GREATER_THAN", normal.outputs["Z"], 0.9)
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.8
+    bump.inputs["Distance"].default_value = 0.15
+    links.new(math_node("MULTIPLY", stud, on_top), bump.inputs["Height"])
+    links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+
+
 def layout_scene(items, art):
     """Builds the dressed map in the current (empty) scene."""
     meshes = {}
@@ -715,11 +760,14 @@ def layout_scene(items, art):
     materials = {}
 
     def material_for(item):
-        key = (item["material"], item["color"], round(item["transparency"], 2))
+        studded = item["prop"] == "-" and item["material"] == "Plastic" and item["shape"] == "Block"
+        key = (item["material"], item["color"], round(item["transparency"], 2), studded)
         if key not in materials:
             rough, metal, glow = MATERIALS.get(item["material"], (0.6, 0.0, 0.0))
             color = kit.srgb(*item["color"])
             materials[key] = kit.material(f"{key}", color, metallic=metal, roughness=rough, emission=glow, alpha=1 - item["transparency"])
+            if studded:
+                stud_bump(materials[key])
         return materials[key]
 
     for item in items:
@@ -767,8 +815,9 @@ def map_render(items, art, filename, camera_from, look_at, lens, size=(1600, 900
     kit.freestyle(scene, 1.2)
     scene.render.film_transparent = False
     background = scene.world.node_tree.nodes["Background"]
-    background.inputs["Color"].default_value = kit.srgb(150, 140, 175)
-    background.inputs["Strength"].default_value = 0.9
+    # A clear toy-box sky.
+    background.inputs["Color"].default_value = kit.srgb(140, 205, 255)
+    background.inputs["Strength"].default_value = 1.0
     kit.camera(R2B @ Vector(camera_from), R2B @ Vector(look_at))
     scene.camera.data.lens = lens
     scene.camera.data.clip_end = 2000

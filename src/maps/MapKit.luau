@@ -32,7 +32,8 @@ function MapKit.folder(name: string, parent: Instance): Folder
 	return f
 end
 
--- An anchored part; `props` may set ClassName (a SpawnLocation, say).
+-- An anchored part; `props` may set ClassName (a SpawnLocation, say). A
+-- plastic block gets studs on top, like a building brick.
 function MapKit.part(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?): BasePart
 	local className = if props and props.ClassName then props.ClassName else "Part"
 	local p = Instance.new(className) :: BasePart
@@ -49,8 +50,16 @@ function MapKit.part(parent: Instance, name: string, size: Vector3, frame: CFram
 			end
 		end
 	end
+	if MapKit.studded(p) then
+		p.TopSurface = Enum.SurfaceType.Studs
+	end
 	p.Parent = parent
 	return p
+end
+
+-- Whether a part gets studs: a plastic block (not a cylinder or a ball).
+function MapKit.studded(p: BasePart): boolean
+	return p.Material == Enum.Material.Plastic and not (p:IsA("Part") and (p :: Part).Shape ~= Enum.PartType.Block)
 end
 
 -- A marker part: invisible, never in the way of players, rays or touches.
@@ -99,7 +108,7 @@ end
 -- A gas barrel lying on its side at `spot` (on the ground) and its mirror:
 -- a GasBarrel model with Barrel and Band, which BarrelService arms.
 function MapKit.gasBarrels(barrels: Instance, spot: Vector3, theme: MapConfig.Theme)
-	local barrel = MapKit.cylinder(theme.barrel, Enum.Material.Metal)
+	local barrel = MapKit.cylinder(theme.barrel)
 	local band = MapKit.cylinder(theme.barrelBand, Enum.Material.Neon)
 	local frame = CFrame.new(spot.X, 2.5, spot.Z) * MapKit.UPRIGHT
 	for _, at in { frame, MapKit.mirror(frame) } do

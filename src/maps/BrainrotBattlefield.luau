@@ -52,18 +52,20 @@ local function build(entry: MapConfig.MapEntry): Model
 	local cameras = folder("CameraPoints", model)
 	local spawns = folder("Spawns", model)
 
-	local wall: Props = { Color = theme.wall, Material = Enum.Material.Concrete }
+	-- Studded plastic, like building bricks (MapKit studs plastic blocks).
+	local wall: Props = { Color = theme.wall, Material = Enum.Material.Plastic }
+	local wallTop: Props = { Color = theme.wallTop, Material = Enum.Material.Plastic }
 	local trim: Props = { Color = theme.trim, Material = Enum.Material.Neon }
 
 	-- Ground and the three lane strips (colour only; they're walkable too).
 	part(floorFolder, "Ground", Vector3.new(HALF * 2, 4, HALF * 2), CFrame.new(0, -2, 0), {
 		Color = theme.ground,
-		Material = Enum.Material.Ground,
+		Material = Enum.Material.Plastic,
 	})
 	for name, x in { Left = -53, Center = 0, Right = 53 } do
 		part(floorFolder, `Lane{name}Floor`, Vector3.new(if name == "Center" then 50 else 52, 0.2, 90), CFrame.new(x, 0.1, 0), {
 			Color = theme.lanes[name],
-			Material = if name == "Center" then Enum.Material.Marble else Enum.Material.Slate,
+			Material = Enum.Material.Plastic,
 		})
 	end
 
@@ -73,9 +75,9 @@ local function build(entry: MapConfig.MapEntry): Model
 	pair(walls, "EndWall", Vector3.new(HALF * 2, BOUNDARY_HEIGHT, 2), CFrame.new(0, BOUNDARY_HEIGHT / 2, -HALF - 1), wall)
 	for _, x in { -HALF - 1, HALF + 1 } do
 		part(walls, "SideWall", Vector3.new(2, BOUNDARY_HEIGHT, HALF * 2 + 4), CFrame.new(x, BOUNDARY_HEIGHT / 2, 0), wall)
-		part(walls, "SideTrim", Vector3.new(2.4, 1, HALF * 2 + 4.4), CFrame.new(x, BOUNDARY_HEIGHT + 0.5, 0), trim)
+		part(walls, "SideTrim", Vector3.new(2.4, 1, HALF * 2 + 4.4), CFrame.new(x, BOUNDARY_HEIGHT + 0.5, 0), wallTop)
 	end
-	pair(walls, "EndTrim", Vector3.new(HALF * 2 - 0.4, 1, 2.4), CFrame.new(0, BOUNDARY_HEIGHT + 0.5, -HALF - 1), trim)
+	pair(walls, "EndTrim", Vector3.new(HALF * 2 - 0.4, 1, 2.4), CFrame.new(0, BOUNDARY_HEIGHT + 0.5, -HALF - 1), wallTop)
 
 	-- Lane dividers, each with two gaps. The middle segment straddles z = 0
 	-- and is its own mirror.
@@ -115,8 +117,8 @@ local function build(entry: MapConfig.MapEntry): Model
 
 	-- Porcelain Plaza: the throne (two giant toilets back to back across the
 	-- centre line) and low cover on the way to it.
-	local porcelain = cylinder(theme.porcelain, Enum.Material.Marble)
-	pair(cover, "ThroneTank", Vector3.new(16, 14, 4), CFrame.new(0, 7, -2), { Color = theme.porcelain, Material = Enum.Material.Marble })
+	local porcelain = cylinder(theme.porcelain)
+	pair(cover, "ThroneTank", Vector3.new(16, 14, 4), CFrame.new(0, 7, -2), { Color = theme.porcelain, Material = Enum.Material.SmoothPlastic })
 	pair(cover, "ThroneLid", Vector3.new(17, 1, 5), CFrame.new(0, 14.5, -2), trim)
 	pair(cover, "ThroneBowl", Vector3.new(6, 12, 12), CFrame.new(0, 3, -10) * UPRIGHT, porcelain)
 	pair(cover, "ThroneSeat", Vector3.new(1, 13, 13), CFrame.new(0, 6.5, -10) * UPRIGHT, cylinder(theme.trim, Enum.Material.Neon))
@@ -125,7 +127,7 @@ local function build(entry: MapConfig.MapEntry): Model
 	end
 
 	-- Bean Alley: bean cans tall enough to hide behind, with a label band.
-	local bean = cylinder(theme.bean, Enum.Material.Metal)
+	local bean = cylinder(theme.bean)
 	local label = cylinder(theme.beanLabel)
 	for _, spot in { Vector3.new(-53, 0, -32), Vector3.new(-40, 0, -14), Vector3.new(-66, 0, -6) } do
 		pair(cover, "BeanCan", Vector3.new(10, 8, 8), CFrame.new(spot.X, 5, spot.Z) * UPRIGHT, bean)
@@ -134,12 +136,12 @@ local function build(entry: MapConfig.MapEntry): Model
 	pair(cover, "AlleyWall", Vector3.new(14, 6, 2), CFrame.new(-56, 3, -20), wall)
 
 	-- Gas Gutter: a sideways toilet, crates, and barrel clusters (decor).
-	pair(cover, "GutterTank", Vector3.new(4, 10, 12), CFrame.new(60, 5, -26), { Color = theme.porcelain, Material = Enum.Material.Marble })
+	pair(cover, "GutterTank", Vector3.new(4, 10, 12), CFrame.new(60, 5, -26), { Color = theme.porcelain, Material = Enum.Material.SmoothPlastic })
 	pair(cover, "GutterBowl", Vector3.new(5, 9, 9), CFrame.new(54, 2.5, -26) * UPRIGHT, porcelain)
 	for _, spot in { Vector3.new(40, 0, -36), Vector3.new(46, 0, -8) } do
 		pair(cover, "Crate", Vector3.new(8, 6, 8), CFrame.new(spot.X, 3, spot.Z), {
-			Color = Color3.fromRGB(120, 90, 50),
-			Material = Enum.Material.WoodPlanks,
+			Color = theme.crate,
+			Material = Enum.Material.Plastic,
 		})
 	end
 	for _, spot in {

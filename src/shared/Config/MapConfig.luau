@@ -6,11 +6,14 @@
 --   modes: the game modes the layout supports
 --   zone: the control zone's marker Part (for zone modes such as Gas
 --     Control), and the floor ring that shows who holds it
---   theme: lighting and the palette the builder paints with
+--   theme: lighting and the palette the builder paints with (bright toy
+--     colours on studded plastic, like building bricks)
 export type Theme = {
 	ground: Color3,
 	wall: Color3,
+	wallTop: Color3,
 	trim: Color3,
+	crate: Color3,
 	lanes: { Left: Color3, Center: Color3, Right: Color3 },
 	porcelain: Color3,
 	bean: Color3,
@@ -20,6 +23,7 @@ export type Theme = {
 	ambient: Color3,
 	outdoorAmbient: Color3,
 	clockTime: number,
+	brightness: number,
 }
 
 export type MapEntry = {
@@ -46,22 +50,25 @@ local maps: { [string]: MapEntry } = {
 		zone = "Zones/ControlZone",
 		zoneRing = "Floor/ControlZoneFloor",
 		theme = table.freeze({
-			ground = Color3.fromRGB(86, 74, 52),
-			wall = Color3.fromRGB(70, 62, 86),
-			trim = Color3.fromRGB(150, 120, 200),
+			ground = Color3.fromRGB(88, 196, 64), -- grass-green baseplate
+			wall = Color3.fromRGB(236, 132, 124), -- salmon brick
+			wallTop = Color3.fromRGB(96, 214, 74), -- grassy plates on the walls
+			trim = Color3.fromRGB(176, 140, 255), -- the throne's lid and seat
+			crate = Color3.fromRGB(245, 146, 64),
 			lanes = table.freeze({
-				Left = Color3.fromRGB(120, 92, 60), -- Bean Alley
-				Center = Color3.fromRGB(196, 200, 206), -- Porcelain Plaza
-				Right = Color3.fromRGB(92, 120, 70), -- Gas Gutter
+				Left = Color3.fromRGB(255, 200, 150), -- Bean Alley
+				Center = Color3.fromRGB(204, 198, 246), -- Porcelain Plaza
+				Right = Color3.fromRGB(58, 170, 76), -- Gas Gutter
 			}),
-			porcelain = Color3.fromRGB(240, 240, 235),
-			bean = Color3.fromRGB(196, 92, 40),
-			beanLabel = Color3.fromRGB(240, 210, 120),
-			barrel = Color3.fromRGB(70, 110, 60),
-			barrelBand = Color3.fromRGB(190, 240, 60),
-			ambient = Color3.fromRGB(110, 100, 120),
-			outdoorAmbient = Color3.fromRGB(140, 130, 150),
-			clockTime = 14.5,
+			porcelain = Color3.fromRGB(250, 250, 250),
+			bean = Color3.fromRGB(255, 122, 44),
+			beanLabel = Color3.fromRGB(255, 222, 92),
+			barrel = Color3.fromRGB(64, 176, 84),
+			barrelBand = Color3.fromRGB(222, 255, 72),
+			ambient = Color3.fromRGB(150, 150, 165),
+			outdoorAmbient = Color3.fromRGB(190, 190, 205),
+			clockTime = 13,
+			brightness = 2.5,
 		}),
 	}),
 }
