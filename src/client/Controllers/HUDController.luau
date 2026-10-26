@@ -1,7 +1,8 @@
 -- The match screens:
---   HUD           both teams' names, colours, scores and player counts; the
---                 timer and round state; your team; messages; the AFK
---                 warning; the one-time controls card on a first PLAY
+--   HUD           the score boxes (each team's colour, score and player
+--                 count) either side of the timer and round state; your
+--                 team; messages; the AFK warning; the one-time controls
+--                 card on a first PLAY
 --   ResultsScreen the winner (or draw) and the countdown to the next round
 --   Scoreboard    Tab (held): who is on each team (stats come with combat)
 -- Everything shown comes from ClientState; times come from the snapshot's
@@ -35,25 +36,28 @@ local toastToken = 0
 local afkEndsAt: number? = nil
 local shownControls = false
 
+-- A team's score box: a chunky box in the team colour, the score big,
+-- the team name and active count small.
 local function teamPanel(team: string, order: number): Frame
 	local config = TeamConfig.teams[team]
-	local panel = UI.new("Frame", {
-		Name = team,
-		LayoutOrder = order,
-		Size = UDim2.new(0, 190, 1, 0),
-		BackgroundColor3 = config.darkColor,
-	}, { UI.corner(12), UI.stroke(config.color, 3) })
-	UI.label(config.shortName, 18, {
-		Name = "TeamName",
-		TextColor3 = config.color,
-		Position = UDim2.new(0, 0, 0, 4),
+	local panel = UI.box(team, config.color, UDim2.new(0, 132, 0, 76), { LayoutOrder = order })
+	UI.label("0", 44, {
+		Name = "Score",
+		Position = UDim2.new(0, 0, 0, 2),
+		Size = UDim2.new(1, 0, 0, 46),
 		Parent = panel,
 	})
-	UI.label("0", 40, { Name = "Score", Position = UDim2.new(0, 0, 0, 24), Parent = panel })
-	UI.label("0/10", 14, {
+	UI.label(config.shortName, 15, {
+		Name = "TeamName",
+		Position = UDim2.new(0, 0, 0, 44),
+		Size = UDim2.new(1, 0, 0, 16),
+		Parent = panel,
+	})
+	UI.label("0/10", 12, {
 		Name = "Count",
-		TextColor3 = C.muted,
-		Position = UDim2.new(0, 0, 1, -22),
+		Position = UDim2.new(0, 0, 1, -16),
+		Size = UDim2.new(1, 0, 0, 14),
+		Font = UIConfig.bodyFont,
 		Parent = panel,
 	})
 	return panel
@@ -67,35 +71,37 @@ local function build()
 	local top = UI.new("Frame", {
 		Name = "TopBar",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 60),
-		Size = UDim2.new(0, 560, 0, 92),
+		Position = UDim2.new(0.5, 0, 0, 52),
+		Size = UDim2.new(0, 500, 0, 80),
 		BackgroundTransparency = 1,
 		Parent = hud,
-	}, { UI.list(Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center) })
+	}, { UI.list(Enum.FillDirection.Horizontal, 10, Enum.HorizontalAlignment.Center) })
 	p.left = teamPanel(TeamConfig.order[1], 1)
 	p.left.Parent = top
 	local center = UI.new("Frame", {
 		Name = "Clock",
 		LayoutOrder = 2,
-		Size = UDim2.new(0, 144, 1, 0),
-		BackgroundColor3 = C.panel,
+		Size = UDim2.new(0, 190, 0, 58),
+		BackgroundColor3 = Color3.fromRGB(14, 12, 20),
 		Parent = top,
-	}, { UI.corner(12), UI.stroke(C.stroke, 3) })
+	}, { UI.corner(12), UI.stroke(Color3.fromRGB(70, 66, 84), 3) })
+	p.time = UI.label("--:--", 40, { Name = "Time", Position = UDim2.new(0, 0, 0, 6), Size = UDim2.new(1, 0, 0, 44), Parent = center })
 	p.phase = UI.label(UIConfig.phaseLabels.WAITING, 13, {
 		Name = "Phase",
-		TextColor3 = C.muted,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, 4),
+		Size = UDim2.new(1, 40, 0, 16),
+		TextColor3 = C.text,
 		TextWrapped = true,
-		Position = UDim2.new(0, 0, 0, 8),
 		Parent = center,
 	})
-	p.time = UI.label("--:--", 38, { Name = "Time", Position = UDim2.new(0, 0, 0, 34), Parent = center })
 	p.right = teamPanel(TeamConfig.order[2], 3)
 	p.right.Parent = top
 
-	p.yourTeam = UI.label("", 20, {
+	p.yourTeam = UI.label("", 18, {
 		Name = "YourTeam",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 158),
+		Position = UDim2.new(0.5, 0, 0, 150),
 		Size = UDim2.new(0, 560, 0, 26),
 		Visible = false,
 		Parent = hud,
@@ -103,7 +109,7 @@ local function build()
 	p.waiting = UI.label("", 18, {
 		Name = "Waiting",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 184),
+		Position = UDim2.new(0.5, 0, 0, 174),
 		Size = UDim2.new(0, 560, 0, 24),
 		TextColor3 = C.accent,
 		Visible = false,
@@ -113,7 +119,7 @@ local function build()
 	local toast = UI.new("Frame", {
 		Name = "Toast",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -120),
+		Position = UDim2.new(0.5, 0, 1, -200),
 		Size = UDim2.new(0, 520, 0, 52),
 		BackgroundColor3 = C.panel,
 		BackgroundTransparency = 0.1,

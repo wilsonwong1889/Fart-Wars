@@ -1,5 +1,6 @@
 -- PC controls: WASD and Space are Roblox's own; this adds mouse aim and
--- left click to fire, Shift for Fart Dash, Q for the equipped ability, V
+-- left click to fire, Shift for Fart Dash, Q for the equipped ability, 1-4
+-- for the hotbar's weapons, V
 -- for first/third person, M for the menu and Tab (held) for the
 -- scoreboard. R and F stay free for later mechanics. Keys pressed while
 -- typing in chat or a text box are ignored. Bindings live in
@@ -22,6 +23,7 @@ InputController.ScoreboardHeld = Signal.new() -- (held)
 InputController.FireHeld = Signal.new() -- (held)
 InputController.DashPressed = Signal.new()
 InputController.AbilityPressed = Signal.new()
+InputController.SlotPressed = Signal.new() -- (slot number)
 
 -- Set by the menu: no firing or dashing while it's open.
 InputController.menuOpen = false
@@ -40,10 +42,13 @@ local function setFire(held: boolean)
 	end
 end
 
--- Our Tab scoreboard replaces Roblox's player list (which also uses Tab).
+-- Our Tab scoreboard replaces Roblox's player list (which also uses Tab),
+-- and our hotbar replaces its backpack (which also uses 1-9).
 local function hidePlayerList()
 	for _ = 1, 10 do
-		if pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.PlayerList, false) then
+		local listOk = pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.PlayerList, false)
+		local backpackOk = pcall(StarterGui.SetCoreGuiEnabled, StarterGui, Enum.CoreGuiType.Backpack, false)
+		if listOk and backpackOk then
 			return
 		end
 		task.wait(0.5)
@@ -87,6 +92,11 @@ function InputController.start()
 			InputController.DashPressed:Fire()
 		elseif key == keys.ability then
 			InputController.AbilityPressed:Fire()
+		else
+			local slot = table.find(keys.slots, key)
+			if slot then
+				InputController.SlotPressed:Fire(slot)
+			end
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)

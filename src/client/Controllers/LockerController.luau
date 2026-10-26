@@ -25,6 +25,7 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local Signal = require(Shared.Signal)
 local ProgressController = require(script.Parent.ProgressController)
 
 local C = UIConfig.colors
@@ -40,6 +41,10 @@ LockerController.isOpen = false
 LockerController.profile = nil :: { [string]: any }?
 -- A request is out; buttons wait.
 LockerController.busy = false
+-- (profile): a new ProfileUpdate arrived.
+LockerController.ProfileChanged = Signal.new()
+-- (answer, action, kind, id?): the server answered a request.
+LockerController.Answered = Signal.new()
 
 local player = Players.LocalPlayer
 local started = false
@@ -83,9 +88,11 @@ function LockerController.request(action: string, kind: string, id: string?)
 				Audio.play("purchase")
 			end
 		else
-			setStatus("Couldn't reach the server. Try again.", C.warning)
+			answer = { ok = false, reason = "unreachable", message = "Couldn't reach the server. Try again." }
+			setStatus(answer.message, C.warning)
 		end
 		render()
+		LockerController.Answered:Fire(answer, action, kind, id)
 	end)
 end
 
@@ -445,6 +452,7 @@ function LockerController.start()
 		if type(view) == "table" then
 			LockerController.profile = view
 			render()
+			LockerController.ProfileChanged:Fire(view)
 		end
 	end)
 	-- The first look (a push can arrive before this script listens).
@@ -454,6 +462,7 @@ function LockerController.start()
 		if ok and type(answer) == "table" and type(answer.profile) == "table" and not LockerController.profile then
 			LockerController.profile = answer.profile
 			render()
+			LockerController.ProfileChanged:Fire(answer.profile)
 		end
 	end)
 	for _, name in { "Coins", "Level", "XP" } do

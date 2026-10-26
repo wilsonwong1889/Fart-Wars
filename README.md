@@ -71,8 +71,16 @@ repository holds credentials or API keys, and nothing should.
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
-Q ability (once unlocked), Space jump, V first/third person, M menu, Tab
-(hold) scoreboard. R and F are kept free for later mechanics. The first PLAY of a session shows a
+Q ability (once unlocked), 1-4 pick a weapon from the hotbar, Space jump,
+V first/third person, M menu, Tab (hold) scoreboard. R and F are kept free
+for later mechanics.
+
+**On screen:** score boxes in each team's colour either side of the timer;
+coins and the Shop / Abilities / Levels / Settings buttons top right; the
+gas bar and the Fart Dash charge over a hotbar (your weapons in slots 1-4,
+your ability on Q with its cooldown) and the level bar along the bottom.
+Your weapon is in your avatar's hands. PLAY opens "Choose a Team": each
+team's card shows its count and is locked when joining it would be unfair. The first PLAY of a session shows a
 small controls card; there's no tutorial. Bindings live in
 `UIConfig.keys`.
 
@@ -132,7 +140,7 @@ else.
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS` |
-| Client controllers | `InputController`, `CameraController`, `CombatController`, `EffectsController`, `HUDController`, `ProgressController`, `LockerController`, `HomeController`: render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `HomeController` (home screen, Choose a Team): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).

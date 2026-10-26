@@ -1,9 +1,10 @@
 -- Progression on the client. It only shows: coins, level and XP come from
 -- the player's attributes, which the server sets.
---   * a panel (bottom right, while playing): coins, level, an XP bar with
---     the numbers, and the next goal ("Level 5: Spritzer in the shop")
---   * small "+10 coins  +20 XP  Elimination" lines stacked above it, gone
---     after a moment; nothing in the middle of the screen mid-fight
+--   * the level bar along the bottom (while playing): LV n, a segmented XP
+--     bar with the numbers, the next level; the next goal bottom right
+--     ("NEXT: Level 5: Spritzer in the shop"); coins are in the top right
+--   * small "+10 coins  +20 XP  Elimination" lines stacked bottom right,
+--     gone after a moment; nothing in the middle of the screen mid-fight
 --   * a short LEVEL UP banner with what it unlocked, and mastery badges
 --   * whether progress is saving: "Loading progress..." while the profile
 --     loads, a warning if this session won't save (DataStatus attribute)
@@ -60,79 +61,94 @@ local function build()
 	local screen = UI.screen("Progress", 5)
 	p.screen = screen
 
+	-- The level bar along the bottom: LV n, the XP bar, n + 1.
 	local panel = UI.new("Frame", {
 		Name = "Panel",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -20, 1, -20),
-		Size = UDim2.new(0, 260, 0, 96),
-		BackgroundColor3 = C.panel,
-		BackgroundTransparency = 0.2,
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -8),
+		Size = UDim2.new(0, 470, 0, 20),
+		BackgroundTransparency = 1,
 		Visible = false,
 		Parent = screen,
-	}, { UI.corner(10), UI.stroke(C.stroke, 2), UI.padding(10) })
-	p.panel = panel
-	p.level = UI.label("LV 1", 24, {
-		Name = "Level",
-		Size = UDim2.new(0.5, 0, 0, 28),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = C.accent,
-		Parent = panel,
 	})
-	p.coins = UI.label("0 coins", 22, {
-		Name = "Coins",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.new(0.5, 0, 0, 28),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		TextColor3 = Color3.fromRGB(255, 210, 70),
+	p.panel = panel
+	p.level = UI.label("LV 1", 18, {
+		Name = "Level",
+		Size = UDim2.new(0, 56, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
 	})
 	local bar = UI.new("Frame", {
 		Name = "XPBar",
-		Position = UDim2.new(0, 0, 0, 32),
-		Size = UDim2.new(1, 0, 0, 16),
-		BackgroundColor3 = C.panelLight,
+		Position = UDim2.new(0, 58, 0.5, -6),
+		Size = UDim2.new(1, -96, 0, 12),
+		BackgroundColor3 = Color3.fromRGB(30, 26, 40),
 		Parent = panel,
-	}, { UI.corner(8), UI.stroke(C.stroke, 1) })
+	}, { UI.corner(6), UI.stroke(C.stroke, 2) })
 	p.xpFill = UI.new("Frame", {
 		Name = "Fill",
 		Size = UDim2.new(0, 0, 1, 0),
-		BackgroundColor3 = C.accent,
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		BorderSizePixel = 0,
 		Parent = bar,
-	}, { UI.corner(8) })
-	p.xpText = UI.label("0 / 100 XP", 14, {
+	}, { UI.corner(6), UI.gradient(Color3.fromRGB(80, 190, 255), Color3.fromRGB(20, 120, 230)) })
+	-- Notches, like a segmented bar.
+	for i = 1, 9 do
+		UI.new("Frame", {
+			Name = "Notch",
+			Position = UDim2.new(i / 10, -1, 0, 0),
+			Size = UDim2.new(0, 2, 1, 0),
+			BackgroundColor3 = C.stroke,
+			BackgroundTransparency = 0.4,
+			BorderSizePixel = 0,
+			ZIndex = 2,
+			Parent = bar,
+		})
+	end
+	p.xpText = UI.label("0 / 100 XP", 11, {
 		Name = "Text",
 		Size = UDim2.new(1, 0, 1, 0),
 		Font = UIConfig.bodyFont,
+		ZIndex = 3,
 		Parent = bar,
 	})
+	p.nextLevel = UI.label("2", 18, {
+		Name = "NextLevel",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.new(0, 34, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = panel,
+	})
+	-- The next goal and whether progress is saving: bottom right.
 	p.goal = UI.label("", 14, {
 		Name = "Goal",
-		Position = UDim2.new(0, 0, 0, 54),
-		Size = UDim2.new(1, 0, 0, 18),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -20, 1, -28),
+		Size = UDim2.new(0, 300, 0, 18),
 		Font = UIConfig.bodyFont,
-		TextColor3 = C.muted,
-		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = C.text,
+		TextXAlignment = Enum.TextXAlignment.Right,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		Parent = panel,
+		Visible = false,
+		Parent = screen,
 	})
 	p.status = UI.label("", 13, {
 		Name = "Status",
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, 0),
-		Size = UDim2.new(1, 0, 0, 16),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -20, 1, -10),
+		Size = UDim2.new(0, 300, 0, 16),
 		Font = UIConfig.bodyFont,
 		TextColor3 = C.warning,
-		TextXAlignment = Enum.TextXAlignment.Left,
+		TextXAlignment = Enum.TextXAlignment.Right,
 		Visible = false,
-		Parent = panel,
+		Parent = screen,
 	})
 
 	local lines = UI.new("Frame", {
 		Name = "Rewards",
 		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -20, 1, -126),
+		Position = UDim2.new(1, -20, 1, -52),
 		Size = UDim2.new(0, 260, 0, 4 * 26),
 		BackgroundTransparency = 1,
 		Parent = screen,
@@ -168,15 +184,17 @@ local function refresh()
 	local xp = number("XP", 0)
 	local need = math.max(1, number("XPToNext", ProgressionConfig.xpToNext(level)))
 	p.level.Text = `LV {level}`
-	p.coins.Text = `{commas(number("Coins", 0))} coins`
+	p.nextLevel.Text = if level >= ProgressionConfig.MAX_LEVEL then "★" else tostring(level + 1)
 	p.xpFill.Size = UDim2.new(math.clamp(xp / need, 0, 1), 0, 1, 0)
 	p.xpText.Text = `{commas(xp)} / {commas(need)} XP`
-	p.goal.Text = ProgressController.nextGoal(level)
+	p.goal.Text = `NEXT: {ProgressController.nextGoal(level)}`
 	local status = player:GetAttribute("DataStatus")
-	p.status.Visible = status == "loading" or status == "unsaved"
+	local active = FeatureFlags.PROGRESSION and ClientState.isActive()
+	-- (On the home screen too: worth knowing before playing.)
+	p.status.Visible = FeatureFlags.PROGRESSION and (status == "loading" or status == "unsaved")
 	p.status.Text = if status == "loading" then "Loading progress..." else "Progress isn't saving this session"
-	p.panel.Size = UDim2.new(0, 260, 0, if p.status.Visible then 96 else 80)
-	p.panel.Visible = FeatureFlags.PROGRESSION and ClientState.isActive()
+	p.panel.Visible = active
+	p.goal.Visible = active
 end
 
 -- One line above the panel (a reward, or a tip, for `seconds`); the oldest

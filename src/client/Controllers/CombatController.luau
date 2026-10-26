@@ -155,68 +155,95 @@ local function build()
 	p.feed = UI.new("Frame", {
 		Name = "KillFeed",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -20, 0, 70),
+		Position = UDim2.new(1, -20, 0, 190),
 		Size = UDim2.new(0, 320, 0, 140),
 		BackgroundTransparency = 1,
 		Parent = screen,
 	}, { UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Right) })
 
+	-- The bars over the hotbar: gas (left) and Fart Dash charge (right).
+	local bars = UI.new("Frame", {
+		Name = "Bars",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -110),
+		Size = UDim2.new(0, 470, 0, 26),
+		BackgroundTransparency = 1,
+		Parent = screen,
+	})
+	p.bars = bars
 	local meter = UI.new("Frame", {
 		Name = "GasMeter",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -100),
-		Size = UDim2.new(0, 300, 0, 26),
-		BackgroundColor3 = C.panel,
-		BackgroundTransparency = 0.15,
+		Size = UDim2.new(0, 290, 1, 0),
+		BackgroundColor3 = Color3.fromRGB(30, 26, 40),
 		Visible = false,
-		Parent = screen,
+		Parent = bars,
 	}, { UI.corner(8), UI.stroke(C.stroke, 3) })
 	p.gasMeter = meter
 	p.gasFill = UI.new("Frame", {
 		Name = "Fill",
 		Size = UDim2.new(0, 0, 1, 0),
-		BackgroundColor3 = STAGE_COLORS[1],
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		BorderSizePixel = 0,
 		Parent = meter,
-	}, { UI.corner(8) })
+	}, { UI.corner(8), UI.gradient(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190)) })
 	p.gasText = UI.label("GAS 0%  FRESH", 15, {
 		Name = "Text",
-		Size = UDim2.new(1, 0, 1, 0),
+		Size = UDim2.new(1, -12, 1, 0),
+		Position = UDim2.new(0, 6, 0, 0),
+		TextXAlignment = Enum.TextXAlignment.Right,
 		ZIndex = 2,
 		Parent = meter,
+	})
+	UI.label("💨", 16, {
+		Name = "Icon",
+		Size = UDim2.new(0, 24, 1, 0),
+		Position = UDim2.new(0, 4, 0, 0),
+		ZIndex = 2,
+		Parent = meter,
+	})
+	local energy = UI.new("Frame", {
+		Name = "DashMeter",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.new(0, 170, 1, 0),
+		BackgroundColor3 = Color3.fromRGB(30, 26, 40),
+		Visible = false,
+		Parent = bars,
+	}, { UI.corner(8), UI.stroke(C.stroke, 3) })
+	p.dashMeter = energy
+	p.dashFill = UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+		Parent = energy,
+	}, { UI.corner(8), UI.gradient(Color3.fromRGB(255, 190, 60), Color3.fromRGB(240, 120, 20)) })
+	p.dash = UI.label("", 11, {
+		Name = "Dash",
+		Size = UDim2.new(1, -8, 1, 0),
+		Position = UDim2.new(0, 4, 0, 0),
+		Font = UIConfig.bodyFont,
+		ZIndex = 2,
+		Parent = energy,
+	})
+
+	-- Above the bars: the weapon in hand (left) and the streak (right).
+	p.weapon = UI.label("", 16, {
+		Name = "Weapon",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, -90, 1, -140),
+		Size = UDim2.new(0, 290, 0, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Visible = false,
+		Parent = screen,
 	})
 	p.streak = UI.label("", 16, {
 		Name = "Streak",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -130),
-		Size = UDim2.new(0, 300, 0, 22),
-		TextColor3 = Color3.fromRGB(255, 221, 26),
-		Visible = false,
-		Parent = screen,
-	})
-
-	p.dash = UI.label("", 16, {
-		Name = "Dash",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -70),
-		Size = UDim2.new(0, 220, 0, 22),
-		Visible = false,
-		Parent = screen,
-	})
-	p.ability = UI.label("", 16, {
-		Name = "Ability",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -46),
-		Size = UDim2.new(0, 260, 0, 22),
-		Visible = false,
-		Parent = screen,
-	})
-	p.weapon = UI.label("", 16, {
-		Name = "Weapon",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(0.5, -160, 1, -100),
-		Size = UDim2.new(0, 220, 0, 26),
+		Position = UDim2.new(0.5, 150, 1, -140),
+		Size = UDim2.new(0, 170, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Color3.fromRGB(255, 221, 26),
 		Visible = false,
 		Parent = screen,
 	})
@@ -491,20 +518,10 @@ local function render()
 		local mouse = UserInputService:GetMouseLocation()
 		p.crosshair.Position = UDim2.new(0, mouse.X, 0, mouse.Y)
 	end
-	p.dash.Visible = aiming and FeatureFlags.FART_DASH
+	p.dashMeter.Visible = aiming and FeatureFlags.FART_DASH
 	local cooldownLeft = DASH.cooldownSeconds - (clock() - lastDash)
 	p.dash.Text = if cooldownLeft > 0 then `FART DASH {math.ceil(cooldownLeft)}s` else "FART DASH READY (SHIFT)"
-	p.dash.TextColor3 = if cooldownLeft > 0 then C.muted else C.accent
-	local abilityId = player:GetAttribute("Ability")
-	local ability = type(abilityId) == "string" and AbilityConfig[abilityId]
-	p.ability.Visible = aiming and ability ~= nil
-	if ability then
-		local readyAt = player:GetAttribute("AbilityReadyAt")
-		local left = if type(readyAt) == "number" then readyAt - workspace:GetServerTimeNow() else 0
-		local name = string.upper(ability.displayName)
-		p.ability.Text = if left > 0 then `{name} {math.ceil(left)}s` else `{name} READY (Q)`
-		p.ability.TextColor3 = if left > 0 then C.muted else C.accent
-	end
+	p.dashFill.Size = UDim2.new(math.clamp(1 - cooldownLeft / DASH.cooldownSeconds, 0, 1), 0, 1, 0)
 	p.weapon.Visible = aiming
 	p.weapon.Text = string.upper(weapon().displayName) .. (if player:GetAttribute("LoadoutPending") then " · NEW LOADOUT ON RESPAWN" else "")
 

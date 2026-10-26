@@ -58,6 +58,8 @@ local UIConfig = {
 	keys = table.freeze({
 		dash = Enum.KeyCode.LeftShift,
 		ability = Enum.KeyCode.Q,
+		-- Hotbar slots 1-4: your weapons.
+		slots = table.freeze({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }),
 		fire = Enum.UserInputType.MouseButton1,
 		camera = Enum.KeyCode.V,
 		menu = Enum.KeyCode.M,
@@ -72,6 +74,7 @@ local UIConfig = {
 		{ "LEFT CLICK", "Fire" },
 		{ "SHIFT", "Fart Dash" },
 		{ "Q", "Ability (once unlocked)" },
+		{ "1-4", "Pick a weapon" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "M", "Menu" },

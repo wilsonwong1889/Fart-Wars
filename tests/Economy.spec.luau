@@ -98,8 +98,10 @@ check(ui.panel.Visible and ui.status.Visible and ui.status.Text == "Loading prog
 task.wait(1.5)
 latency = 0
 check(Data.isLoaded(me) and not ui.status.Visible, "loaded: no status line")
-check(ui.level.Text == "LV 1" and ui.coins.Text == "0 coins" and ui.xpText.Text == "0 / 100 XP", "level 1, no coins, 100 XP to go")
-check(ui.goal.Text == "Level 5: Spritzer in the shop", "the next goal")
+local MenuBar = require(game.StarterPlayer.StarterPlayerScripts.Client.Controllers.MenuBarController)
+check(ui.level.Text == "LV 1" and ui.nextLevel.Text == "2" and ui.xpText.Text == "0 / 100 XP", "level 1, 100 XP to level 2")
+check(MenuBar.parts.coins.Text == "0" and MenuBar.parts.corner.Visible, "no coins, top right")
+check(ui.goal.Text == "NEXT: Level 5: Spritzer in the shop", "the next goal")
 local function data(player: Player): any
 	return assert(Data.get(player)).data
 end
@@ -155,7 +157,7 @@ local ledger = data(me).Ledger
 check(ledger[#ledger].reason == "elimination" and string.find(ledger[#ledger].id, "studio:elimination:", 1, true), "in the ledger with its event ID")
 check(me:GetAttribute("Coins") == 10 and me:GetAttribute("XP") == 20 and me:GetAttribute("XPToNext") == 100, "the HUD attributes")
 task.wait(0.1)
-check(ui.coins.Text == "10 coins" and ui.xpText.Text == "20 / 100 XP", "the panel updates")
+check(MenuBar.parts.coins.Text == "10" and ui.xpText.Text == "20 / 100 XP", "the coins and the level bar update")
 local line = ui.lines:FindFirstChild("Line")
 check(line and line.Text == "+10 coins  +20 XP  Elimination", "a reward line: " .. tostring(line and line.Text))
 settle()
@@ -231,7 +233,7 @@ check(ui.banner.Visible and ui.bannerTitle.Text == "LEVEL 4!", "the banner shows
 giveXP(1)
 task.wait(0.1)
 check(data(me).Level == 5 and ui.bannerDetail.Text == "Unlocked: Spritzer in the shop", "level 5: the Spritzer goes on sale")
-check(ui.goal.Text == "Level 10: Recovery Burst (Q)", "the next goal moves on")
+check(ui.goal.Text == "NEXT: Level 10: Recovery Burst (Q)", "the next goal moves on")
 giveXP(xpTo(10))
 check(data(me).Level == 10 and table.find(data(me).UnlockedAbilities, "RecoveryBurst"), "level 10: Recovery Burst unlocked")
 giveXP(xpTo(20))
@@ -251,7 +253,7 @@ check(data(me).Level == 50 and table.find(data(me).Badges, "Alpha Farter"), "lev
 check(data(me).Coins == coins + ProgressionConfig.CAP_REWARD.coins, "the 1,000-coin cap reward")
 check(me:GetAttribute("XPToNext") == ProgressionConfig.CAP_REPEAT_XP, "the bar now counts to the next repeat reward")
 task.wait(0.1)
-check(ui.goal.Text == "Every 5,000 XP: 250 coins", "and the goal says so")
+check(ui.goal.Text == "NEXT: Every 5,000 XP: 250 coins", "and the goal says so")
 giveXP(ProgressionConfig.CAP_REPEAT_XP + 10)
 check(data(me).Level == 50 and data(me).CapRewards == 1 and data(me).XP == 10, "past 50: the level stays, a repeat reward")
 check(data(me).Coins == coins + 1000 + 250, "250 coins for it")

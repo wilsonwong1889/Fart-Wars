@@ -43,6 +43,31 @@ function UI.stroke(color: Color3?, thickness: number?): UIStroke
 	})
 end
 
+-- A top-to-bottom gradient (it tints the background, so use a white one).
+function UI.gradient(top: Color3, bottom: Color3): UIGradient
+	return UI.new("UIGradient", { Color = ColorSequence.new(top, bottom), Rotation = 90 })
+end
+
+-- A chunky game-style box: a gradient of `color`, rounded, thick outline.
+function UI.box(name: string, color: Color3, size: UDim2, props: { [string]: any }?): Frame
+	local h, s, v = color:ToHSV()
+	local box = UI.new("Frame", {
+		Name = name,
+		Size = size,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+	}, {
+		UI.corner(12),
+		UI.stroke(C.stroke, 3),
+		UI.gradient(Color3.fromHSV(h, s * 0.9, math.min(1, v * 1.1)), Color3.fromHSV(h, math.min(1, s * 1.1), v * 0.72)),
+	})
+	if props then
+		for key, value in props do
+			(box :: any)[key] = value
+		end
+	end
+	return box
+end
+
 function UI.padding(pixels: number): UIPadding
 	local p = UDim.new(0, pixels)
 	return UI.new("UIPadding", { PaddingTop = p, PaddingBottom = p, PaddingLeft = p, PaddingRight = p })

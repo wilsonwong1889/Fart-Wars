@@ -1,9 +1,12 @@
 -- The home screen and the M menu.
 --   HomeScreen  shown whenever the player isn't on a team (just joined,
---               spectating, AFK), over the live battlefield: PLAY, an
---               optional team choice, the round status, the locker's
---               sections (Weapons, Abilities, Progression, Settings) and the
---               later-phase ones marked Coming Soon
+--               spectating, AFK), over the live battlefield: PLAY, the
+--               round status, the locker's sections (Weapons, Abilities,
+--               Progression, Settings) and the later-phase ones marked
+--               Coming Soon
+--   TeamSelect  after PLAY: "CHOOSE A TEAM", each team's card with its
+--               count (locked when joining it would make the teams
+--               unfair), and AUTO; picking one joins the match
 --   GameMenu    M in a match: resume, switch team (only when it evens the
 --               teams), spectate, and the same sections. The mouse is free
 --               while it's open, even in first person.
@@ -134,54 +137,9 @@ local function build()
 		Parent = side,
 	})
 
-	UI.label("TEAM", 16, {
-		Name = "TeamHeading",
-		Position = UDim2.new(0, 0, 0, 270),
-		TextColor3 = C.muted,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = side,
-	})
-	local picker = UI.new("Frame", {
-		Name = "TeamPicker",
-		Position = UDim2.new(0, 0, 0, 296),
-		Size = UDim2.new(1, 0, 0, 52),
-		BackgroundTransparency = 1,
-		Parent = side,
-	}, { UI.list(Enum.FillDirection.Horizontal, 8) })
-	p.teamButtons = {}
-	local auto = UI.button("AUTO", C.panelLight, { Name = "Auto", LayoutOrder = 0, Size = UDim2.new(0, 90, 0, 52), Parent = picker })
-	p.teamButtons.Auto = auto
-	UI.onClick(auto, function()
-		HomeController.choose(nil)
-	end)
-	for i, team in TeamConfig.order do
-		local config = TeamConfig.teams[team]
-		local button = UI.button(config.shortName, config.darkColor, {
-			Name = team,
-			LayoutOrder = i,
-			Size = UDim2.new(0, 146, 0, 52),
-			TextSize = 17,
-			TextColor3 = config.color,
-			Parent = picker,
-		})
-		p.teamButtons[team] = button
-		UI.onClick(button, function()
-			HomeController.choose(team)
-		end)
-	end
-	p.teamHint = UI.label("", 14, {
-		Name = "TeamHint",
-		Position = UDim2.new(0, 0, 0, 352),
-		TextColor3 = C.muted,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextWrapped = true,
-		Size = UDim2.new(1, 0, 0, 36),
-		Parent = side,
-	})
-
 	local play = UI.button("PLAY", C.play, {
 		Name = "Play",
-		Position = UDim2.new(0, 0, 0, 400),
+		Position = UDim2.new(0, 0, 0, 280),
 		Size = UDim2.new(1, 0, 0, 84),
 		TextSize = 48,
 		Parent = side,
@@ -198,6 +156,102 @@ local function build()
 		Parent = home,
 	}, { UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Right) })
 	sectionButtons(sections, 200)
+
+	-- Choose a Team
+	local teamScreen = UI.screen("TeamSelect", 13)
+	teamScreen.Enabled = false
+	p.teamSelect = teamScreen
+	UI.new("Frame", {
+		Name = "Dim",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.45,
+		Parent = teamScreen,
+	})
+	local title = UI.new("Frame", {
+		Name = "Title",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 70),
+		Size = UDim2.new(0, 620, 0, 86),
+		BackgroundColor3 = Color3.fromRGB(14, 12, 20),
+		Parent = teamScreen,
+	}, { UI.corner(16), UI.stroke(Color3.fromRGB(70, 66, 84), 4) })
+	UI.label("CHOOSE A TEAM", 54, { Size = UDim2.new(1, 0, 1, 0), Parent = title })
+	local close = UI.button("X", C.panelLight, {
+		Name = "Close",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -24, 0, 70),
+		Size = UDim2.new(0, 56, 0, 56),
+		TextSize = 30,
+		Modal = true,
+		Parent = teamScreen,
+	})
+	UI.onClick(close, function()
+		teamScreen.Enabled = false
+	end)
+	p.teamButtons = {}
+	for i, team in TeamConfig.order do
+		local config = TeamConfig.teams[team]
+		local card = UI.new("TextButton", {
+			Name = team,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, if i == 1 then -190 else 190, 0.5, 0),
+			Size = UDim2.new(0, 280, 0, 280),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			AutoButtonColor = true,
+			Text = "",
+			Parent = teamScreen,
+		}, {
+			UI.corner(26),
+			UI.stroke(Color3.new(1, 1, 1), 6),
+		})
+		local h, sat, v = config.color:ToHSV()
+		UI.gradient(Color3.fromHSV(h, sat * 0.85, math.min(1, v * 1.1)), Color3.fromHSV(h, math.min(1, sat * 1.1), v * 0.62)).Parent = card
+		UI.label(config.shortName, 40, { Name = "TeamName", Position = UDim2.new(0, 0, 0, 34), Size = UDim2.new(1, 0, 0, 46), Parent = card })
+		UI.label("0", 96, { Name = "Count", Position = UDim2.new(0, 0, 0, 90), Size = UDim2.new(1, 0, 0, 104), Parent = card })
+		UI.label("/ 10", 22, { Name = "Max", Position = UDim2.new(0, 0, 0, 196), Size = UDim2.new(1, 0, 0, 26), Parent = card })
+		UI.label("🔒", 56, {
+			Name = "Lock",
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, 18, 1, 18),
+			Size = UDim2.new(0, 70, 0, 70),
+			Visible = false,
+			Parent = card,
+		})
+		p.teamButtons[team] = card
+		UI.onClick(card, function()
+			HomeController.pick(team)
+		end)
+	end
+	UI.label("VS", 64, {
+		Name = "VS",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 100, 0, 70),
+		Rotation = -6,
+		Parent = teamScreen,
+	})
+	local auto = UI.button("AUTO: WHERE I'M NEEDED", C.panelLight, {
+		Name = "Auto",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.5, 168),
+		Size = UDim2.new(0, 380, 0, 52),
+		TextSize = 22,
+		Parent = teamScreen,
+	})
+	p.teamButtons.Auto = auto
+	UI.onClick(auto, function()
+		HomeController.pick(nil)
+	end)
+	p.teamHint = UI.label("", 16, {
+		Name = "TeamHint",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.5, 228),
+		Size = UDim2.new(0, 620, 0, 22),
+		Font = UIConfig.bodyFont,
+		TextWrapped = true,
+		Parent = teamScreen,
+	})
 
 	-- M menu
 	local menu = UI.screen("GameMenu", 12)
@@ -243,7 +297,7 @@ local function build()
 	}, { UI.corner(16), UI.stroke(C.accent, 4), UI.padding(16) })
 	p.soonTitle = UI.label("", 30, { Name = "Title", Parent = card })
 	UI.label("COMING SOON", 24, { Name = "Soon", Position = UDim2.new(0, 0, 0, 50), TextColor3 = C.accent, Parent = card })
-	local close = UI.button("OK", C.panelLight, {
+	local ok = UI.button("OK", C.panelLight, {
 		Name = "Close",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, 0),
@@ -251,7 +305,7 @@ local function build()
 		Modal = true,
 		Parent = card,
 	})
-	UI.onClick(close, function()
+	UI.onClick(ok, function()
 		soon.Enabled = false
 	end)
 end
@@ -294,10 +348,14 @@ local function renderPicker()
 	local counts, max = othersCounts(), ClientState.maxTeamSize
 	local selected = HomeController.selectedTeam
 	for _, team in TeamConfig.order do
-		local button = p.teamButtons[team]
+		local card = p.teamButtons[team]
 		local allowed = TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, team)
-		UI.setEnabled(button, allowed)
-		button.Text = `{TeamConfig.teams[team].shortName} {counts[team] or 0}/{max}`
+		card:SetAttribute("Enabled", allowed)
+		card.AutoButtonColor = allowed
+		card.Lock.Visible = not allowed
+		card.Count.Text = tostring(counts[team] or 0)
+		card.Max.Text = `/ {max}`
+		card.Border.Color = if team == selected then C.text else C.stroke
 	end
 	if selected and not TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, selected) then
 		-- The teams moved on; fall back to automatic rather than promise
@@ -305,19 +363,16 @@ local function renderPicker()
 		HomeController.choose(nil)
 		return
 	end
-	for name, button in p.teamButtons do
-		local isSelected = (name == "Auto" and selected == nil) or name == selected
-		button.Border.Color = if isSelected then C.text else C.stroke
-	end
-	p.teamHint.Text = if selected
-		then `You'll join {TeamConfig.teams[selected].name}.`
-		else "Auto puts you where the teams need you. Teams that would get too big are greyed out."
+	p.teamHint.Text = "Locked teams would make the match unfair. AUTO puts you where you're needed."
 end
 
 local function render()
 	local p = HomeController.parts
 	local active = ClientState.isActive()
 	p.home.Enabled = not active
+	if active then
+		p.teamSelect.Enabled = false
+	end
 	p.afkNotice.Visible = ClientState.state() == States.Player.AFK_SPECTATOR
 	p.status.Text = statusText()
 	if not active and HomeController.menuOpen then
@@ -353,13 +408,28 @@ function HomeController.choose(team: string?)
 	renderPicker()
 end
 
+-- PLAY: choose a team first.
 function HomeController.play()
+	if ClientState.isActive() then
+		return
+	end
+	renderPicker()
+	HomeController.parts.teamSelect.Enabled = true
+end
+
+-- A team (nil: wherever needed) from the team screen: join the match.
+function HomeController.pick(team: string?)
+	if team ~= nil and not TeamBalance.preferenceAllowed(othersCounts(), TeamConfig.order, ClientState.maxTeamSize, team) then
+		return
+	end
+	HomeController.choose(team)
 	local now = os.clock()
 	if ClientState.isActive() or now < playCooldownUntil then
 		return
 	end
 	playCooldownUntil = now + 1
-	ClientState.send("RequestPlay", HomeController.selectedTeam)
+	HomeController.parts.teamSelect.Enabled = false
+	ClientState.send("RequestPlay", team)
 end
 
 function HomeController.setMenu(open: boolean)

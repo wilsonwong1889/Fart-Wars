@@ -31,9 +31,16 @@ the Output window help).
       Leaderboard (Coming Soon).
 - [ ] Open each locker tab from the home screen. Nothing overlaps or runs
       off its card. Close it.
-- [ ] PLAY: you spawn on a team pad, the controls card shows for a few
-      seconds, the HUD shows teams, timer ("WAITING FOR PLAYERS" alone),
-      gas meter, weapon, dash line, and the progress panel (bottom right).
+- [ ] PLAY opens "Choose a Team" (two cards with counts; a lock on a team
+      you can't join). Pick one: you spawn on its pad with the weapon in
+      your hand (the barrel should point forward; tell me if it's sideways
+      or backwards), the controls card shows for a few seconds, and the
+      HUD shows the score boxes and timer ("WAITING FOR PLAYERS" alone),
+      coins and the four buttons top right, the gas and dash bars, the
+      hotbar and the level bar.
+- [ ] Press 1-4 or click a hotbar slot with a second weapon owned: in the
+      first 3 seconds of a spawn it swaps at once; later it says it waits
+      for your respawn and the slot shows NEXT.
 - [ ] V switches first and third person a few times, also while moving.
 - [ ] M opens the menu with a free mouse (also in first person); Resume
       closes it. Roblox's Esc menu has no Reset Character button.

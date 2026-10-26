@@ -1,5 +1,22 @@
 # Changelog
 
+## A new look, and a weapon in your hands
+
+- Your equipped weapon is held in your avatar's hand: a Tool built from
+  parts in the weapon's colour (it can't be hit or collided with). It
+  follows your loadout.
+- Hotbar: your weapons in slots 1-4 (number keys or click; the one in hand
+  outlined, NEXT on one waiting for your respawn) and Q with your ability
+  and its cooldown. A swap is immediate off the battlefield or in the first
+  seconds of a spawn (still protected); mid-fight it waits for the respawn.
+  Roblox's own backpack bar is hidden.
+- HUD: chunky score boxes in each team's colour either side of the timer;
+  coins with + and big Shop / Abilities / Levels / Settings buttons top
+  right; gas and Fart Dash bars over the hotbar; a segmented level bar
+  along the bottom; the kill feed moved under the buttons.
+- PLAY opens "Choose a Team": two big team cards with counts, a lock on a
+  team that would make the match unfair, and AUTO.
+
 ## Readiness pass: Phases 1-3
 
 Two independent reviews (server integrity, Roblox runtime) and a soak test

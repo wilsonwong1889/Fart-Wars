@@ -1,9 +1,11 @@
 -- The client shell against the real server, in one stand-in world (the
 -- harness loops remotes back, so this is one client talking to it):
 --   * joining shows the home screen over the live battlefield (fixed views)
---   * Coming Soon sections open and close; a team choice reaches the server
---   * PLAY: the home screen goes, the HUD shows your team, the controls card
---     shows once, and the camera follows the avatar in third person
+--   * Coming Soon sections open and close
+--   * PLAY asks for a team (each card with its count, locked when unfair);
+--     picking one joins it: the home screen goes, the HUD shows your team,
+--     the hotbar your weapon, the top right your coins and the menu, the
+--     controls card shows once, and the camera follows the avatar
 --   * V toggles first/third person, repeatedly, without breaking anything
 --   * Shift: Fart Dash (a push the server accepts, then a cooldown); M opens
 --     the menu with the mouse freed, and no firing or dashing in it; Tab
@@ -15,6 +17,7 @@
 --   * SPECTATE from the menu goes back home, and team choices that would
 --     unbalance the teams are greyed out
 local Players = game:GetService("Players")
+local UIConfig = require(game:GetService("ReplicatedStorage").Shared.Config.UIConfig)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -114,14 +117,23 @@ check(home.comingSoon.Enabled and home.soonTitle.Text == "REWARDS", "Rewards: Co
 click(home.comingSoon:FindFirstChild("Close", true))
 check(not home.comingSoon.Enabled, "and closes")
 
+-- PLAY, then choose a team.
+click(home.play)
+check(home.teamSelect.Enabled and me:GetAttribute("State") == "MENU_SPECTATOR", "PLAY asks for a team first")
+check(home.teamButtons.Stinkers.Count.Text == "0" and not home.teamButtons.Stinkers.Lock.Visible, "each team's card: its count, unlocked")
 click(home.teamButtons.Stinkers)
 task.wait(0.6)
 check(Home.selectedTeam == "Stinkers" and me:GetAttribute("PreferredTeam") == "Stinkers", "the team choice reaches the server")
-
--- PLAY.
-click(home.play)
-task.wait(0.2)
-check(me:GetAttribute("State") == "ACTIVE" and me:GetAttribute("TeamId") == "Stinkers", "PLAY puts me on my chosen team")
+check(me:GetAttribute("State") == "ACTIVE" and me:GetAttribute("TeamId") == "Stinkers", "picking a team joins it")
+check(not home.teamSelect.Enabled, "the team screen goes")
+local Controllers = game.StarterPlayer.StarterPlayerScripts.Client.Controllers
+local Hotbar = require(Controllers.HotbarController)
+local MenuBar = require(Controllers.MenuBarController)
+Hotbar.renderAbility()
+check(Hotbar.parts.bar.Visible and Hotbar.parts.slots[1]:GetAttribute("Weapon") == "GasBlaster", "the hotbar: the Gas Blaster in slot 1")
+check(Hotbar.parts.slots[1].Border.Color == UIConfig.colors.text and Hotbar.parts.slots[2]:GetAttribute("Weapon") == nil, "in hand, and nothing else owned yet")
+check(not Hotbar.pick(2), "an empty slot does nothing")
+check(MenuBar.parts.corner.Visible and MenuBar.parts.buttons.Weapons and MenuBar.parts.buttons.Settings, "coins and the menu buttons, top right")
 check(not home.home.Enabled, "the home screen goes")
 check(hud.yourTeam.Visible and hud.yourTeam.Text == "YOU: SKIBIDI STINKERS", "the HUD says my team")
 check(hud.controls.Visible, "the controls card shows")
@@ -234,7 +246,7 @@ task.wait(0.2)
 check(me:GetAttribute("State") == "MENU_SPECTATOR" and home.home.Enabled, "SPECTATE goes back home")
 check(me.Character == nil and cam.CameraType == Enum.CameraType.Scriptable, "avatar gone, live view back")
 check(home.teamButtons.Stinkers:GetAttribute("Enabled") ~= false, "0v1: the Stinkers can have me")
-check(home.teamButtons.Sharters:GetAttribute("Enabled") == false, "the Sharters can't (0v2)")
+check(home.teamButtons.Sharters:GetAttribute("Enabled") == false and home.teamButtons.Sharters.Lock.Visible, "the Sharters can't (0v2): locked")
 click(home.teamButtons.Sharters)
 check(Home.selectedTeam == "Stinkers", "clicking a greyed team does nothing")
 check(string.find(home.status.Text, "Round in progress"), "the status line says what's on")

@@ -172,6 +172,20 @@ check(answer.ok and answer.reason == "now" and Combat.weaponOf(me).id == "Spritz
 Lifecycle.requestPlay(me, nil)
 task.wait(0.2)
 check(Combat.weaponOf(me).id == "Spritzer" and me.Character.Humanoid.WalkSpeed == 16, "PLAY with it")
+local held = me.Character:FindFirstChild("HeldWeapon")
+check(held and held:IsA("Tool") and held:GetAttribute("Weapon") == "Spritzer" and held:FindFirstChild("Handle"), "the Spritzer is in my hands")
+for _, part in held:GetDescendants() do
+	if part:IsA("BasePart") then
+		check(not part.CanQuery and not part.CanCollide and part.Massless, `the gun's {part.Name} can't be hit and weighs nothing`)
+	end
+end
+-- In the first seconds of a spawn (still protected), a swap is immediate.
+answer = request("equip", "weapon", "GasBlaster")
+check(answer.ok and answer.reason == "now" and Combat.weaponOf(me).id == "GasBlaster", "a fresh spawn can still swap at once")
+check(me.Character:FindFirstChild("HeldWeapon"):GetAttribute("Weapon") == "GasBlaster", "the gun in hand follows")
+answer = request("equip", "weapon", "Spritzer")
+check(answer.reason == "now", "and back")
+task.wait(3.2)
 
 -- Mid-fight: on the next respawn.
 answer = request("equip", "weapon", "Thunderclapper")
@@ -182,6 +196,8 @@ Gas.testSetGas(me, 100)
 task.wait(1.2 + 3.3)
 check(Combat.weaponOf(me).id == "Thunderclapper" and me.Character.Humanoid.WalkSpeed == 14, "respawned with the Thunderclapper, and its walk")
 check(me:GetAttribute("LoadoutPending") == nil, "nothing pending")
+check(me.Character:FindFirstChild("HeldWeapon"):GetAttribute("Weapon") == "Thunderclapper", "the Thunderclapper in my hands")
+task.wait(3.2) -- past the spawn's protection
 answer = request("equip", "weapon", "Thunderclapper")
 check(answer.ok and answer.reason == "now", "equipping what's in hand is simply done")
 
