@@ -442,6 +442,8 @@ local function render()
 		and TeamBalance.canSwitch(ClientState.counts, TeamConfig.order, ClientState.maxTeamSize, mine, target :: string)
 	UI.setEnabled(p.switch, canSwitch)
 	p.switch.Text = if canSwitch and target then `SWITCH TO {TeamConfig.teams[target].shortName}` else "SWITCH TEAM (only to even up)"
+	-- The long greyed-out label needs a smaller size to fit the button.
+	p.switch.TextSize = if canSwitch and target then 22 else 18
 	-- The picker is for the home screen: in a match the counts include
 	-- this player, which would make their own choice look unfair.
 	if not active then

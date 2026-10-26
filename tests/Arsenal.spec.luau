@@ -287,7 +287,11 @@ check(Gas.gasOf(me) == 5, "Q on the client vents it")
 -- One cooldown, whichever ability: swapping can't skip it.
 assert(Loadout.testGive(me, "ability", "GasPulse"))
 check(not Abilities.use(me) and rejects("UseAbility", "cooldown") == 2, "a fresh ability is still on the last one's cooldown")
-task.wait(20)
+-- It refills at Gas Pulse's 25 seconds, and the HUD is told so.
+local pulseReadyAt = me:GetAttribute("AbilityReadyAt") :: number
+check(math.abs(pulseReadyAt - workspace:GetServerTimeNow() - 24.3) < 0.5, "ready at Gas Pulse's pace, not Recovery Burst's")
+task.wait(pulseReadyAt - workspace:GetServerTimeNow() - 0.2)
+check(not Abilities.use(me) and rejects("UseAbility", "cooldown") == 3, "a moment before then: still on cooldown")
 settle()
 place(me, 53, 0)
 place(foe, 53, 8)

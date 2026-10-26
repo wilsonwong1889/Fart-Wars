@@ -232,14 +232,18 @@ Chat (`/fw` or `!fw`):
                          temporary profiles, save failures, rejected requests, errors
 ```
 
-Or the server command bar in Studio:
+Or the server command bar in Studio, with the same words and an optional
+player (the first one otherwise):
 
 ```lua
-local T = require(game.ServerScriptService.Server.TestControls)
-T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
-T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.barrels(); T.stats()
-T.coins(p, 500); T.xp(p, 1000); T.profile(p); T.ability(p, "GasPulse"); T.selftest(p)
+local fw = game.ServerScriptService.Server.TestControls.Command
+fw:Invoke("selftest"); fw:Invoke("end 5"); fw:Invoke("score stinkers 3")
+fw:Invoke("gas 95", game.Players.Player1); fw:Invoke("weapon spritzer", game.Players.Player2)
 ```
+
+Don't `require` TestControls there: the command bar gets its own fresh
+copy of every module, so the calls would change nothing in the running
+game.
 
 ## Tests
 

@@ -1,11 +1,10 @@
 -- Test-only controls for exercising rounds, spawning and combat. They run
--- on the server only: from the Studio command bar,
---   local T = require(game.ServerScriptService.Server.TestControls)
---   T.score("Stinkers", 3)   T.endPhase(5)   T.reloadMap()   T.idle(player, 44)
---   T.spawn(player)   T.team(player, "sharters")   T.resetGas(player)
---   T.gas(player, 95)   T.weapon(player, "GasBlaster")   T.barrels()   T.stats()
---   T.coins(player, 500)   T.xp(player, 1000)   T.profile(player)
---   T.ability(player, "GasPulse")   T.selftest(player)
+-- on the server only: from the Studio command bar, through the game's own
+-- copy of this module (a `require` there gets a fresh copy that isn't
+-- running the game), with the chat command's words and an optional player
+-- (the first one otherwise):
+--   local fw = game.ServerScriptService.Server.TestControls.Command
+--   fw:Invoke("selftest")   fw:Invoke("end 5")   fw:Invoke("gas 95", player)
 -- or as chat commands from a player who may use them (anyone in Studio; in
 -- live servers only GameConfig.TEST_CONTROLS.USER_IDS), with /fw or !fw:
 --   /fw score stinkers 3   /fw end 5   /fw reloadmap   /fw idle 44
@@ -356,7 +355,7 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		return game:GetService("TextChatService").ChatVersion
 	end)
 	if chatOk and chatVersion == Enum.ChatVersion.TextChatService then
-		expect(TestControls.chatCommand, "Chat", "TextChatService, with /fw as a chat command", "TextChatService, but /fw couldn't be registered: use the command bar", "WARN")
+		expect(TestControls.chatCommand, "Chat", "TextChatService, with /fw as a chat command", "TextChatService, but /fw couldn't be registered: use TestControls.Command from the command bar", "WARN")
 	else
 		report("OK", "Chat", if chatOk then `{chatVersion} (/fw via Chatted)` else "legacy chat")
 	end
@@ -627,6 +626,21 @@ function TestControls.start()
 	end)
 	for _, player in Players:GetPlayers() do
 		listen(player)
+	end
+	-- Studio's command bar gets its own copy of every module, so calling
+	-- these functions from it changes nothing in the running game. The
+	-- game's copy answers this instead (see the comment at the top).
+	if RunService:IsStudio() then
+		local command = Instance.new("BindableFunction")
+		command.Name = "Command"
+		command.OnInvoke = function(text: string, player: Player?): string
+			local who = player or Players:GetPlayers()[1]
+			if not who then
+				return "no player in the game to run it for"
+			end
+			return TestControls.run(who, "/fw " .. text) or "not a command"
+		end
+		command.Parent = script
 	end
 end
 

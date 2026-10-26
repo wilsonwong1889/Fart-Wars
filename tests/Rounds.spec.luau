@@ -191,6 +191,14 @@ check(RoundService.snapshot().roundId == 6, "the round count carries on")
 -- The test controls and the remote surface.
 check(TestControls.allowed(nil) and TestControls.allowed(ada), "test controls work in Studio")
 check(TestControls.run(ada, "hello") == nil, "ordinary chat isn't a command")
+-- The command bar reaches the running copy through TestControls.Command.
+TestControls.start()
+local commandBar = server.TestControls:FindFirstChild("Command") :: BindableFunction
+local scoreBefore = RoundService.snapshot().scoresByTeam.Stinkers or 0
+check(commandBar ~= nil, "the command bar has TestControls.Command")
+commandBar:Invoke("score stinkers 2")
+check((RoundService.snapshot().scoresByTeam.Stinkers or 0) == scoreBefore + 2, "which runs /fw commands on the game's own copy")
+check(string.find(commandBar:Invoke("dance"), "commands:") ~= nil, "and lists them for an unknown one")
 local names = {}
 for _, remote in Remotes:GetChildren() do
 	table.insert(names, remote.Name)

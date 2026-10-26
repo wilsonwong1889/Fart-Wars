@@ -25,9 +25,10 @@ the Output window help).
 - [ ] The Output shows `[Fart Wars] server ready` and no red errors.
 - [ ] Chat `/fw selftest`. Expected: **0 failures**. Warnings for test
       controls and empty sound slots are normal. If the command does
-      nothing, run `require(game.ServerScriptService.Server.TestControls).selftest()`
+      nothing, run `game.ServerScriptService.Server.TestControls.Command:Invoke("selftest")`
       in the server command bar instead, and note that chat commands don't
-      arrive.
+      arrive. (Not `require(...).selftest()`: the command bar's `require`
+      gets a fresh copy of the module, which sees no map and no players.)
 - [ ] Home screen over the live battlefield: title, team picker, PLAY,
       Weapons / Abilities / Progression / Settings, Rewards and
       Leaderboard (Coming Soon).

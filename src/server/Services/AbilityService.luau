@@ -47,12 +47,18 @@ local function combatEvent(): RemoteEvent
 end
 
 -- Sets (or clears) the player's Q ability. LoadoutService checks they've
--- unlocked it.
+-- unlocked it. The cooldown carries over but refills at the new ability's
+-- rate, so AbilityReadyAt is worked out again for it.
 function AbilityService.setAbility(player: Player, id: string?)
 	local ability = id and AbilityConfig[id]
 	if ability and ability.input == Enum.KeyCode.Q then
 		equipped[player] = ability.id
 		player:SetAttribute("Ability", ability.id)
+		local cadence = cadences[player]
+		if cadence then
+			local readyAt = Cadence.readyAt(cadence, ability.cooldownSeconds, AbilityService.COOLDOWN_TOLERANCE_SECONDS)
+			player:SetAttribute("AbilityReadyAt", if readyAt > now() then readyAt else nil)
+		end
 	else
 		equipped[player] = nil
 		player:SetAttribute("Ability", nil)
