@@ -45,6 +45,8 @@ local AudioConfig = require(Shared.Config.AudioConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
+local ArtAssets = require(Shared.Config.ArtAssets)
+local WeaponModel = require(Shared.WeaponModel)
 local Messages = require(script.Parent.Messages)
 local Health = require(script.Parent.Health)
 local Profiler = require(script.Parent.Profiler)
@@ -364,6 +366,27 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		forSale += if item.id ~= 0 then 1 else 0
 	end
 	expect(forSale > 0, "Store", `{forSale} items set up`, "no pass or product IDs in MonetizationConfig yet: the store shows everything as unavailable", "WARN")
+	-- The Blender art: meshes imported, images uploaded (art/README.md).
+	local meshes, problems = 0, {}
+	for _, id in WeaponConfig.order do
+		local found, why = WeaponModel.imported(id)
+		if found then
+			meshes += 1
+		elseif why ~= "not imported" then
+			table.insert(problems, `{id}: {why}`)
+		end
+	end
+	expect(meshes == #WeaponConfig.order and #problems == 0, "Weapon meshes", `all {meshes} imported`,
+		if #problems > 0 then table.concat(problems, "; ")
+			else `{meshes} of {#WeaponConfig.order} imported into ReplicatedStorage.Assets.Weapons; the rest use the Blender stand-ins (art/README.md)`, "WARN")
+	local images, total = 0, 0
+	for _, group in { ArtAssets.icons, ArtAssets.effects } do
+		for _, value in group :: any do
+			total += 1
+			images += if value ~= "" then 1 else 0
+		end
+	end
+	expect(images == total, "Art images", `all {total} uploaded`, `{images} of {total} icons and effect textures uploaded; Roblox's own textures stand in (art/README.md)`, "WARN")
 	local running = {}
 	for _, experiment in ExperimentConfig.experiments do
 		if experiment.percent > 0 then

@@ -26,6 +26,7 @@ local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
+local ArtAssets = require(Shared.Config.ArtAssets)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
@@ -126,6 +127,74 @@ local function pooled(): BasePart
 end
 EffectsController.pool = pool
 
+-- Explosion particles (the Blender cloud and shockwave ring), from a few
+-- pooled attachments on one invisible anchor.
+local BLAST_POOL = 6
+local blastAnchor: BasePart? = nil
+local blasts: { Attachment } = {}
+local blastNext = 0
+
+local function blastEmitter(attachment: Attachment, name: string, texture: string): ParticleEmitter
+	local existing = attachment:FindFirstChild(name)
+	if existing and existing:IsA("ParticleEmitter") then
+		return existing
+	end
+	local particles = Instance.new("ParticleEmitter")
+	particles.Name = name
+	particles.Texture = ArtAssets.effect(texture)
+	particles.Rate = 0
+	particles.Rotation = NumberRange.new(0, 360)
+	particles.Parent = attachment
+	return particles
+end
+
+local function blastParticles(position: Vector3, color: Color3, reach: number)
+	if not blastAnchor then
+		local anchor = Instance.new("Part")
+		anchor.Name = "BlastFx"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+		anchor.CFrame = CFrame.new()
+		anchor.Parent = workspace
+		blastAnchor = anchor
+		for i = 1, BLAST_POOL do
+			local attachment = Instance.new("Attachment")
+			attachment.Name = `Blast{i}`
+			attachment.Parent = anchor
+			table.insert(blasts, attachment)
+		end
+	end
+	blastNext = blastNext % #blasts + 1
+	local attachment = blasts[blastNext]
+	attachment.WorldPosition = position
+	local cloud = blastEmitter(attachment, "Cloud", "cloud")
+	cloud.Color = ColorSequence.new(color)
+	cloud.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, reach * 0.3), NumberSequenceKeypoint.new(1, reach * 0.75) })
+	cloud.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1) })
+	cloud.Speed = NumberRange.new(reach * 0.5, reach * 1.1)
+	cloud.SpreadAngle = Vector2.new(180, 180)
+	cloud.Lifetime = NumberRange.new(0.6, 1.1)
+	cloud.Drag = 6
+	cloud.RotSpeed = NumberRange.new(-40, 40)
+	cloud:Emit(if EffectsController.reduced() then 3 else 8)
+	EffectsController.blastParticles += 1
+	if not Settings.reduceMotion then
+		local ring = blastEmitter(attachment, "Ring", "ring")
+		ring.Color = ColorSequence.new(color)
+		ring.LightEmission = 0.6
+		ring.Speed = NumberRange.new(0, 0)
+		ring.Lifetime = NumberRange.new(0.35, 0.35)
+		ring.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, reach * 2.2) })
+		ring.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1) })
+		ring:Emit(1)
+	end
+end
+EffectsController.blastParticles = 0
+
 function EffectsController.explosion(position: Vector3, color: Color3?, radius: number?)
 	local reach = radius or EXPLOSION_RADIUS
 	local burst = pooled()
@@ -139,6 +208,7 @@ function EffectsController.explosion(position: Vector3, color: Color3?, radius: 
 		Size = Vector3.one * reach * 2,
 		Transparency = 1,
 	}):Play()
+	blastParticles(position, color or GAS_GREEN, reach)
 	if EffectsController.reduced() then
 		return
 	end

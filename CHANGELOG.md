@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.7.0: the weapons, made in Blender
+
+- The four weapons are modelled in Blender (`art/blender/build_weapons.py`):
+  a chunky cartoon look with bevelled bodies, glass gas tanks, barrels,
+  muzzles and grips, in each weapon's colours. Exported as FBX for Studio's
+  3D importer (one MeshPart per part of the gun), with Blender scenes,
+  preview renders and 512px hotbar icons.
+- Particle textures made in Blender (`build_effects.py`): puff, cloud,
+  spark, shockwave ring and droplet.
+- `WeaponModel`: the held gun is built from the Blender model's
+  measurements: the imported meshes once they're in
+  `ReplicatedStorage.Assets.Weapons`, or until then the same pieces as
+  plain parts. A mesh imported the wrong way round falls back and
+  `/fw selftest` says so.
+- Animations (`WeaponFx`, `WeaponFxController`), on every client for every
+  player's gun: the gun comes up when equipped, kicks back and up on each
+  shot and settles (the Stink Lobber's kick is its throw), the
+  Thunderclapper flashes and kicks its shooter's camera, and the gas tank
+  glows. Muzzle puffs (the Spritzer's droplets), impact puffs and sparks,
+  explosion smoke and shockwave rings. Reduce motion and reduced effects
+  are respected, and particles are capped each frame.
+- The hotbar shows each weapon's 3D model (or its icon once uploaded); the
+  locker's weapon cards turn the model slowly.
+- `ArtAssets` for the uploaded image IDs; `/fw selftest` reports the art.
+- Docs: [`art/README.md`](art/README.md). New spec: `WeaponArt`.
+
 ## 0.6.0: Phase 6, part 4: accessibility, friends and operations
 
 - Settings: REDUCE MOTION (still spectator shots, a steady gas outline,

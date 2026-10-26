@@ -80,6 +80,8 @@ Services start in this order and never require one that starts later.
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
 | `SeasonService` | `start()`, `current()`, `challenges()`, `view(player)`, `push(player)`, `addXP(player, n)`, `count(player, stat, n?)`, `tick(dt)`, `setSeasons(list)`, `setClock(fn)`, `testEnable(on?)` (tests) |
 | `EventService` | `start()`, `book(at?)`, `stop()`, `phase()`, `beans()`, `spot()`, `tick(dt)`, `testEnable(on?)`, `setRandom(rng)` (tests) |
+| `WeaponModel` (shared) | `tool(weaponId, name?) -> Tool`, `model(weaponId) -> (Model, center, size)`, `parts(weaponId, origin, anchored?) -> (parts, "mesh" \| "pieces")`, `imported(weaponId) -> (meshes?, why)`, `matches(meshSize, size)`, `muzzle(weaponId)` |
+| `WeaponFxController` (client) | `start()`, `track(tool)`, `fired(userId)`, `impact(position, color)`, `step(dt)`, `cameraKick()`, `states`, `emitted` |
 | `PrestigeService` | `start()`, `enabled()`, `eligible(player) -> (ok, reason)`, `describe(data)`, `preview(player)`, `confirm(player, token)`, `request(player, action, token?)`, `testEnable(on?)`, `testExpire(player)` |
 | `ZoneService` | `start()`, `parts() -> (zone?, ring?)`, `inside(position, zone)`, `isActive()`, `state() -> (owner?, contested)`, `tick(dt)`, signal `Changed(owner?, contested)` |
 | `MetricsService` | `start()`, `segments(player) -> (age?, pay?)`, `setAnalytics(fake)` (tests); constants `FUNNEL`, `LENGTHS` |

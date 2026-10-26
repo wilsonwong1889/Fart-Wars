@@ -1,7 +1,7 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 30 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 31 specs, including a 20-player, 20-minute soak).
 Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6.
 What's left needs real Roblox: physics, rendering, sound, the real network
 and real DataStores. This is one session, in order, about an hour. Tick
@@ -166,6 +166,24 @@ turn it back off unless you're keeping it):
       bean pays coins and readies your Fart Dash.
 - [ ] Settings → REDUCE MOTION, HUD SIZE 80% and 125% (panels stay in
       their corners), TEAM SYMBOLS (▲ over teammates; off removes it).
+
+## 8. The weapons (Blender art)
+
+- [ ] Before importing anything: each weapon in your hands is the Blender
+      shape in plain parts; the barrel points forward and the tank is on
+      top (tell me if it's sideways or backwards).
+- [ ] Import the four FBX files and upload the nine images
+      ([`../art/README.md`](../art/README.md)); `/fw selftest` says
+      **Weapon meshes: all 4 imported** and **Art images: all 9 uploaded**.
+- [ ] Equip each weapon: it comes up into the hand. Fire: it kicks and
+      settles, puffs come from the muzzle in its colour, the Thunderclapper
+      flashes and kicks the camera, the Spritzer sprays droplets.
+- [ ] A second client sees the same on your gun.
+- [ ] Shots that hit walls puff and spark; explosions throw smoke and a
+      ring.
+- [ ] The hotbar shows the guns; the locker's weapon cards turn them.
+- [ ] Settings → REDUCE MOTION: the gun barely moves, no flash, no camera
+      kick; the locker's guns stand still.
 
 ## Before any public release
 

@@ -34,6 +34,7 @@ local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
 local Detail = require(Client.Detail)
 local HealthController = require(script.Parent.HealthController)
+local WeaponView = require(Client.WeaponView)
 local PrestigeController = require(script.Parent.PrestigeController)
 local Signal = require(Shared.Signal)
 local ProgressController = require(script.Parent.ProgressController)
@@ -48,6 +49,8 @@ LockerController.tab = "Weapons"
 LockerController.isOpen = false
 -- The latest ProfileUpdate.
 LockerController.profile = nil :: { [string]: any }?
+-- Degrees a second the weapon previews turn.
+LockerController.SPIN_SPEED = 40
 
 -- What a shop weapon costs this player (the server's figure when it has
 -- sent one: experiments can change early prices).
@@ -158,6 +161,10 @@ local function actionButton(parent: Instance, label: string, enabled: boolean, o
 	return button
 end
 
+-- The weapon previews on screen now (the Weapons tab), and their turn.
+local previews: { ViewportFrame } = {}
+local turn = 0
+
 local function weaponsTab(content: Frame)
 	local profile = LockerController.profile or {}
 	local level, coins = number("Level", 1), number("Coins", 0)
@@ -166,15 +173,15 @@ local function weaponsTab(content: Frame)
 		local weapon = WeaponConfig.weapons[id]
 		local box = card(content, id, i, 330)
 		text(box, weapon.displayName, 20, 1, { TextColor3 = weapon.tracerColor })
-		UI.new("Frame", {
+		-- The weapon itself, turning slowly (still with reduce motion).
+		local preview = WeaponView.new(id, {
 			Name = "Preview",
 			LayoutOrder = 2,
-			Size = UDim2.new(1, 0, 0, 6),
-			BackgroundColor3 = weapon.tracerColor,
-			BorderSizePixel = 0,
+			Size = UDim2.new(1, 0, 0, 62),
 			Parent = box,
-		}, { UI.corner(3) })
-		text(box, weapon.description, 13, 3, { Size = UDim2.new(1, 0, 0, 70), TextColor3 = C.muted, TextYAlignment = Enum.TextYAlignment.Top })
+		})
+		table.insert(previews, preview)
+		text(box, weapon.description, 13, 3, { Size = UDim2.new(1, 0, 0, 52), TextColor3 = C.muted, TextYAlignment = Enum.TextYAlignment.Top })
 		local projectile = if weapon.projectile == "lob" then "lobbed" else "instant"
 		local lines = {
 			`Gas {weapon.gasPerHit}% (head {weapon.headshotGas}%)`,
@@ -573,7 +580,11 @@ render = function()
 	for _, child in p.content:GetChildren() do
 		child:Destroy()
 	end
+	table.clear(previews)
 	TABS[LockerController.tab](p.content)
+	for _, preview in previews do
+		WeaponView.spin(preview, turn)
+	end
 end
 LockerController.render = render
 
@@ -666,6 +677,17 @@ function LockerController.start()
 	end
 	started = true
 	build()
+	-- The weapon previews turn while the locker shows them.
+	game:GetService("RunService").RenderStepped:Connect(function(dt)
+		if LockerController.isOpen and #previews > 0 and not Settings.reduceMotion then
+			turn = (turn + dt * LockerController.SPIN_SPEED) % 360
+			for _, preview in previews do
+				if preview.Parent then
+					WeaponView.spin(preview, turn)
+				end
+			end
+		end
+	end)
 	local remote = ClientState.remote("ProfileUpdate") :: RemoteEvent
 	remote.OnClientEvent:Connect(function(view)
 		if type(view) == "table" then

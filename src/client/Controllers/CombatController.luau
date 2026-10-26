@@ -33,6 +33,7 @@ local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
 local InputController = require(script.Parent.InputController)
+local WeaponFxController = require(script.Parent.WeaponFxController)
 
 local C = UIConfig.colors
 local DASH = AbilityConfig.FartDash
@@ -350,6 +351,8 @@ function CombatController.fire(): boolean
 	shotId += 1
 	ClientState.send("FireWeapon", direction, shotId)
 	Audio.play(gun.fireSound)
+	-- The gun kicks at once (the server decides whether it hit).
+	WeaponFxController.fired(player.UserId)
 	-- A lob is drawn when the server says where it flies.
 	if gun.projectile == "hitscan" then
 		tracer(from, from + direction * gun.range, tracerColorOf(player, gun.tracerColor))

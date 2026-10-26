@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local WeaponModel = require(Shared.WeaponModel)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local States = require(Shared.States)
@@ -78,52 +79,12 @@ local function applyCosmetic(player: Player, data: Data)
 	player:SetAttribute("Boom", LoadoutService.cosmetic(data, "boom"))
 end
 
--- The weapon as something to hold: a Tool built from parts in the
--- weapon's colour, barrel along the handle's look direction. Being in the
--- character equips it (Roblox raises the arm to hold it); nothing in it can
--- be hit, touched or collided with.
+-- The weapon as something to hold: the Blender model (WeaponModel), its
+-- grip in the hand, barrel forward. Being in the character equips it
+-- (Roblox raises the arm to hold it); nothing in it can be hit, touched or
+-- collided with.
 function LoadoutService.buildTool(weapon: WeaponConfig.Weapon): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = "HeldWeapon"
-	tool.ToolTip = weapon.displayName
-	tool.CanBeDropped = false
-	tool.RequiresHandle = true
-	tool.ManualActivationOnly = true
-	tool:SetAttribute("Weapon", weapon.id)
-	local heavy = weapon.walkSpeed < 16
-	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?): BasePart
-		local part = Instance.new("Part")
-		part.Name = name
-		part.Size = size
-		part.Color = color
-		part.Material = material or Enum.Material.SmoothPlastic
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.Massless = true
-		part.CastShadow = false
-		part.CFrame = offset
-		part.Parent = tool
-		return part
-	end
-	local dark = Color3.fromRGB(45, 42, 55)
-	local handle = piece("Handle", Vector3.new(0.4, 0.9, 0.5), CFrame.new(), dark)
-	local length = if weapon.projectile == "lob" then 1.6 elseif heavy then 2.6 else 2
-	local parts = {
-		piece("Body", Vector3.new(0.6, 0.6, length), CFrame.new(0, 0.45, -length / 2 + 0.3), weapon.tracerColor),
-		piece("Barrel", Vector3.new(0.3, 0.3, 0.9), CFrame.new(0, 0.5, -length + 0.05), dark),
-		piece("Tank", Vector3.new(0.5, 0.5, 0.7), CFrame.new(0, 0.95, -length / 2 + 0.4), weapon.tracerColor:Lerp(Color3.new(1, 1, 1), 0.35), Enum.Material.Neon),
-	}
-	if weapon.projectile == "lob" then
-		table.insert(parts, piece("Bomb", Vector3.new(0.8, 0.8, 0.8), CFrame.new(0, 0.5, -length - 0.2), Color3.fromRGB(120, 160, 50)))
-	end
-	for _, part in parts do
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = handle
-		weld.Part1 = part
-		weld.Parent = handle
-	end
-	return tool
+	return WeaponModel.tool(weapon.id, weapon.displayName)
 end
 
 -- Swaps the tool in the avatar's hands for `weaponId`'s.

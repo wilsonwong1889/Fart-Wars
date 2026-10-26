@@ -14,6 +14,8 @@ local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local WeaponView = require(Client.WeaponView)
+local ArtAssets = require(Shared.Config.ArtAssets)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
@@ -38,29 +40,31 @@ local player = Players.LocalPlayer
 local started = false
 
 -- A little gun drawn in the weapon's colour.
-local function gunIcon(parent: Instance, color: Color3)
-	local icon = UI.new("Frame", {
+-- The weapon's picture in a slot: its icon rendered in Blender once
+-- uploaded (ArtAssets), until then the model itself in a ViewportFrame.
+local function gunIcon(parent: Instance, weaponId: string)
+	local image = ArtAssets.icon(weaponId)
+	if image then
+		local label = UI.new("ImageLabel", {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0.5, -4),
+			Size = UDim2.new(1, -8, 1, -18),
+			BackgroundTransparency = 1,
+			Image = image,
+			ScaleType = Enum.ScaleType.Fit,
+			Parent = parent,
+		})
+		label:SetAttribute("Weapon", weaponId)
+		return
+	end
+	WeaponView.new(weaponId, {
 		Name = "Icon",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.5, -2),
-		Size = UDim2.new(0, 40, 0, 24),
-		BackgroundTransparency = 1,
+		Position = UDim2.new(0.5, 0, 0.5, -4),
+		Size = UDim2.new(1, -6, 1, -16),
 		Parent = parent,
 	})
-	local function piece(name: string, position: UDim2, size: UDim2)
-		UI.new("Frame", {
-			Name = name,
-			Position = position,
-			Size = size,
-			BackgroundColor3 = color,
-			BorderSizePixel = 0,
-			Parent = icon,
-		}, { UI.corner(3), UI.stroke(C.stroke, 2) })
-	end
-	piece("Body", UDim2.new(0, 4, 0, 4), UDim2.new(0, 24, 0, 10))
-	piece("Barrel", UDim2.new(0, 26, 0, 6), UDim2.new(0, 12, 0, 5))
-	piece("Grip", UDim2.new(0, 8, 0, 12), UDim2.new(0, 7, 0, 11))
-	piece("Tank", UDim2.new(0, 14, 0, 0), UDim2.new(0, 8, 0, 6))
 end
 
 local function slotFrame(parent: Instance, order: number, key: string): Frame
@@ -152,19 +156,22 @@ local function renderSlots()
 		end
 	end
 	for i, slot in p.slots do
+		local id = HotbarController.slotWeapons[i]
 		for _, child in slot:GetChildren() do
-			if child.Name == "Icon" or child.Name == "Name" or child.Name == "Next" then
+			-- The 3D icon stays while the slot holds the same weapon.
+			if (child.Name == "Icon" and child:GetAttribute("Weapon") ~= id) or child.Name == "Name" or child.Name == "Next" then
 				child:Destroy()
 			end
 		end
-		local id = HotbarController.slotWeapons[i]
 		local weapon = id and WeaponConfig.weapons[id]
 		slot:SetAttribute("Weapon", id)
 		local inHand = id ~= nil and id == held
 		slot.BackgroundColor3 = if inHand then Color3.fromRGB(70, 64, 92) else SLOT_COLOR
 		slot.Border.Color = if inHand then C.text else C.stroke
 		if weapon then
-			gunIcon(slot, weapon.tracerColor)
+			if not slot:FindFirstChild("Icon") then
+				gunIcon(slot, id)
+			end
 			UI.label(SHORT_NAMES[id] or string.upper(weapon.displayName), 10, {
 				Name = "Name",
 				AnchorPoint = Vector2.new(0, 1),

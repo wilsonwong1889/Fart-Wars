@@ -5,8 +5,9 @@
 local ReleaseConfig = {}
 
 -- major.minor.patch: minor for each release with new features (Phase 5 was
--- 0.5, Phase 6 is 0.6), patch for fixes only. Bump it in the release commit.
-ReleaseConfig.VERSION = "0.6.0"
+-- 0.5, Phase 6 0.6, the Blender weapons 0.7), patch for fixes only. Bump it
+-- in the release commit.
+ReleaseConfig.VERSION = "0.7.0"
 
 -- Place IDs from the Creator Hub, 0 until the places exist. Anywhere else
 -- (Studio, a copy) counts as "dev".

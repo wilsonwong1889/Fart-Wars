@@ -105,9 +105,10 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `SeasonConfig`, `EventConfig`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `SeasonConfig`, `EventConfig`, `WeaponArt` (generated from Blender), `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
-| `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
+| `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art) |
+| `ReplicatedStorage.Assets.Weapons` | Studio (Rojo leaves it alone) | the Blender meshes, once imported ([`art/README.md`](art/README.md)) |
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
@@ -268,6 +269,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
+| `WeaponArt` | the Blender art for every weapon; the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); equip, recoil, settling, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; muzzle particles, impacts, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
@@ -466,6 +468,14 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Metrics are split by segment**: new or returning, paying or free, the
   same split in our counters and in what goes to Roblox's analytics. Only
   segments go to Roblox, never anything personal.
+
+## Art
+
+The weapons, their icons and the effect textures are made in Blender, from
+scripts: see [`art/README.md`](art/README.md) for how to change them, import
+the meshes into Studio and upload the images. Until they're imported the
+game builds each gun from the Blender model's own pieces, so it always
+looks like the art.
 
 ## Phase 6 decisions
 
