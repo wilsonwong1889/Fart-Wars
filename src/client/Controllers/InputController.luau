@@ -1,8 +1,9 @@
 -- PC controls: WASD and Space are Roblox's own; this adds mouse aim and
--- left click to fire, Shift for Fart Dash, V for first/third person, M for
--- the menu and Tab (held) for the scoreboard. Q, R and F stay free for
--- later mechanics. Keys pressed while typing in chat or a text box are
--- ignored. Bindings live in UIConfig.keys, ready for rebinding later.
+-- left click to fire, Shift for Fart Dash, Q for the equipped ability, V
+-- for first/third person, M for the menu and Tab (held) for the
+-- scoreboard. R and F stay free for later mechanics. Keys pressed while
+-- typing in chat or a text box are ignored. Bindings live in
+-- UIConfig.keys, ready for rebinding later.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
@@ -20,6 +21,7 @@ InputController.MenuToggled = Signal.new()
 InputController.ScoreboardHeld = Signal.new() -- (held)
 InputController.FireHeld = Signal.new() -- (held)
 InputController.DashPressed = Signal.new()
+InputController.AbilityPressed = Signal.new()
 
 -- Set by the menu: no firing or dashing while it's open.
 InputController.menuOpen = false
@@ -71,6 +73,8 @@ function InputController.start()
 			InputController.ScoreboardHeld:Fire(true)
 		elseif isDashKey(key) then
 			InputController.DashPressed:Fire()
+		elseif key == keys.ability then
+			InputController.AbilityPressed:Fire()
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)

@@ -3,9 +3,9 @@
 The masterplan's Phase 3 pages (3.1-3.5) and their delivery gates, with
 where each item is checked. "Spec" means `python3 scripts/run_specs.py`
 covers it against a stand-in DataStore; "Studio" means it still needs a
-run with a real DataStore. Milestone 1 (saving, coins, XP, levels) is in;
+run with a real DataStore. Milestone 1 (saving, coins, XP, levels) and
 milestone 2 (shop, loadouts, the new weapons and abilities, the menu
-screens) is next.
+screens) are in.
 
 ## 3.1 Coins and XP accounting
 
@@ -26,21 +26,22 @@ screens) is next.
 | Item | Status | Where |
 | --- | --- | --- |
 | Levels 1-50 on a configurable curve | done | Economy; `ProgressionConfig.xpToNext` |
-| Unlock beats at 1, 5, 10, 15, 20, 25, 30, 40, 50 | recorded and announced; weapons and abilities usable in milestone 2 | Economy (ability at 10, cosmetic at 20, cap at 50) |
+| Unlock beats at 1, 5, 10, 15, 20, 25, 30, 40, 50 | done | Economy (ability at 10, cosmetic at 20, cap at 50); Structure (each shop weapon and Q ability unlocks at its level) |
 | First progression in the first few minutes | done | five eliminations and the streak reach level 2 (Economy) |
 | Lifetime XP, repeatable level-50 rewards | done | Economy |
 | Migration-friendly fields for prestige later | done | versioned saves, `migrate` (Data) |
 | XP gained, progress to next level, unlock preview, next goal | done | Economy (the client panel, reward lines, banner) |
 | Rewards never lost on a mid-animation disconnect | done | Data (reward just before leaving), Economy (reward before the profile loads) |
 
-## 3.3 Shop, equipment and abilities (milestone 2)
+## 3.3 Shop, equipment and abilities
 
-- [ ] Weapon shop with preview, gas per hit, range, fire rate, handling,
-      effects, price and requirements
-- [ ] Purchases checked on the server and saved before the UI confirms
-- [ ] Playstyles, not a damage ladder
-- [ ] Loadouts saved and validated; applied on a safe respawn
-- [ ] Abilities by level with cooldown trade-offs and counterplay
+| Item | Status | Where |
+| --- | --- | --- |
+| Weapon shop with preview, gas per hit, range, fire rate, handling, effects, price and requirements | done | Shop (the locker's cards) |
+| Purchases checked on the server; ownership saved before the UI confirms | done | Shop (refusals, saved before the answer, rolled back on a failed save) |
+| Playstyles, not a damage ladder | done | Arsenal (rate and range, weight, area denial) |
+| Loadouts saved, validated (defaults on an invalid save), applied on a safe respawn | done | Shop, Data |
+| Abilities by level with cooldown trade-offs and counterplay; no stacking | done | Arsenal (one Q ability, one cooldown, the tells, too late mid-countdown) |
 
 ## 3.4 Weapon mastery, saves and data migrations
 
@@ -52,20 +53,20 @@ screens) is next.
 | Versioned records, safe migrations | done | Data |
 | Partial saves, failed writes, concurrent joins | done | Data |
 | No client authority over currency, inventory, mastery or level | done | no remote accepts any of them; Structure (the remote list) |
-| Anomalous currency gains, impossible ownership | gains done (Economy); unknown equipped weapons are reset and counted (Data); shop ownership checks in milestone 2 |
+| Anomalous currency gains, impossible ownership | done | Economy (gains), Data (unknown equipment reset and counted), Shop (only owned items equip) |
 
 ## 3.5 First 10 minutes, UI and QA
 
 | Item | Status | Where |
 | --- | --- | --- |
 | No popups forced while shooting | done | reward lines sit bottom right; the level-up banner is short and takes no input |
-| HUD: gas, coins, XP, level, weapon, cooldown, streak, kill feed | coins, XP and level added (Economy); weapon name on the HUD in milestone 2 | |
-| Menu: Play, Weapons, Abilities, Progression, Settings | milestone 2 | |
-| Pending purchase and saving states | saving done ("Loading progress...", "Progress isn't saving this session"); purchases in milestone 2 | Economy |
-| Interrupted purchases | milestone 2 | |
+| HUD: gas, coins, XP, level, weapon, cooldown, streak, kill feed | done | Economy (coins, XP, level), Arsenal (weapon, ability cooldown) |
+| Menu: Play, Weapons, Abilities, Progression, Settings | done | Shop (the locker from the home screen and the M menu) |
+| Pending purchase and saving states | done | Shop ("Buying...", buttons wait), Economy ("Loading progress...", "Progress isn't saving this session") |
+| Interrupted purchases | done | Shop (failed save rolled back; leaving mid-purchase saves both together) |
 | Repeated reward triggers, max level, invalid equipped item, DataStore outages | done | Economy, Data |
 
-## Still to check in Studio (milestone 1)
+## Still to check in Studio
 
 - With **Enable Studio Access to API Services** on: play, earn coins
   (`/fw coins 50`), stop, play again: the coins are back. `/fw profile`
@@ -80,3 +81,13 @@ screens) is next.
   first level-up arrives within the first few minutes of real play.
 - After a session, `/fw stats` JSON: `Economy.*` sources look sensible,
   `Data.saveFailures` is 0.
+- The locker at 1366×768: four weapon cards fit, text doesn't overflow;
+  buying shows "Buying..." then the answer; EQUIP mid-fight says it waits
+  for the respawn, and the HUD's weapon line agrees.
+- Each weapon in a 2-player session: the Spritzer's spray stops at 60
+  studs, the Thunderclapper's walk feels heavier, stink bombs arc where
+  you'd expect (aim higher to throw farther) and the cloud is readable.
+- Q: Recovery Burst's puff and Gas Pulse's ring are visible to the other
+  side; the HUD counts the cooldown down.
+- Sounds: the new `AudioConfig` slots (spritzer, thunderclapper, lobber,
+  splat, vent, pulse, purchase, coins, levelUp) are empty until uploaded.

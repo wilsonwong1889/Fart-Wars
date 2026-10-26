@@ -1,5 +1,37 @@
 # Changelog
 
+## Phase 3, milestone 2: the shop, loadouts, weapons and abilities
+
+- Three new weapons, each a different way to play: the **Spritzer**
+  (level 5, 400 coins: rapid 7% hits, 60-stud range), the
+  **Thunderclapper** (level 15, 1,200: 40% hits, 55% to the head, one a
+  second, a slower walk) and the **Stink Lobber** (level 25, 2,500: a
+  server-flown lob, a 15% splash and a 4-second cloud that gasses enemies
+  inside it). `WeaponConfig` gains handling (walking speed), price, level
+  and the lob fields; `ProjectileService` flies the bombs and ticks the
+  clouds.
+- Q abilities by level (`AbilityService`): **Recovery Burst** (level 10:
+  vent 35% gas, 20 s) and **Gas Pulse** (level 30: a 0.4 s wind-up, then
+  15% to enemies within 12 studs, 25 s). One equipped, one cooldown, a
+  visible tell for each; a death resets the cooldown.
+- `ShopService` (`ShopRequest`): purchases checked on the server (for
+  sale, not owned, level, coins), coins and weapon saved together before
+  the answer, rolled back with a refund if the save fails; one request at
+  a time; temporary profiles can't buy. Equipping through
+  `LoadoutService`: owned items only, mid-fight changes wait for the next
+  respawn, tracers switch at once. `EconomyService.spend` / `refund`.
+- The locker (`LockerController`): Weapons (stats, preview colour,
+  mastery, BUY / EQUIP / what's missing), Abilities, Progression (the
+  unlock track, stats, badges, tracers) and Settings (reduced effects,
+  controls), from the home screen and the M menu, with pending and answer
+  states. Rewards and Leaderboard stay Coming Soon.
+- HUD: the weapon in hand (and "new loadout on respawn"), the Q ability
+  and its cooldown. Effects: the lob arc, splash and cloud, the vent puff,
+  the pulse ring; tracers in the shooter's cosmetic colour.
+- Remotes `UseAbility`, `ShopRequest`, `ProfileUpdate`. Test commands
+  `/fw weapon` (now gives the weapon for real) and `/fw ability`.
+- New specs: `Arsenal`, `Shop`.
+
 ## Phase 3, milestone 1: saving, coins, XP and levels
 
 - `DataService`: player profiles in a DataStore, with every field the

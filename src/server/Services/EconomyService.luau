@@ -25,6 +25,7 @@ local FeatureFlags = require(Shared.Config.FeatureFlags)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local States = require(Shared.States)
+local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local DataService = require(script.Parent.DataService)
@@ -40,6 +41,10 @@ local COMBAT_REASONS = { elimination = true, assist = true, chainBonus = true, a
 local EconomyService = {}
 
 EconomyService.TICK_SECONDS = 1
+
+-- (player): what they own or have earned changed (a level's unlock, a
+-- badge), beyond coins and XP.
+EconomyService.Changed = Signal.new()
 
 type Session = {
 	-- Grant IDs already paid this session.
@@ -108,8 +113,13 @@ local function withProfile(player: Player, change: (Data, { Event }) -> ())
 	end)
 	EconomyService.publish(player)
 	local remote = progressEvent()
+	local changed = false
 	for _, event in events do
 		remote:FireClient(player, event)
+		changed = changed or event.kind == "levelUp" or event.kind == "mastery"
+	end
+	if changed then
+		EconomyService.Changed:Fire(player)
 	end
 end
 
@@ -235,7 +245,34 @@ function EconomyService.grant(player: Player, id: string, reason: string, coins:
 	return true
 end
 
--- An elimination with `weapon`'s shot; pays each mastery milestone once.
+-- Takes `coins` for `id` (a purchase), if the player has them. Returns
+-- whether it did. The caller saves and, if that fails, refunds.
+function EconomyService.spend(player: Player, id: string, reason: string, coins: number): boolean
+	local profile = DataService.get(player)
+	if not profile or not validAmount(coins, math.huge) or profile.data.Coins < coins then
+		return false
+	end
+	DataService.update(player, function(data)
+		data.Coins -= coins
+		addToLedger(data, id, reason, -coins, 0)
+	end)
+	Telemetry.count(`Economy.spent.{reason}`, coins)
+	EconomyService.publish(player)
+	return true
+end
+
+-- Gives back coins taken by `spend` for `id` (a purchase that didn't save).
+function EconomyService.refund(player: Player, id: string, coins: number)
+	if DataService.update(player, function(data)
+		data.Coins += coins
+		addToLedger(data, `{id}:refund`, "refund", coins, 0)
+	end) then
+		Telemetry.count("Economy.refunded", coins)
+		EconomyService.publish(player)
+	end
+end
+
+-- An elimination with `weapon`; pays each mastery milestone once.
 local function addMastery(player: Player, data: Data, events: { Event }, weaponId: string)
 	local weapon = WeaponConfig.weapons[weaponId]
 	if not weapon then

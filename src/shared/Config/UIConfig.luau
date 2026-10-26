@@ -41,17 +41,20 @@ local UIConfig = {
 	rewardSeconds = 2.5,
 	levelUpSeconds = 3.5,
 
-	-- Home screen and M menu entries that arrive in later phases.
-	comingSoon = table.freeze({ "Weapons", "Abilities", "Shop", "Rewards", "Profile", "Settings", "Leaderboard" }),
+	-- The locker's tabs, on the home screen and in the M menu.
+	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Settings" }),
+	-- Entries that arrive in later phases.
+	comingSoon = table.freeze({ "Rewards", "Leaderboard" }),
 
 	keys = table.freeze({
 		dash = Enum.KeyCode.LeftShift,
+		ability = Enum.KeyCode.Q,
 		fire = Enum.UserInputType.MouseButton1,
 		camera = Enum.KeyCode.V,
 		menu = Enum.KeyCode.M,
 		scoreboard = Enum.KeyCode.Tab,
-		-- Kept free for later mechanics; nothing in Phase 1 binds them.
-		reserved = table.freeze({ Enum.KeyCode.Q, Enum.KeyCode.R, Enum.KeyCode.F }),
+		-- Kept free for later mechanics.
+		reserved = table.freeze({ Enum.KeyCode.R, Enum.KeyCode.F }),
 	}),
 	-- The one-time card on a player's first PLAY.
 	controls = table.freeze({
@@ -59,6 +62,7 @@ local UIConfig = {
 		{ "MOUSE", "Aim" },
 		{ "LEFT CLICK", "Fire" },
 		{ "SHIFT", "Fart Dash" },
+		{ "Q", "Ability (once unlocked)" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "M", "Menu" },

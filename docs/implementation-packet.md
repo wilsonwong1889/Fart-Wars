@@ -2,8 +2,8 @@
 
 What the masterplan (section 1.5) asks each phase to hand over: the folder
 tree, module contracts, exact remote payloads, feature flags, test cases
-and known bugs. It describes the code as it is (Phases 1 and 2, and
-Phase 3 milestone 1); update it with the code.
+and known bugs. It describes the code as it is (Phases 1-3); update it
+with the code.
 
 ## Folder tree
 
@@ -16,8 +16,8 @@ src/
       FeatureFlags.luau         MATCH_MODE and system switches
       TeamConfig.luau           the two teams
       MapConfig.luau            maps: template, spawns, bounds, modes, theme
-      WeaponConfig.luau         weapons by the masterplan's contract
-      AbilityConfig.luau        abilities by the masterplan's contract (Fart Dash)
+      WeaponConfig.luau         weapons by the masterplan's contract, with handling, price and level
+      AbilityConfig.luau        abilities by the masterplan's contract (Fart Dash, the Q abilities)
       ProgressionConfig.luau    coin and XP grants, the level curve, unlocks, mastery, limits
       AudioConfig.luau          sound asset IDs by name (empty = silent)
       UIConfig.luau             palette, words, key bindings, controls card
@@ -42,7 +42,7 @@ src/
     ClientState.luau            snapshot, counts, state, messages
     UI.luau                     UI building helpers
     Audio.luau                  plays AudioConfig sounds
-    Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Home
+    Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Locker, Home
 tests/                          specs + the Roblox stand-in harness
 scripts/run_specs.py            runs the specs on the Luau CLI
 ```
@@ -60,12 +60,16 @@ Services start in this order and never require one that starts later.
 | `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
-| `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
-| `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signal `PartHit(shooter, part, weapon, from)` |
-| `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
+| `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `vent(player, amount) -> number`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
+| `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signals `PartHit(shooter, part, weapon, from)`, `Lobbed(shooter, from, direction, weapon)` |
+| `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source?, weapon? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
 | `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()` |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
-| `EconomyService` | `start()`, `grant(player, id, reason, coins, xp) -> boolean`, `xpToNext(data)`, `publish(player)`, `tick(dt)`, `activeSecondsOf(player)`, `testGrant(player, coins, xp)` |
+| `AbilityService` | `start()`, `use(player) -> boolean`, `setAbility(player, id?)`, `abilityOf(player)` |
+| `ProjectileService` | `start()`, `throw(player, from, direction, weapon)`, `arc(from, direction, weapon, ignore) -> (landing, flight, path)`, `step()`, `cloudCount()` |
+| `EconomyService` | `start()`, `grant(player, id, reason, coins, xp) -> boolean`, `spend(player, id, reason, coins) -> boolean`, `refund(player, id, coins)`, `xpToNext(data)`, `publish(player)`, `tick(dt)`, `activeSecondsOf(player)`, `testGrant(player, coins, xp)`, signal `Changed(player)` |
+| `LoadoutService` | `start()`, `resolve(data) -> (weapon, ability?, cosmetic?)`, `apply(player)`, `equip(player, kind, id?) -> (ok, "now" / "respawn" / reason)`, `view(player)`, `push(player)`, `testGive(player, kind, id)` |
+| `ShopService` | `start()`, `buy(player, weaponId) -> Result`, `request(player, action, kind, id?) -> Result` (`{ ok, reason, message, profile? }`) |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `snapshot()` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
@@ -85,20 +89,27 @@ reason.
 | `RequestSpectate` | client → server | none |
 | `FireWeapon` | client → server | `direction: Vector3` (unit, from the head toward the crosshair), `shotId: number` (an integer, counting up per shot) |
 | `FartDash` | client → server | `direction: Vector3` (horizontal) |
+| `UseAbility` | client → server | none (the equipped Q ability) |
+| `ShopRequest` | client → server (RemoteFunction) | `action: "buy" \| "equip" \| "profile"`, `kind: "weapon" \| "ability" \| "cosmetic" \| "all"`, `id: string?` (40 characters at most); returns `{ ok, reason, message, profile? }` |
 | `RoundSnapshot` | client → server (RemoteFunction) | none; returns the snapshot below |
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
+| `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
-| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position }` (all); players as user IDs |
+| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position }` (all), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
-`disabled`.
+`disabled`, `notEquipped`, `noGas`. Shop answers (`reason`): `bought`,
+`now`, `respawn`, `profile`, `busy`, `loading`, `notSaving`, `unknown`,
+`owned`, `level`, `coins`, `saveFailed`, `notOwned`, `badPayload`,
+`rateLimited`.
 
 Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 `Weapon`, `Coins`, `Level`, `XP` (toward the next level), `XPToNext`,
-`LifetimeXP`, `DataStatus` (`loading`, `ready`, `unsaved`). Character attributes: `ProtectedUntil`, `Gas` (0-100),
+`LifetimeXP`, `DataStatus` (`loading`, `ready`, `unsaved`), `Ability`,
+`AbilityReadyAt` (server time), `Tracer` (cosmetic id), `LoadoutPending`. Character attributes: `ProtectedUntil`, `Gas` (0-100),
 `GasStage` (0-4), `ExplodesAt` (server time). Gas barrel attributes:
 `Health`, `Ready`, `FuseAt` (server time).
 
@@ -110,7 +121,7 @@ Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 | --- | --- | --- |
 | `MATCH_MODE` | `"Rounds"` | `"Rounds"`: 5-minute rounds, 15-second results. `"Continuous"`: one endless match, joining is PLAY |
 | `GAS_COMBAT` | on | the Gas Blaster, gas meter and explosions |
-| `FART_DASH` | on | Shift dash (unlocks arrive in Phase 3) |
+| `FART_DASH` | on | Shift dash, everyone's |
 | `PROGRESSION` | on | coins, XP and levels; off pays nothing (stats and saving carry on), for combat-only playtests |
 | `SPAWN_PROTECTION` | on | 3 seconds after each spawn, ended by firing |
 | `TEAMMATE_HIGHLIGHTS` | on | teammates outlined |
@@ -131,6 +142,8 @@ it proves.
 | `Chaos` | 2.3 chain reactions, depth limit, per-tick budget, friendly fire off, barrels (health, fuse, radius, respawn, attribution); 2.5 barrel-player-barrel chains, kill attribution |
 | `Data` | 3.4 DataStore retries and backoff, session locking, autosave, leave and shutdown saves, versioned migrations, partial saves, failed writes, concurrent joins; 3.5 DataStore outages, invalid equipped items |
 | `Economy` | 3.1 grants with unique IDs, no double awards, limits, audit ledger, source breakdowns, idle farming, anomalous gains; 3.2 levels 1-50, unlocks, cap and repeat rewards, lifetime XP, rewards never lost; 3.4 mastery once per milestone; 3.5 repeated reward triggers, max level, HUD |
+| `Arsenal` | 3.3 playstyles (rate, range, handling, area denial), abilities with cooldown trade-offs and counterplay, one ability at a time |
+| `Shop` | 3.3 server-checked purchases, ownership saved before the UI confirms, loadouts validated and applied on respawn; 3.5 interrupted purchases, pending purchase states, the menu |
 | `Continuous` | 1.1 continuous core loop behind its flag |
 | `Lifecycle` | 1.3 joining, spawning, churn without duplicate avatars or bad counts |
 | `QAMatrix` | the Phase 1 plan's QA matrix |
@@ -175,6 +188,10 @@ specially; an older server never writes a newer save.
 - Chat test commands use `Player.Chatted`; if TextChatService doesn't
   deliver them, use the command bar.
 - Sounds are empty `AudioConfig` slots until real assets are uploaded.
+- The Stink Lobber has no arc preview: aim higher to throw farther. Worth
+  adding if playtesters struggle to place bombs.
+- A stink bomb's flight is worked out when it's thrown; it lands where the
+  arc met something then, even if that player has since moved.
 - Third-person aim follows the free mouse cursor; a shoulder camera may
   feel better and is worth trying in playtests.
 - Saving is only proven against a stand-in DataStore in the specs; a real

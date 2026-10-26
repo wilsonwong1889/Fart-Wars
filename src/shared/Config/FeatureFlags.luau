@@ -11,7 +11,7 @@ return table.freeze({
 	-- explosions.
 	GAS_COMBAT = true,
 
-	-- Shift: Fart Dash. On for everyone until Phase 3 adds unlocks.
+	-- Shift: Fart Dash, everyone's (the unlockable abilities are on Q).
 	FART_DASH = true,
 
 	-- Coins, XP and levels for playing. Off, nothing is paid (stats still

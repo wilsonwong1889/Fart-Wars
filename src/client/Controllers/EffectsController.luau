@@ -8,10 +8,13 @@
 --     chain of explosions never piles up parts; barrels burst orange, and a
 --     barrel with its fuse lit gets a steady red outline
 --   * Fart Dash puffs behind other players' dashes
+--   * stink bombs: the arc, the splash, and the cloud they leave (shown at
+--     every quality: standing in one gasses you)
+--   * Q abilities: Recovery Burst's vent puff, Gas Pulse's wind-up ring
 --   * "BRO IS THE ALPHA FART!" across the screen when someone hits the
 --     streak, with its sound
 -- Effects thin out (no clouds or puffs) at Roblox graphics quality 3 or
--- lower.
+-- lower, or with Reduced effects on in Settings.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -19,6 +22,7 @@ local Debris = game:GetService("Debris")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
@@ -52,8 +56,15 @@ local pool: { BasePart } = {}
 local poolNext = 0
 local started = false
 
--- Whether to hold back on effects (Roblox graphics quality 1-3).
+-- Set from the Settings screen: fewer effects whatever the quality.
+EffectsController.reducedSetting = false
+
+-- Whether to hold back on effects (the setting, or Roblox graphics quality
+-- 1-3). Clouds that gas you are gameplay, so they always show.
 function EffectsController.reduced(): boolean
+	if EffectsController.reducedSetting then
+		return true
+	end
 	local ok, level = pcall(function()
 		return (UserSettings():GetService("UserGameSettings") :: any).SavedQualityLevel
 	end)
@@ -130,6 +141,77 @@ function EffectsController.dashPuff(from: Vector3, direction: Vector3)
 		puff.Parent = workspace
 		TweenService:Create(puff, TweenInfo.new(0.6), { Transparency = 1, Size = puff.Size * 1.8 }):Play()
 		Debris:AddItem(puff, 0.7)
+	end
+end
+
+-- A stink bomb's flight along `path`, then its splash where it lands.
+function EffectsController.lob(path: { Vector3 }, flight: number, color: Color3?)
+	Audio.play("lobber")
+	for i = 1, #path - 1 do
+		local a, b = path[i], path[i + 1]
+		local length = (b - a).Magnitude
+		if length > 0.1 then
+			local segment = effectPart("LobArc")
+			segment.Shape = Enum.PartType.Block
+			segment.Color = color or GAS_GREEN
+			segment.Size = Vector3.new(0.25, 0.25, length)
+			segment.CFrame = CFrame.lookAt(a:Lerp(b, 0.5), b)
+			segment.Transparency = 0.3
+			segment.Parent = workspace
+			Debris:AddItem(segment, flight + 0.15)
+		end
+	end
+	local landing = path[#path]
+	task.delay(flight, function()
+		Audio.play("splat")
+		EffectsController.explosion(landing, color or GAS_GREEN, 8)
+	end)
+end
+
+-- A stink cloud that gasses enemies inside it until `endsAt`.
+function EffectsController.cloud(position: Vector3, radius: number, endsAt: number)
+	local cloud = effectPart("StinkCloud")
+	cloud.Material = Enum.Material.SmoothPlastic
+	cloud.Color = Color3.fromRGB(130, 180, 50)
+	cloud.Size = Vector3.one * radius * 2
+	cloud.CFrame = CFrame.new(position)
+	cloud.Transparency = 0.7
+	cloud.Parent = workspace
+	Debris:AddItem(cloud, math.max(0.1, endsAt - workspace:GetServerTimeNow()))
+	return cloud
+end
+
+-- Someone used their Q ability: a vent puff or a pulse ring.
+function EffectsController.ability(id: string, position: Vector3)
+	if id == "RecoveryBurst" then
+		Audio.play("vent")
+		for i = 0, (if EffectsController.reduced() then 0 else 3) do
+			local puff = effectPart("VentPuff")
+			puff.Material = Enum.Material.SmoothPlastic
+			puff.Color = Color3.fromRGB(200, 230, 120)
+			puff.Size = Vector3.one * (3 - i * 0.4)
+			puff.CFrame = CFrame.new(position + Vector3.new(0, i * 1.5, 0))
+			puff.Transparency = 0.3
+			puff.Parent = workspace
+			TweenService:Create(puff, TweenInfo.new(0.8), { Transparency = 1, Size = puff.Size * 2 }):Play()
+			Debris:AddItem(puff, 0.9)
+		end
+	elseif id == "GasPulse" then
+		Audio.play("pulse")
+		local radius = AbilityConfig.GasPulse.radius :: number
+		local windup = AbilityConfig.GasPulse.durationSeconds
+		local ring = effectPart("PulseRing")
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Color = GAS_GREEN
+		ring.Size = Vector3.new(0.4, 2, 2)
+		ring.CFrame = CFrame.new(position + Vector3.new(0, -2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+		ring.Transparency = 0.3
+		ring.Parent = workspace
+		TweenService:Create(ring, TweenInfo.new(windup), { Size = Vector3.new(0.4, radius * 2, radius * 2) }):Play()
+		task.delay(windup, function()
+			TweenService:Create(ring, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+		end)
+		Debris:AddItem(ring, windup + 0.35)
 	end
 end
 
@@ -326,6 +408,20 @@ function EffectsController.start()
 			EffectsController.explosion(event.position, BARREL_ORANGE, GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
 			EffectsController.dashPuff(event.from, event.direction)
+		elseif event.kind == "lob" and type(event.path) == "table" and type(event.flight) == "number" then
+			local path = {}
+			for _, point in event.path do
+				if typeof(point) == "Vector3" then
+					table.insert(path, point)
+				end
+			end
+			if #path >= 2 then
+				EffectsController.lob(path, math.clamp(event.flight, 0, 3))
+			end
+		elseif event.kind == "cloud" and typeof(event.position) == "Vector3" and type(event.radius) == "number" and type(event.endsAt) == "number" then
+			EffectsController.cloud(event.position, event.radius, event.endsAt)
+		elseif event.kind == "ability" and type(event.ability) == "string" and typeof(event.position) == "Vector3" then
+			EffectsController.ability(event.ability, event.position)
 		elseif event.kind == "alpha" and type(event.player) == "number" then
 			EffectsController.alpha(event.player, if type(event.text) == "string" then event.text else GameConfig.STREAK.ALPHA_TEXT)
 		end

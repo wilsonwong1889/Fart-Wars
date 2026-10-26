@@ -5,12 +5,13 @@
 --   T.spawn(player)   T.team(player, "sharters")   T.resetGas(player)
 --   T.gas(player, 95)   T.weapon(player, "GasBlaster")   T.barrels()   T.stats()
 --   T.coins(player, 500)   T.xp(player, 1000)   T.profile(player)
+--   T.ability(player, "GasPulse")
 -- or as chat commands from a player who may use them (anyone in Studio; in
 -- live servers only GameConfig.TEST_CONTROLS.USER_IDS), with /fw or !fw:
 --   /fw score stinkers 3   /fw end 5   /fw reloadmap   /fw idle 44
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
---   /fw coins 500   /fw xp 1000   /fw profile
+--   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -32,6 +33,8 @@ local GasService = require(Services.GasService)
 local BarrelService = require(Services.BarrelService)
 local DataService = require(Services.DataService)
 local EconomyService = require(Services.EconomyService)
+local LoadoutService = require(Services.LoadoutService)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
 local Messages = require(script.Parent.Messages)
 local Telemetry = require(script.Parent.Telemetry)
 
@@ -139,11 +142,30 @@ function TestControls.weapon(player: Player, id: string): (boolean, string)
 	end
 	for weaponId in WeaponConfig.weapons do
 		if string.lower(weaponId) == string.lower(id) then
-			CombatService.setWeapon(player, weaponId)
+			-- Given for real (it's in the profile) once the profile is in.
+			if not LoadoutService.testGive(player, "weapon", weaponId) then
+				CombatService.setWeapon(player, weaponId)
+			end
 			return true, `{player.Name} has the {weaponId}`
 		end
 	end
 	return false, `no weapon "{id}"`
+end
+
+-- Unlocks and equips a Q ability.
+function TestControls.ability(player: Player, id: string): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	for abilityId, ability in AbilityConfig do
+		if string.lower(abilityId) == string.lower(id) and ability.input == Enum.KeyCode.Q then
+			if LoadoutService.testGive(player, "ability", abilityId) then
+				return true, `{player.Name} has {ability.displayName} on Q`
+			end
+			return false, `{player.Name}'s profile is still loading`
+		end
+	end
+	return false, `no Q ability "{id}"`
 end
 
 -- Every gas barrel back, full.
@@ -229,7 +251,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, stats"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, stats"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -250,6 +272,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.weapon(player, words[3])
 	elseif command == "barrels" then
 		ok, message = TestControls.barrels()
+	elseif command == "ability" and words[3] then
+		ok, message = TestControls.ability(player, words[3])
 	elseif command == "coins" then
 		ok, message = TestControls.coins(player, tonumber(words[3]))
 	elseif command == "xp" then

@@ -1,11 +1,12 @@
 -- The home screen and the M menu.
 --   HomeScreen  shown whenever the player isn't on a team (just joined,
 --               spectating, AFK), over the live battlefield: PLAY, an
---               optional team choice, the round status, and the later-phase
---               sections marked Coming Soon
+--               optional team choice, the round status, the locker's
+--               sections (Weapons, Abilities, Progression, Settings) and the
+--               later-phase ones marked Coming Soon
 --   GameMenu    M in a match: resume, switch team (only when it evens the
---               teams), spectate, and the same Coming Soon sections. The
---               mouse is free while it's open, even in first person.
+--               teams), spectate, and the same sections. The mouse is free
+--               while it's open, even in first person.
 -- Buttons only send intent; the server decides, and the screens follow
 -- the player's State attribute.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +22,7 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
+local LockerController = require(script.Parent.LockerController)
 
 local C = UIConfig.colors
 local Phase = States.Phase
@@ -50,13 +52,26 @@ local function openComingSoon(section: string)
 	p.comingSoon.Enabled = true
 end
 
-local function comingSoonButtons(parent: Instance, width: number)
-	for i, section in UIConfig.comingSoon do
+local function sectionButtons(parent: Instance, width: number)
+	for i, section in UIConfig.menuSections do
 		local button = UI.button(string.upper(section), C.panelLight, {
 			Name = section,
 			LayoutOrder = 10 + i,
 			Size = UDim2.new(0, width, 0, 40),
 			TextSize = 18,
+			Parent = parent,
+		})
+		UI.onClick(button, function()
+			LockerController.open(section)
+		end)
+	end
+	for i, section in UIConfig.comingSoon do
+		local button = UI.button(string.upper(section), C.panelLight, {
+			Name = section,
+			LayoutOrder = 20 + i,
+			Size = UDim2.new(0, width, 0, 40),
+			TextSize = 18,
+			TextColor3 = C.muted,
 			Parent = parent,
 		})
 		UI.onClick(button, function()
@@ -178,11 +193,11 @@ local function build()
 		Name = "Sections",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -28, 0.5, 0),
-		Size = UDim2.new(0, 200, 0, 7 * 48),
+		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon) * 48),
 		BackgroundTransparency = 1,
 		Parent = home,
 	}, { UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Right) })
-	comingSoonButtons(sections, 200)
+	sectionButtons(sections, 200)
 
 	-- M menu
 	local menu = UI.screen("GameMenu", 12)
@@ -212,7 +227,7 @@ local function build()
 		HomeController.setMenu(false)
 		ClientState.send("RequestSpectate")
 	end)
-	comingSoonButtons(panel, 268)
+	sectionButtons(panel, 268)
 
 	-- Coming Soon card
 	local soon = UI.screen("ComingSoon", 20)
@@ -354,6 +369,7 @@ function HomeController.setMenu(open: boolean)
 	p.menu.Enabled = open
 	if not open then
 		p.comingSoon.Enabled = false
+		LockerController.close()
 	end
 	InputController.menuOpen = open
 end

@@ -12,7 +12,11 @@
 --   ExplosionService      blasts and chain reactions
 --   BarrelService         gas barrels
 --   DashService           Fart Dash checks
+--   AbilityService        the Q ability (Recovery Burst, Gas Pulse)
+--   ProjectileService     stink bombs and their clouds
 --   EconomyService        coins, XP, levels, unlocks, mastery, stats
+--   LoadoutService        equipped weapon, ability and cosmetic; applied on spawn
+--   ShopService           buying and equipping (ShopRequest)
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), snapshots to clients
 --   TestControls          test-only commands (Studio / allow-list)
@@ -39,7 +43,11 @@ local CombatService = require(Services.CombatService)
 local ExplosionService = require(Services.ExplosionService)
 local BarrelService = require(Services.BarrelService)
 local DashService = require(Services.DashService)
+local AbilityService = require(Services.AbilityService)
+local ProjectileService = require(Services.ProjectileService)
 local EconomyService = require(Services.EconomyService)
+local LoadoutService = require(Services.LoadoutService)
+local ShopService = require(Services.ShopService)
 local RoundService = require(Services.RoundService)
 local TestControls = require(script.Parent.TestControls)
 
@@ -55,7 +63,11 @@ CombatService.start()
 ExplosionService.start()
 BarrelService.start()
 DashService.start()
+AbilityService.start()
+ProjectileService.start()
 EconomyService.start()
+LoadoutService.start()
+ShopService.start()
 RoundService.start()
 TestControls.start()
 

@@ -1,4 +1,4 @@
--- The Gas Blaster, server-authoritative from end to end. A client only says
+-- Shooting, server-authoritative from end to end. A client only says
 -- which way it's aiming and numbers its shots (FireWeapon). The server
 -- checks the shooter (active, alive, not exploding, holding the weapon,
 -- not firing faster than its interval, no repeated shot numbers), casts
@@ -6,7 +6,8 @@
 -- gas to an enemy (more for a headshot) through GasService, which handles
 -- friendly fire, protection, explosions and credit. Firing ends your own
 -- spawn protection. Too-accurate shooting and impossible movement between
--- shots are logged for review, not punished.
+-- shots are logged for review, not punished. Lobbed weapons (the Stink
+-- Lobber) pass the same checks, then hand the throw to ProjectileService.
 --   CombatEvent { kind = "shot", shooter, from, to }                 all clients
 --   CombatEvent { kind = "hit", victim, gas, headshot, blocked }     the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
@@ -32,6 +33,8 @@ local CombatService = {}
 -- (shooter, part, weapon, from): every part a shot hits, so other services
 -- (barrels) can react to it.
 CombatService.PartHit = Signal.new()
+-- (shooter, from, direction, weapon): a lobbed weapon fired.
+CombatService.Lobbed = Signal.new()
 
 type Shooter = {
 	weapon: string,
@@ -67,7 +70,7 @@ function CombatService.weaponOf(player: Player): WeaponConfig.Weapon
 	return WeaponConfig.weapons[shooter(player).weapon]
 end
 
--- Equips a weapon the player may use (test controls; Phase 3 inventory).
+-- Equips a weapon (LoadoutService checks ownership; test controls don't).
 function CombatService.setWeapon(player: Player, id: string): boolean
 	if not WeaponConfig.weapons[id] then
 		return false
@@ -104,7 +107,7 @@ end
 local function checkMovement(player: Player, entry: Shooter, head: Vector3, at: number)
 	if entry.lastHead and entry.lastShotAt then
 		local dash = AbilityConfig.FartDash
-		local allowed = (GameConfig.WALK_SPEED + dash.speed) * (at - entry.lastShotAt) + 8
+		local allowed = (GameConfig.WALK_SPEED + (dash.speed :: number)) * (at - entry.lastShotAt) + 8
 		if (head - entry.lastHead).Magnitude > allowed then
 			Telemetry.count("Combat.impossibleMovement")
 			Telemetry.log("Combat", "impossibleMovement", { player = player, studs = math.floor((head - entry.lastHead).Magnitude) })
@@ -168,6 +171,10 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 
 	local from = head.Position
 	local unit = aim / length
+	if weapon.projectile == "lob" then
+		CombatService.Lobbed:Fire(player, from, unit, weapon)
+		return
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character :: Model }

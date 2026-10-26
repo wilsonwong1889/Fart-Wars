@@ -40,6 +40,15 @@
         },
         "ProgressEvent": {
           "$className": "RemoteEvent"
+        },
+        "UseAbility": {
+          "$className": "RemoteEvent"
+        },
+        "ShopRequest": {
+          "$className": "RemoteFunction"
+        },
+        "ProfileUpdate": {
+          "$className": "RemoteEvent"
         }
       }
     },

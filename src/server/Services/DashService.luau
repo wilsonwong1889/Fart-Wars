@@ -20,6 +20,8 @@ local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
 
 local DASH = AbilityConfig.FartDash
+local CHECK_SECONDS = DASH.checkSeconds :: number
+local MAX_TRAVEL = DASH.maxTravelStuds :: number
 
 local DashService = {}
 
@@ -85,12 +87,12 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		from = start.Position,
 		direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zero,
 	})
-	task.delay(DASH.checkSeconds, function()
+	task.delay(CHECK_SECONDS, function()
 		if player.Character ~= character or not root.Parent then
 			return
 		end
 		local travelled = horizontal(root.Position - start.Position).Magnitude
-		local allowed = DASH.maxTravelStuds + GameConfig.WALK_SPEED * DASH.checkSeconds
+		local allowed = MAX_TRAVEL + GameConfig.WALK_SPEED * CHECK_SECONDS
 		if travelled > allowed then
 			reject(player, "tooFar")
 			character:PivotTo(start)

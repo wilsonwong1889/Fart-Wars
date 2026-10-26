@@ -31,10 +31,12 @@ export type Blast = {
 	gas: number,
 	owner: Player?,
 	ownerTeam: string,
-	cause: string, -- "chain" or "barrel"
+	cause: string, -- "chain", "barrel", "lob" (a stink bomb), "pulse" (Gas Pulse)
 	depth: number,
 	-- Who caused it (doesn't take its own blast).
 	source: Player?,
+	-- The weapon behind it, for mastery (stink bombs).
+	weapon: string?,
 }
 
 -- (blast): a blast resolved; BarrelService sets off barrels in range.
@@ -91,6 +93,7 @@ local function resolve(blast: Blast)
 				team = blast.ownerTeam,
 				cause = blast.cause,
 				chainDepth = blast.depth,
+				weapon = blast.weapon,
 			})
 		end
 	end

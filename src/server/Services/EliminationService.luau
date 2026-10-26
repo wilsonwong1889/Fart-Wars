@@ -35,8 +35,8 @@ export type Info = {
 	killerTeam: string?,
 	victimTeam: string?,
 	assists: { Player }?,
-	cause: string, -- "shot", "chain", "barrel", "test"
-	-- The weapon whose shot set off the explosion (shots only).
+	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "test"
+	-- The weapon that set off the explosion (its shot, stink bomb or cloud).
 	weapon: string?,
 }
 export type Elimination = {
@@ -177,7 +177,7 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		killer = killer,
 		assists = assists,
 		cause = info.cause,
-		weapon = if killer and info.cause == "shot" then info.weapon else nil,
+		weapon = if killer then info.weapon else nil,
 		counted = counted,
 	}
 	EliminationService.Eliminated:Fire(elimination)

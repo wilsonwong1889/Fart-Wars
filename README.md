@@ -4,15 +4,16 @@
 against the **Sigma Sharters** (bright yellow) on the Brainrot Battlefield.
 
 This repository holds **Phase 1** (the foundation), **Phase 2** (combat
-and chaos) and the first half of **Phase 3** (saving, coins, XP and levels)
-of the six-phase masterplan. Two or more players join a running
+and chaos) and **Phase 3** (progression and economy) of the six-phase
+masterplan. Two or more players join a running
 server, press PLAY, land on balanced teams, and blast each other with the
 Gas Blaster on a symmetrical three-lane map until someone inflates and
 explodes. Five-minute rounds end in a win or draw, a 15-second intermission
 follows, and the next round starts with no server restart. Continuous play
 (no rounds) is one setting away. Eliminations, assists, streaks and time
-played earn coins and XP toward levels 1-50, saved between sessions. The
-shop, loadouts and the new weapons and abilities are next.
+played earn coins and XP toward levels 1-50, saved between sessions;
+coins buy three more weapons, levels unlock two Q abilities and tracer
+cosmetics, all equipped from the locker.
 
 ## Getting started
 
@@ -49,20 +50,23 @@ repository holds credentials or API keys, and nothing should.
 | Home screen | the live battlefield behind the menu; you spectate until PLAY |
 | Result | most validated eliminations wins; level scores are a draw |
 | Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off |
+| Weapons | Gas Blaster (starter, all-round), Spritzer (level 5, 400 coins: 7% at 10 shots a second, 60-stud range), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, slower walk), Stink Lobber (level 25, 2,500: a lobbed bomb, 15% splash and a 4-second cloud that gasses enemies in it) |
+| Abilities | Shift: Fart Dash (everyone). Q, one equipped: Recovery Burst (level 10: vent 35% gas, 20 s) or Gas Pulse (level 30: after a 0.4 s wind-up, 15% to enemies within 12 studs, 25 s). One cooldown whichever is equipped; a death resets it |
+| Shop and loadouts | prices and levels checked on the server; a purchase is saved before it's confirmed. Weapon and ability changes made mid-fight wait for the next respawn; tracers apply at once |
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
 | Eliminations | the last enemy to add gas scores; others from the last 10 seconds assist. Five in a row without dying: the whole server hears "BRO IS THE ALPHA FART!" |
 | Explosions | an exploding player blasts 40% gas onto the killer's enemies within 14 studs (not through walls), credited to the killer; chains stop after 4 steps |
 | Barrels | 12 gas barrels in the middle. Two shots light the fuse; 0.6 s later they blast 40% gas onto the last shooter's enemies within 16 studs, set off nearby barrels, and come back 20 s later |
 | Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
-| Coins and XP | elimination 10 coins / 20 XP, assist 5 / 10, chain or barrel kill +5 coins, the 5-kill streak 50 / 100, 5 and 10 minutes of play 25 / 50 and 75 / 100 (once a session). Coins are spent in the shop (next milestone); XP only levels you up |
+| Coins and XP | elimination 10 coins / 20 XP, assist 5 / 10, chain or barrel kill +5 coins, the 5-kill streak 50 / 100, 5 and 10 minutes of play 25 / 50 and 75 / 100 (once a session). Coins are spent in the shop; XP only levels you up |
 | Levels | 1 to 50 on a rising curve (100 XP for level 2). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
 | Mastery | 25 / 75 / 150 / 300 eliminations with a weapon: a badge and 100 / 250 / 500 / 1,000 coins each, once |
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
-Space jump, V first/third person, M menu, Tab (hold) scoreboard. Q, R and F
-are kept free for later mechanics. The first PLAY of a session shows a
+Q ability (once unlocked), Space jump, V first/third person, M menu, Tab
+(hold) scoreboard. R and F are kept free for later mechanics. The first PLAY of a session shows a
 small controls card; there's no tutorial. Bindings live in
 `UIConfig.keys`.
 
@@ -86,15 +90,15 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal` |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `TestControls`, `Messages`, `RateLimit` |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination`, the Phase 1 mode |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code |
 | `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI` and the controllers |
 
-The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`, plus
-`GameMenu` and `ComingSoon`) are built in code by the client controllers
+The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
+`Progress`, `Locker`, plus `GameMenu` and `ComingSoon`) are built in code by the client controllers
 rather than stored in `StarterGui`, so they live in Git like everything
 else.
 
@@ -114,10 +118,14 @@ else.
 | `ExplosionService` | blasts from explosions: gas to the owner's enemies in range and in sight, chain depth limit, a per-tick budget |
 | `BarrelService` | gas barrels: health, fuse, ownership by the last shot, blasts, respawn |
 | `DashService` | Fart Dash: cooldown and travel checks |
+| `AbilityService` | the Q ability: checks (state, equipped, exploding, cooldown), Recovery Burst's vent, Gas Pulse's wind-up and blast |
+| `ProjectileService` | stink bombs: the server-flown arc, the splash, the clouds and their ticks |
 | `DataService` | player profiles: session-locked loads with retries, migrations, autosave, leave and shutdown saves, temporary profiles when DataStores are down; the only module that touches the DataStore |
-| `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry |
+| `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry; spending and refunds |
+| `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
+| `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, time to first shot / hit / elimination |
-| Client controllers | `InputController`, `CameraController`, `CombatController`, `EffectsController`, `HUDController`, `ProgressController`, `HomeController`: render, capture input, switch camera, fire and dash; they never decide teams, hits, results or rewards |
+| Client controllers | `InputController`, `CameraController`, `CombatController`, `EffectsController`, `HUDController`, `ProgressController`, `LockerController`, `HomeController`: render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -125,13 +133,15 @@ one that depends on it (the specs fail on a require cycle).
 ### Remotes
 
 Clients only state intent: PLAY (with an optional team), a team choice or
-switch, spectate, which way they're aiming, a dash. The server re-checks
+switch, spectate, which way they're aiming, a dash, Q, a purchase or an
+equip. The server re-checks
 state, capacity, eligibility, fire interval, payload types and a per-player
 cooldown, casts every shot itself, and never accepts a hit, score, timer or
 team count from a client, and there's no remote at all for coins, XP or
-levels. `RoundSnapshot` answers with the current round; `RoundUpdate`,
-`TeamUpdate`, `UIMessage`, `CombatEvent` and `ProgressEvent` go from the
-server to clients. Exact payloads are in
+levels, and a purchase sends only the weapon's ID. `RoundSnapshot` and
+`ShopRequest` answer requests; `RoundUpdate`, `TeamUpdate`, `UIMessage`,
+`CombatEvent`, `ProgressEvent` and `ProfileUpdate` go from the server to
+clients. Exact payloads are in
 [`docs/implementation-packet.md`](docs/implementation-packet.md).
 
 ## Brainrot Battlefield v0
@@ -176,7 +186,8 @@ Chat (`/fw` or `!fw`):
 /fw team sharters        move to a team whatever the balance, and respawn
 /fw resetgas             empty your gas meter
 /fw gas 95               set your gas (100 starts your countdown)
-/fw weapon gasblaster    equip a weapon by id
+/fw weapon spritzer      give yourself a weapon (saved for real) and hold it now
+/fw ability gaspulse     unlock and equip a Q ability
 /fw barrels              every gas barrel back, full
 /fw coins 500            coins through the normal grant path (ledger and all)
 /fw xp 1000              XP the same way (level-ups, unlocks)
@@ -192,7 +203,7 @@ Or the server command bar in Studio:
 local T = require(game.ServerScriptService.Server.TestControls)
 T.score("Stinkers", 3); T.endPhase(5); T.reloadMap(); T.idle(game.Players.Player1, 44)
 T.spawn(p); T.team(p, "sharters"); T.resetGas(p); T.gas(p, 95); T.weapon(p, "GasBlaster"); T.barrels(); T.stats()
-T.coins(p, 500); T.xp(p, 1000); T.profile(p)
+T.coins(p, 500); T.xp(p, 1000); T.profile(p); T.ability(p, "GasPulse")
 ```
 
 ## Tests
@@ -218,6 +229,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Chaos` | chain reactions and their depth limit, blasts sparing the killer's team and stopped by walls, the per-tick budget, barrels (fuse, blast, credit, respawn), barrel-player-barrel chains |
 | `Data` | saving against a stand-in DataStore: defaults, autosave, leave and rejoin, session locks (waiting, taking a stuck or stale one, losing one), outages, newer saves, migrations, failed writes, leaving mid-load, rejoining mid-save, shutdown, ten joins at once |
 | `Economy` | every grant and its limits, no double rewards, level-ups and unlocks to 50 and past it, mastery, participation (active time only), rewards before the profile loads, anomaly logging; the client's progress panel |
+| `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
+| `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
@@ -247,8 +260,8 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **5-minute rounds by default.** The masterplan made continuous play the
   baseline and the earlier Phase 1 plan made rounds it; rounds are the
   default (your call), and continuous play is `FeatureFlags.MATCH_MODE`.
-- **Shift is Fart Dash**, open to everyone until Phase 3 adds unlocks.
-  There's no sprint.
+- **Shift is Fart Dash**, open to everyone (it stays that way; the
+  unlockable abilities are on Q). There's no sprint.
 - **Ties go the same way every time**: to the team behind on score, then
   the Skibidi Stinkers.
 - **A round needs an opponent.** Besides the 2-player minimum, each team
@@ -295,9 +308,9 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Sounds are empty slots** (`AudioConfig`) until the game's own sounds
   are uploaded.
 - **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
-  puffs). There's no separate settings screen yet.
+  puffs), or with Reduced effects on in Settings.
 
-## Phase 3 decisions (so far)
+## Phase 3 decisions
 
 - **Rewards are paid when they happen, on the server.** Each grant is
   written into the profile at once with a unique ID (from the
@@ -306,14 +319,29 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Participation is once a session**, for time actually ACTIVE (on a team
   with an avatar). The home screen, spectating and AFK time earn nothing,
   so idling pays nothing.
-- **Mastery counts eliminations made with the weapon's shot.** Chain and
-  barrel kills still pay, but don't count toward a weapon. Milestones pay
-  themselves out; there's nothing to claim.
+- **Mastery counts eliminations made with the weapon** (its shots, or a
+  Stink Lobber's splash and cloud). Chain, barrel and Gas Pulse kills
+  still pay, but count toward no weapon. Milestones pay themselves out;
+  there's nothing to claim.
 - **Playtime is active time** (`TotalPlaytime`, seconds).
 - **Level unlocks:** abilities and cosmetics are granted at their level;
-  weapons only go on sale. Until the next milestone adds the shop and the
-  new weapons and abilities, the unlocks are recorded in the profile and
-  announced, but there's nothing to equip yet.
+  weapons only go on sale, for coins.
+- **Weapons are playstyles, not a ladder.** Up close the Spritzer wins,
+  at range the Gas Blaster or Thunderclapper, around cover the Stink
+  Lobber. Handling is walking speed (never faster than the default, so the
+  movement checks stay honest).
+- **One Q ability, one cooldown.** Equipping a different ability doesn't
+  skip the cooldown; both have a visible tell (the vent puff, the pulse's
+  wind-up ring), and Recovery Burst is too late once the countdown starts.
+  Gas Pulse is an attack, so it ends spawn protection like firing does.
+- **Loadouts change on a safe respawn.** A weapon or ability equipped
+  mid-fight waits for the next spawn (the HUD says so); from the home
+  screen, or while dead, it's in hand at once. Tracers change nothing in
+  combat and switch at once.
+- **A purchase is saved before it's confirmed**, coins and weapon in one
+  write; if the save fails both are put back and the player is told.
+  Temporary profiles can't buy (it would be lost).
+- **Stink bombs and Gas Pulse set off barrels** in range, like any blast.
 - **A profile that won't load is never written.** If DataStores are down
   (or it's Studio without API access, or the save comes from a newer
   version), the player gets a temporary profile, the HUD says progress
@@ -322,24 +350,27 @@ Where the plans left room, or disagreed, Phase 1 does this:
   not refreshed for 3 minutes (a crashed server) is taken at once. A server
   that finds its lock taken stops saving that profile.
 
-## Next: Phase 3, milestone 2
+## Handoff to Phase 4: Rewards, retention and monetization
 
-The shop, loadouts and the rest of the unlock table:
+Phase 4 adds daily rewards, challenges, more cosmetics and monetization.
+The places it plugs into:
 
-- the Spritzer, Thunderclapper and Stink Lobber, each a different
-  playstyle rather than a bigger number;
-- Recovery Burst and Gas Pulse on Q;
-- a shop that checks coins and eligibility on the server and saves the
-  purchase before confirming it; loadouts applied on the next safe respawn;
-- Weapons, Abilities and Progression screens (badges, mastery, the cosmetic
-  tracers) in the menu: Play, Weapons, Abilities, Progression, Settings.
+- `EconomyService.grant(player, id, reason, coins, xp)` pays anything, once
+  per ID, with limits and a ledger entry; `spend` and `refund` for coins
+  out. A daily reward's ID should carry the day.
+- `DataService.defaults()` and `migrate` for new profile fields (a daily
+  streak, challenge progress, owned game passes); `SaveVersion` for a
+  change `migrate` must handle specially.
+- `ProgressionConfig.cosmetics` and `LoadoutService` for new cosmetics
+  (they apply at once, never change combat); `ShopService` for new things
+  to buy, with the same save-before-confirm rule.
+- The menu's Coming Soon entries (`UIConfig.comingSoon`: Rewards,
+  Leaderboard) are where the new screens go; `LockerController` shows how
+  a screen asks the server and shows its pending state.
+- `Telemetry` already samples coins per 10 minutes and unspent balances,
+  and counts purchases by weapon: the economy's baseline before
+  monetization.
 
-The places it plugs into: `DataService.update` and the profile's
-`OwnedWeapons` / `EquippedWeapon` / `UnlockedAbilities` /
-`EquippedAbility` / `OwnedCosmetics` / `EquippedCosmetic` fields,
-`EconomyService.grant` for anything that pays, `CombatService.setWeapon`,
-and `ProgressionConfig.unlocks` for what a level allows.
-
-Later phases: rewards, challenges, cosmetics and monetization (4);
-full-server testing, optimization and the public beta (5); new modes and
-maps, prestige and seasons (6). See [`CHANGELOG.md`](CHANGELOG.md) for what changed.
+Later phases: full-server testing, optimization and the public beta (5);
+new modes and maps, prestige and seasons (6). See
+[`CHANGELOG.md`](CHANGELOG.md) for what changed.

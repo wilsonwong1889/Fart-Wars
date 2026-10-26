@@ -33,9 +33,9 @@ export type Source = {
 	attacker: Player?,
 	-- The attacker's team when the gas was sent (explosions keep it).
 	team: string?,
-	cause: string, -- "shot", "chain", "barrel", "test"
+	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "test"
 	chainDepth: number?,
-	-- The weapon that fired it (shots only), for weapon mastery.
+	-- The weapon behind it (shots, stink bombs, clouds), for mastery.
 	weapon: string?,
 }
 
@@ -236,6 +236,23 @@ function GasService.tick(dt: number)
 			publish(m)
 		end
 	end
+end
+
+-- Lets out up to `amount` of the player's gas at once (Recovery Burst).
+-- Returns how much went. Too late once the countdown has started.
+function GasService.vent(player: Player, amount: number): number
+	local m = meters[player]
+	if not m or m.character ~= player.Character or m.exploding or m.gas <= 0 then
+		return 0
+	end
+	local before = m.gas
+	m.gas = math.max(0, m.gas - amount)
+	if m.gas == 0 then
+		m.firstHitAt = nil
+		table.clear(m.contributors)
+	end
+	publish(m)
+	return before - m.gas
 end
 
 -- Test-only: set a player's gas directly (100 starts the countdown, with

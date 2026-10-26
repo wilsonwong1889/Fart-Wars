@@ -9,6 +9,9 @@
 --     hit you, a kill feed (with assists), and "EXPLODED" cards
 --   * Shift: Fart Dash (on the ground, off cooldown); the client moves the
 --     avatar and the server checks it
+--   * Q: the equipped ability (Recovery Burst, Gas Pulse) with its cooldown
+--   * the weapon in hand (and a note when a new loadout waits for the
+--     respawn); tracers in the shooter's cosmetic colour if they have one
 --   * teammates outlined in the team colour
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +24,7 @@ local AbilityConfig = require(Shared.Config.AbilityConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
@@ -60,6 +64,13 @@ end
 local function weapon(): WeaponConfig.Weapon
 	local id = player:GetAttribute("Weapon")
 	return WeaponConfig.weapons[id :: any] or WeaponConfig.weapons[WeaponConfig.default]
+end
+
+-- A shooter's tracer colour: their cosmetic's, if they've equipped one.
+local function tracerColorOf(shooter: Player?, default: Color3): Color3
+	local id = shooter and shooter:GetAttribute("Tracer")
+	local cosmetic = type(id) == "string" and ProgressionConfig.cosmetics[id]
+	return if cosmetic then cosmetic.tracerColor else default
 end
 
 local function humanoid(): Humanoid?
@@ -192,6 +203,23 @@ local function build()
 		Visible = false,
 		Parent = screen,
 	})
+	p.ability = UI.label("", 16, {
+		Name = "Ability",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -46),
+		Size = UDim2.new(0, 260, 0, 22),
+		Visible = false,
+		Parent = screen,
+	})
+	p.weapon = UI.label("", 16, {
+		Name = "Weapon",
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(0.5, -160, 1, -100),
+		Size = UDim2.new(0, 220, 0, 26),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Visible = false,
+		Parent = screen,
+	})
 end
 
 local function flash(item: GuiObject, seconds: number)
@@ -271,7 +299,24 @@ function CombatController.fire(): boolean
 	shotId += 1
 	ClientState.send("FireWeapon", direction, shotId)
 	Audio.play(gun.fireSound)
-	tracer(from, from + direction * gun.range, gun.tracerColor)
+	-- A lob is drawn when the server says where it flies.
+	if gun.projectile == "hitscan" then
+		tracer(from, from + direction * gun.range, tracerColorOf(player, gun.tracerColor))
+	end
+	return true
+end
+
+-- Q: the equipped ability, when it's ready. The server decides.
+function CombatController.useAbility(): boolean
+	local id = player:GetAttribute("Ability")
+	local readyAt = player:GetAttribute("AbilityReadyAt")
+	if type(id) ~= "string" or not canAct() then
+		return false
+	end
+	if type(readyAt) == "number" and workspace:GetServerTimeNow() < readyAt then
+		return false
+	end
+	ClientState.send("UseAbility")
 	return true
 end
 
@@ -317,7 +362,7 @@ function CombatController.dash(): boolean
 	push.RelativeTo = Enum.ActuatorRelativeTo.World
 	push.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
 	push.LineDirection = direction
-	push.LineVelocity = DASH.speed
+	push.LineVelocity = DASH.speed :: number
 	push.MaxForce = math.huge
 	push.Parent = root
 	Debris:AddItem(push, DASH.durationSeconds)
@@ -370,7 +415,7 @@ local function onCombatEvent(event: { [string]: any })
 	if event.kind == "shot" then
 		if event.shooter ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.to) == "Vector3" then
 			local _, color = nameOf(event.shooter)
-			tracer(event.from, event.to, color)
+			tracer(event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
 		end
 	elseif event.kind == "hit" then
 		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text
@@ -450,6 +495,18 @@ local function render()
 	local cooldownLeft = DASH.cooldownSeconds - (clock() - lastDash)
 	p.dash.Text = if cooldownLeft > 0 then `FART DASH {math.ceil(cooldownLeft)}s` else "FART DASH READY (SHIFT)"
 	p.dash.TextColor3 = if cooldownLeft > 0 then C.muted else C.accent
+	local abilityId = player:GetAttribute("Ability")
+	local ability = type(abilityId) == "string" and AbilityConfig[abilityId]
+	p.ability.Visible = aiming and ability ~= nil
+	if ability then
+		local readyAt = player:GetAttribute("AbilityReadyAt")
+		local left = if type(readyAt) == "number" then readyAt - workspace:GetServerTimeNow() else 0
+		local name = string.upper(ability.displayName)
+		p.ability.Text = if left > 0 then `{name} {math.ceil(left)}s` else `{name} READY (Q)`
+		p.ability.TextColor3 = if left > 0 then C.muted else C.accent
+	end
+	p.weapon.Visible = aiming
+	p.weapon.Text = string.upper(weapon().displayName) .. (if player:GetAttribute("LoadoutPending") then " · NEW LOADOUT ON RESPAWN" else "")
 
 	-- Gas meter.
 	local character = player.Character
@@ -490,6 +547,7 @@ function CombatController.start()
 		end
 	end)
 	InputController.DashPressed:Connect(CombatController.dash)
+	InputController.AbilityPressed:Connect(CombatController.useAbility)
 	local combatEvent = ClientState.remote("CombatEvent") :: RemoteEvent
 	combatEvent.OnClientEvent:Connect(function(event)
 		if type(event) == "table" then
