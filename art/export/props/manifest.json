@@ -122,7 +122,7 @@
    0,
    0
   ],
-  "triangles": 308
+  "triangles": 220
  },
  {
   "modelledOn": "SideWall",
@@ -137,7 +137,7 @@
    0,
    0
   ],
-  "triangles": 352
+  "triangles": 264
  },
  {
   "modelledOn": "SideTrim",
@@ -152,7 +152,7 @@
    0,
    0
   ],
-  "triangles": 104
+  "triangles": 72
  },
  {
   "modelledOn": "LaneCenterFloor",
@@ -197,7 +197,7 @@
    0,
    8.0
   ],
-  "triangles": 444
+  "triangles": 120
  },
  {
   "modelledOn": "Ground",

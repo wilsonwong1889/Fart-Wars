@@ -4,8 +4,8 @@
 
 - Walls, trims and floors made in Blender (`art/blender/build_props.py`)
   as modules: panelled wall sections in two heights (dividers and spawn
-  rooms; the 24-stud boundary) with pilasters and bands, a rounded neon
-  trim, Porcelain Plaza's square tiles, the side lanes' flagstones, the
+  rooms; the 24-stud boundary) between posts, with mouldings and bands, a
+  rounded neon trim, Porcelain Plaza's square tiles, the side lanes' flagstones, the
   ground (gently dipped), see-through spawn floors and round spawn pads.
 - `MapDressing` repeats a module along its part (a wall's sections run
   along it; floors in a grid), as many as fit, each stretched a little to
@@ -17,6 +17,10 @@
 - Renders of the whole dressed map, Porcelain Plaza and a spawn room,
   made from the map as the game builds it (`scripts/map_layout.py` dumps
   the layout through the spec harness).
+- Brainrot Battlefield's end walls and their trims now stop against the
+  side walls instead of overlapping them at the corners, where the faces
+  flickered (with or without the art). Nothing moves for play: the side
+  walls fill the corners.
 - `MapArt` spec covers the modules (placement, direction, stretch, the
   spawn pads). Docs: [`art/README.md`](art/README.md), Studio sign-off
   section 9.

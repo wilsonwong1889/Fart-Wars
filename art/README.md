@@ -71,9 +71,11 @@ The map's props dress the parts the map is built from (`MapDressing`,
   wall sections, a floor a grid of 10-stud tiles (20 for the ground, 8
   for the spawn floors), as many as fit, each stretched a little so they
   come out even. So a 164-stud wall isn't one stretched mesh. The
-  modules' ends are made to meet: wall sections share a pilaster, floor
-  tiles keep the same gaps across their edges, and the ground's dips
-  flatten out at its edges.
+  modules' ends are made to meet: wall sections share a post (and an
+  open end of a wall shows a clean post), floor tiles keep the same gaps
+  across their edges, and the ground's dips flatten out at its edges.
+  Walls, trims and the see-through spawn floor are single shapes with no
+  faces lying on each other, so nothing flickers.
 - The spawn pads are dressed too, and still work as spawns.
 - Every mesh has UVs measured in studs, so Roblox's material textures
   (Concrete, Slate, Marble, Wood planks, Metal) land on the meshes at an

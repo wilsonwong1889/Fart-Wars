@@ -67,13 +67,15 @@ local function build(entry: MapConfig.MapEntry): Model
 		})
 	end
 
-	-- Boundary: the ends are mirrored; each side wall spans both halves.
-	pair(walls, "EndWall", Vector3.new(HALF * 2 + 4, BOUNDARY_HEIGHT, 2), CFrame.new(0, BOUNDARY_HEIGHT / 2, -HALF - 1), wall)
+	-- Boundary: the ends are mirrored; each side wall spans both halves,
+	-- corners included, and the end walls and trims stop against them, so
+	-- no two walls overlap (overlapping faces flicker).
+	pair(walls, "EndWall", Vector3.new(HALF * 2, BOUNDARY_HEIGHT, 2), CFrame.new(0, BOUNDARY_HEIGHT / 2, -HALF - 1), wall)
 	for _, x in { -HALF - 1, HALF + 1 } do
 		part(walls, "SideWall", Vector3.new(2, BOUNDARY_HEIGHT, HALF * 2 + 4), CFrame.new(x, BOUNDARY_HEIGHT / 2, 0), wall)
-		part(walls, "SideTrim", Vector3.new(2.4, 1, HALF * 2 + 4), CFrame.new(x, BOUNDARY_HEIGHT + 0.5, 0), trim)
+		part(walls, "SideTrim", Vector3.new(2.4, 1, HALF * 2 + 4.4), CFrame.new(x, BOUNDARY_HEIGHT + 0.5, 0), trim)
 	end
-	pair(walls, "EndTrim", Vector3.new(HALF * 2 + 4, 1, 2.4), CFrame.new(0, BOUNDARY_HEIGHT + 0.5, -HALF - 1), trim)
+	pair(walls, "EndTrim", Vector3.new(HALF * 2 - 0.4, 1, 2.4), CFrame.new(0, BOUNDARY_HEIGHT + 0.5, -HALF - 1), trim)
 
 	-- Lane dividers, each with two gaps. The middle segment straddles z = 0
 	-- and is its own mirror.

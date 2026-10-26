@@ -283,21 +283,40 @@ def chamfered(name, size, center=(0, 0, 0), bevel=0.12):
     return rounded_box(name, size, center, bevel=bevel, segments=1)
 
 
+def extrude(name, profile, x0, x1):
+    """A solid made by sweeping a closed (y, z) outline along X from x0 to
+    x1: one shape, so nothing inside it can show through or flicker."""
+    bm = bmesh.new()
+    a = [bm.verts.new((x0, y, z)) for y, z in profile]
+    b = [bm.verts.new((x1, y, z)) for y, z in profile]
+    n = len(profile)
+    for i in range(n):
+        bm.faces.new((a[i], a[(i + 1) % n], b[(i + 1) % n], b[i]))
+    bm.faces.new(list(reversed(a)))
+    bm.faces.new(b)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return mesh_object(name, bm)
+
+
 def wall_tile(height, bands):
-    """A wall module 8 long (X), 2 thick (Y), `height` tall: a base, a
-    cap, raised bands and half a pilaster at each end (two neighbours make
-    a whole one). The same on both faces, so it can face either way."""
+    """A wall module 8 long (X), 2 thick (Y), `height` tall: half a post at
+    each end (two neighbours make a whole one; an open end of a wall shows
+    a clean post) and between them a panel with a base and a cap moulding
+    and raised bands. The same on both faces, so it can face either way.
+    The panel stops at the posts, so no two end faces lie on each other."""
     length, depth = 8.0, 2.0
-    half = height / 2
-    parts = [
-        chamfered("Core", (length, depth - 0.5, height - 1.6), (0, 0, 0.1), bevel=0.1),
-        chamfered("Base", (length, depth, 1.0), (0, 0, -half + 0.5), bevel=0.18),
-        chamfered("Cap", (length, depth, 0.8), (0, 0, half - 0.4), bevel=0.18),
+    half, post = height / 2, 0.7
+    inner = length / 2 - post
+    profile = [
+        (-0.95, -half), (0.95, -half), (0.95, -half + 0.8), (0.75, -half + 1.0),
+        (0.75, half - 0.8), (0.95, half - 0.6), (0.95, half), (-0.95, half),
+        (-0.95, half - 0.6), (-0.75, half - 0.8), (-0.75, -half + 1.0), (-0.95, -half + 0.8),
     ]
-    for x in (-length / 2 + 0.35, length / 2 - 0.35):
-        parts.append(chamfered("Pilaster", (0.7, depth - 0.15, height - 1.6), (x, 0, 0.1), bevel=0.1))
+    parts = [extrude("Panel", profile, -inner, inner)]
+    for x in (-length / 2 + post / 2, length / 2 - post / 2):
+        parts.append(chamfered("Post", (post, depth, height), (x, 0, 0), bevel=0.1))
     for z in bands:
-        parts.append(chamfered("Band", (length - 1.4, depth - 0.25, 0.35), (0, 0, z), bevel=0.08))
+        parts.append(chamfered("Band", (2 * inner, 1.75, 0.35), (0, 0, z), bevel=0.08))
     return parts
 
 
@@ -312,12 +331,14 @@ def tall_wall():
 
 
 def wall_trim():
-    # SideTrim, EndTrim, SpawnFrontTrim: 8 long, 1 tall, 2.4 deep: a
-    # rounded neon rail along the top of a wall.
-    return [
-        chamfered("Rail", (8, 2.4, 0.55), (0, 0, -0.225), bevel=0.12),
-        cylinder("Bead", 0.5, 8, (0, 0, 0.0), axis="X", vertices=16),
-    ]
+    # SideTrim, EndTrim, SpawnFrontTrim: 8 long, 1 tall, 2.4 deep: a neon
+    # rail with a rounded bead along its top, as one swept outline.
+    profile = [(-1.2, -0.5), (1.2, -0.5), (1.2, -0.12), (1.08, 0.0), (0.5, 0.0)]
+    for i in range(1, 12):
+        t = math.pi * i / 12
+        profile.append((0.5 * math.cos(t), 0.5 * math.sin(t)))
+    profile += [(-0.5, 0.0), (-1.08, 0.0), (-1.2, -0.12)]
+    return [extrude("Trim", profile, -4, 4)]
 
 
 def drop_bottoms(obj):
@@ -380,20 +401,47 @@ def flagstones():
     return floor_module(stones, 0.18)
 
 
+def heightfield(name, xs, ys, height, bottom, closed=True):
+    """A slab whose top is `height(x, y)` on the grid `xs` x `ys`, with flat
+    sides down to `bottom` (the edges of the top should be level so
+    modules meet without a step) and, if `closed`, a bottom."""
+    bm = bmesh.new()
+    top = [[bm.verts.new((x, y, height(x, y))) for y in ys] for x in xs]
+    nx, ny = len(xs), len(ys)
+    for i in range(nx - 1):
+        for j in range(ny - 1):
+            bm.faces.new((top[i][j], top[i + 1][j], top[i + 1][j + 1], top[i][j + 1]))
+    ring = [top[i][0] for i in range(nx)] + [top[nx - 1][j] for j in range(1, ny)]
+    ring += [top[i][ny - 1] for i in range(nx - 2, -1, -1)] + [top[0][j] for j in range(ny - 2, 0, -1)]
+    low = [bm.verts.new((v.co.x, v.co.y, bottom)) for v in ring]
+    n = len(ring)
+    for k in range(n):
+        bm.faces.new((ring[k], low[k], low[(k + 1) % n], ring[(k + 1) % n]))
+    if closed:
+        bm.faces.new(list(reversed(low)))
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    else:
+        # An open shell: recalc can't tell inside from out, so make the
+        # top face up and the sides follow it.
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        if sum(f.normal.z * f.calc_area() for f in bm.faces) < 0:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+    return mesh_object(name, bm)
+
+
 def spawn_tiles():
-    # SpawnFloor: 8 x 8 modules of four big panels, see-through in the
-    # team colour (each panel one closed shape, so it reads cleanly).
-    stones = []
-    for i in range(2):
-        for j in range(2):
-            stones.append((-4 + i * 4, -4 + j * 4, -4 + (i + 1) * 4, -4 + (j + 1) * 4))
-    parts = []
-    for x0, y0, x1, y1 in stones:
-        panel = rounded_box("Panel", (x1 - x0 - 0.3, y1 - y0 - 0.3, 0.12), ((x0 + x1) / 2, (y0 + y1) / 2, 0.04), bevel=0.05, segments=2)
-        parts.append(panel)
-    # A thin sheet under the panels, edge to edge (the module's full size).
-    parts.append(chamfered("Sheet", (8, 8, 0.08), (0, 0, -0.06), bevel=0))
-    return parts
+    # SpawnFloor: 8 x 8 modules of four big panels with V grooves between
+    # them, see-through in the team colour. One open surface (no bottom,
+    # nothing overlapping), so it reads cleanly through itself.
+    lines = [-4.0, -3.8, -0.2, 0.0, 0.2, 3.8, 4.0]
+
+    def low(c):
+        return abs(abs(c) - 4.0) < 1e-6 or abs(c) < 1e-6
+
+    def height(x, y):
+        return -0.02 if low(x) or low(y) else 0.1
+
+    return [heightfield("Panels", lines, lines, height, -0.1, closed=False)]
 
 
 def ground_tile():
@@ -409,25 +457,8 @@ def ground_tile():
         dip = sum(d * math.exp(-((x - bx) ** 2 + (y - by) ** 2) / (r * r)) for bx, by, r, d in blobs)
         return depth / 2 - min(dip, 0.4) * window
 
-    bm = bmesh.new()
-    top = [[None] * (steps + 1) for _ in range(steps + 1)]
-    for i in range(steps + 1):
-        for j in range(steps + 1):
-            x, y = -size / 2 + size * i / steps, -size / 2 + size * j / steps
-            top[i][j] = bm.verts.new((x, y, height(x, y)))
-    for i in range(steps):
-        for j in range(steps):
-            bm.faces.new((top[i][j], top[i + 1][j], top[i + 1][j + 1], top[i][j + 1]))
-    # Sides (the edges are flat at the top), and a bottom.
-    ring = [top[i][0] for i in range(steps + 1)] + [top[steps][j] for j in range(1, steps + 1)]
-    ring += [top[i][steps] for i in range(steps - 1, -1, -1)] + [top[0][j] for j in range(steps - 1, 0, -1)]
-    low = [bm.verts.new((v.co.x, v.co.y, -depth / 2)) for v in ring]
-    n = len(ring)
-    for k in range(n):
-        bm.faces.new((ring[k], low[k], low[(k + 1) % n], ring[(k + 1) % n]))
-    bm.faces.new(list(reversed(low)))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    return [mesh_object("Ground", bm)]
+    grid = [-size / 2 + size * i / steps for i in range(steps + 1)]
+    return [heightfield("Ground", grid, grid, height, -depth / 2)]
 
 
 def spawn_pad():
@@ -538,10 +569,17 @@ def render(obj, path, entry, size):
 
 
 def build_mesh(entry):
-    """The prop as one smoothed, UV-mapped mesh object."""
+    """The prop as one smoothed, UV-mapped mesh object, in triangles (the
+    swept wall outlines have many-sided, inward-cornered ends, and this
+    way they're split here rather than however an importer guesses)."""
     obj = join(entry["name"], entry["builder"]())
-    kit.smooth(obj, 35)
     kit.uv_box(obj, entry["studs"])
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
+    bm.to_mesh(obj.data)
+    bm.free()
+    kit.smooth(obj, 35)
     return obj
 
 
