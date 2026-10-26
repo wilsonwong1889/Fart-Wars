@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.0: the map's walls and floors, made in Blender
+
+- Walls, trims and floors made in Blender (`art/blender/build_props.py`)
+  as modules: panelled wall sections in two heights (dividers and spawn
+  rooms; the 24-stud boundary) with pilasters and bands, a rounded neon
+  trim, Porcelain Plaza's square tiles, the side lanes' flagstones, the
+  ground (gently dipped), see-through spawn floors and round spawn pads.
+- `MapDressing` repeats a module along its part (a wall's sections run
+  along it; floors in a grid), as many as fit, each stretched a little to
+  come out even, so no long wall is one stretched mesh. The parts stay as
+  the invisible hitboxes as before; the spawn pads still spawn.
+- Every Blender mesh for the map now has UVs measured in studs, so
+  Roblox's material textures land on the meshes evenly and run on across
+  modules (props re-exported).
+- Renders of the whole dressed map, Porcelain Plaza and a spawn room,
+  made from the map as the game builds it (`scripts/map_layout.py` dumps
+  the layout through the spec harness).
+- `MapArt` spec covers the modules (placement, direction, stretch, the
+  spawn pads). Docs: [`art/README.md`](art/README.md), Studio sign-off
+  section 9.
+
 ## 0.8.0: the map's props, made in Blender
 
 - The map's props are modelled in Blender (`art/blender/build_props.py`):

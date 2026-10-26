@@ -270,7 +270,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
 | `WeaponArt` | the Blender art for every weapon; the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); equip, recoil, settling, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; muzzle particles, impacts, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews |
-| `MapArt` | the map's Blender props: every prop modelled at its part's size and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
+| `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
@@ -472,15 +472,16 @@ Where the plans left room, or disagreed, Phase 1 does this:
 
 ## Art
 
-The weapons, their icons, the effect textures and the map's props are
-made in Blender, from scripts: see [`art/README.md`](art/README.md) for how
-to change them, import the meshes into Studio and upload the images. Until
-they're imported the game builds each gun from the Blender model's own
-pieces, so it always looks like the art, and the map is its plain parts.
-Imported props are drawn over the parts they dress, which stay as the
-invisible hitboxes, so the art never changes how the map plays.
+The weapons, their icons, the effect textures and the map (props, walls
+and floors) are made in Blender, from scripts: see
+[`art/README.md`](art/README.md) for how to change them, import the meshes
+into Studio and upload the images. Until they're imported the game builds
+each gun from the Blender model's own pieces, so it always looks like the
+art, and the map is its plain parts. Imported meshes are drawn over the
+parts they dress (walls and floors as repeated modules), which stay as
+the invisible hitboxes, so the art never changes how the map plays.
 
-![Porcelain Plaza, dressed with the props](art/export/props/plaza.png)
+![Brainrot Battlefield, dressed](art/export/props/map.png)
 
 ## Phase 6 decisions
 

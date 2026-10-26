@@ -14,3 +14,6 @@ sourcemap.json
 
 # luau-lsp Roblox definitions, if downloaded here
 globalTypes.d.luau
+
+# Python bytecode (the art and spec scripts)
+__pycache__/

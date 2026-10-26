@@ -1,20 +1,24 @@
 # Fart Wars art (Blender)
 
-The four weapons, their hotbar icons, the effect textures and the map's
-props are made in Blender, from scripts in `art/blender`. The scripts are
-the source: change a weapon or a prop there and run them again, and the
-game's copy of the measurements (`src/shared/Config/WeaponArt.luau`,
-`PropArt.luau`) is regenerated to match.
+The four weapons, their hotbar icons, the effect textures and the map
+(its props, walls and floors) are made in Blender, from scripts in
+`art/blender`. The scripts are the source: change a weapon or a prop there
+and run them again, and the game's copy of the measurements
+(`src/shared/Config/WeaponArt.luau`, `PropArt.luau`) is regenerated to
+match.
 
 ![The four weapons](export/weapons/all.png)
 
-![Porcelain Plaza, dressed with the props](export/props/plaza.png)
+![Brainrot Battlefield, dressed](export/props/map.png)
+
+![Porcelain Plaza](export/props/plaza.png)
 
 | Folder | What's in it |
 | --- | --- |
 | `art/blender/build_weapons.py` | models the Gas Blaster, Spritzer, Thunderclapper and Stink Lobber |
 | `art/blender/build_effects.py` | the particle textures: puff, cloud, spark, ring, droplet |
-| `art/blender/build_props.py` | the map's props: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean |
+| `art/blender/build_props.py` | the map: the throne's toilet tank, lid, bowl and seat; the bean can and its label; the gas barrel and its band; the crate; the cover wall; Bean Rain's bean; the walls (two heights), the neon wall trim, the plaza's tiles, the side lanes' flagstones, the ground, the spawn floors and the spawn pads |
+| `scripts/map_layout.py` | writes `art/export/props/layout.txt`: the map as the game builds it, dressed (run on the spec harness), for the map renders |
 | `art/blender/kit.py` | shared helpers (axes, materials, rendering) |
 | `art/export/weapons/<Weapon>.fbx` | the model for Roblox: one mesh per part of the gun (Body, Metal, Grip, Trim, Glass, Gas, and the Stink Lobber's Bomb) |
 | `art/export/weapons/<Weapon>.blend` | the same model as a Blender scene, to edit by hand |
@@ -22,9 +26,10 @@ game's copy of the measurements (`src/shared/Config/WeaponArt.luau`,
 | `art/export/icons/<Weapon>.png` | hotbar icons, 512×512 |
 | `art/export/effects/<name>.png` | particle textures, white (the game tints them) |
 | `art/export/weapons/manifest.json` | every part's size and place, which the game reads (through `WeaponArt.luau`) |
-| `art/export/props/<Prop>.fbx` | each prop for Roblox: one mesh, the exact size of the map part it dresses |
-| `art/export/props/Props.blend`, `<Prop>.png`, `all.png`, `plaza.png` | every prop in one Blender scene; previews; Porcelain Plaza laid out as in the map |
-| `art/export/props/manifest.json` | each prop's size and the part it was modelled on (`PropArt.luau`) |
+| `art/export/props/<Prop>.fbx` | each mesh for Roblox: a prop the exact size of the map part it dresses, or a wall or floor module the game repeats along its part |
+| `art/export/props/Props.blend`, `<Prop>.png`, `all.png` | every mesh in one Blender scene; previews (modules shown repeated) |
+| `art/export/props/map.png`, `plaza.png`, `spawn.png` | the whole map, Porcelain Plaza and a spawn room, rendered from `layout.txt` |
+| `art/export/props/manifest.json` | each mesh's size, the part it was modelled on and, for a module, the axes it repeats along (`PropArt.luau`) |
 
 ## What the game does with it
 
@@ -62,6 +67,17 @@ The map's props dress the parts the map is built from (`MapDressing`,
 - The throne's two toilets face their own bowls, the Gas Gutter's sideways
   toilet turns to face its bowl, and a gas barrel's mesh goes and comes
   back with the barrel. Bean Rain's beans use the bean mesh.
+- Walls, wall trims and floors are **modules**: a wall is a row of 8-stud
+  wall sections, a floor a grid of 10-stud tiles (20 for the ground, 8
+  for the spawn floors), as many as fit, each stretched a little so they
+  come out even. So a 164-stud wall isn't one stretched mesh. The
+  modules' ends are made to meet: wall sections share a pilaster, floor
+  tiles keep the same gaps across their edges, and the ground's dips
+  flatten out at its edges.
+- The spawn pads are dressed too, and still work as spawns.
+- Every mesh has UVs measured in studs, so Roblox's material textures
+  (Concrete, Slate, Marble, Wood planks, Metal) land on the meshes at an
+  even size, and run on from one module to the next.
 
 ## Import the meshes into Studio (once)
 
@@ -88,17 +104,20 @@ right-click **Weapons** → **Save to File** → `art/export/Weapons.rbxm`.
 
 1. **Import 3D** each FBX in `art/export/props` (ToiletTank, TankLid,
    ToiletBowl, ToiletSeat, BeanCan, BeanLabel, GasBarrel, BarrelBand,
-   Crate, CoverWall, Bean), with the same orientation as the weapons
-   (forward **-Z**, up **+Y**).
+   Crate, CoverWall, Bean, Wall, TallWall, WallTrim, PlazaTiles,
+   Flagstones, GroundTile, SpawnTiles, SpawnPad), with the same
+   orientation as the weapons (forward **-Z**, up **+Y**). The importer
+   takes several files at once.
 2. Drag each one into **ReplicatedStorage → Assets → Props** and keep its
    name. A MeshPart on its own or the Model the importer makes around it
    are both fine.
-3. Optional, for performance: select them all and set
-   **CollisionFidelity** to **Box** (the meshes never collide; the parts
-   under them do).
-4. Play, and `/fw selftest`: **Map props: all 11 imported**. A prop that's
+3. For performance: select them all and set **CollisionFidelity** to
+   **Box** (the meshes never collide; the parts under them do). The
+   dressed map is about 470 meshes, mostly wall and floor modules.
+4. Play, and `/fw selftest`: **Map props: all 19 imported**. A prop that's
    "the wrong way round" is left off the map (its parts show as before);
-   import it again.
+   import it again. You can import a few at a time: each one dresses its
+   parts as soon as it's there (on the next map load).
 
 Save the place to keep them; to keep them in Git too, right-click
 **Props** → **Save to File** → `art/export/Props.rbxm`.
@@ -145,7 +164,13 @@ model in Assets → Weapons).
 
 Each prop is a function in `build_props.py` (`toilet_tank`, `bean_can`,
 ...), modelled at the exact size of the map part named in `PROPS`, so it
-isn't stretched in the game. Cylinder props (bowl, seat, can, label,
+isn't stretched in the game. A wall or floor module (`wall_tile`,
+`floor_module`, `ground_tile`) is one section of its part; `tile` in
+`PROPS` says which way it repeats, and `studs` how big the material's
+texture is on it (a size that divides the module, so the texture runs on
+across modules). The map renders come from `layout.txt`, which the script
+refreshes with `scripts/map_layout.py` when `luau` is installed;
+`python art/blender/build_props.py renders` redoes just the renders. Cylinder props (bowl, seat, can, label,
 barrel, band) are turned shapes around Blender's X, the axis a Roblox
 cylinder part runs along; the map stands them up. A prop whose front
 matters faces Blender +Y. The spec `MapArt` checks every prop still fits

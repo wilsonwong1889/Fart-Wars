@@ -108,5 +108,120 @@
    1.6
   ],
   "triangles": 960
+ },
+ {
+  "modelledOn": "Divider",
+  "name": "Wall",
+  "size": [
+   8.0,
+   14.0,
+   2.0
+  ],
+  "tile": [
+   8.0,
+   0,
+   0
+  ],
+  "triangles": 308
+ },
+ {
+  "modelledOn": "SideWall",
+  "name": "TallWall",
+  "size": [
+   8.0,
+   24.0,
+   2.0
+  ],
+  "tile": [
+   8.0,
+   0,
+   0
+  ],
+  "triangles": 352
+ },
+ {
+  "modelledOn": "SideTrim",
+  "name": "WallTrim",
+  "size": [
+   8.0,
+   1.0,
+   2.4
+  ],
+  "tile": [
+   8.0,
+   0,
+   0
+  ],
+  "triangles": 104
+ },
+ {
+  "modelledOn": "LaneCenterFloor",
+  "name": "PlazaTiles",
+  "size": [
+   10.0,
+   0.2,
+   10.0
+  ],
+  "tile": [
+   10.0,
+   0,
+   10.0
+  ],
+  "triangles": 682
+ },
+ {
+  "modelledOn": "LaneLeftFloor",
+  "name": "Flagstones",
+  "size": [
+   10.0,
+   0.2,
+   10.0
+  ],
+  "tile": [
+   10.0,
+   0,
+   10.0
+  ],
+  "triangles": 514
+ },
+ {
+  "modelledOn": "SpawnFloor",
+  "name": "SpawnTiles",
+  "size": [
+   8.0,
+   0.2,
+   8.0
+  ],
+  "tile": [
+   8.0,
+   0,
+   8.0
+  ],
+  "triangles": 444
+ },
+ {
+  "modelledOn": "Ground",
+  "name": "GroundTile",
+  "size": [
+   20.0,
+   4.0,
+   20.0
+  ],
+  "tile": [
+   20.0,
+   0,
+   20.0
+  ],
+  "triangles": 318
+ },
+ {
+  "modelledOn": "Pad1",
+  "name": "SpawnPad",
+  "size": [
+   6.0,
+   1.0,
+   6.0
+  ],
+  "triangles": 1152
  }
 ]

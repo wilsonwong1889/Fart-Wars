@@ -17,6 +17,7 @@ import math
 import os
 
 import bpy
+import bmesh
 from mathutils import Matrix, Vector
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -207,6 +208,29 @@ class Builder:
             smooth(obj)
             joined[role] = obj
         return joined
+
+
+def uv_box(obj, studs=4.0):
+    """Box-projected UVs in studs: each face takes the two axes across its
+    normal, `studs` studs to a repeat. Roblox maps a MeshPart's material
+    texture (Concrete, Slate, Marble, ...) by its UVs, so this lands the
+    texture at the same size on every mesh."""
+    mesh = obj.data
+    while mesh.uv_layers:
+        mesh.uv_layers.remove(mesh.uv_layers[0])
+    mesh.uv_layers.new(name="UVMap")
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    layer = bm.loops.layers.uv.active
+    for face in bm.faces:
+        n = face.normal
+        axis = max(range(3), key=lambda i: abs(n[i]))
+        a, b = ((1, 2), (0, 2), (0, 1))[axis]
+        for loop in face.loops:
+            co = loop.vert.co
+            loop[layer].uv = (co[a] / studs, co[b] / studs)
+    bm.to_mesh(mesh)
+    bm.free()
 
 
 def bounds(obj):

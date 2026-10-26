@@ -8,6 +8,9 @@
 --     coloured like it; the part turns invisible but stays the hitbox, so
 --     everything players collide with or shots can hit is unchanged; the
 --     mesh can't be hit, touched or collided with
+--   * walls, trims and floors are modules repeated along their parts (a
+--     wall's modules run along it), none stretched more than a quarter;
+--     the spawn pads still work as spawns under theirs
 --   * the throne's mirrored tank turns round to face its own bowl; the
 --     Gas Gutter's sideways tank turns to face its bowl, sized to fit
 --   * a gas barrel's mesh goes and comes back with it; the hitbox under
@@ -88,9 +91,19 @@ for prop, art in PropArt do
 		check(near(art.size, Vector3.new(2.4, 1.6, 1.6)), "the bean is the size of Bean Rain's beans")
 	else
 		local part = partsNamed(map, art.modelledOn)[1]
-		check(part and MapArt.parts[art.modelledOn] and MapArt.parts[art.modelledOn].mesh == prop, `{prop} dresses {art.modelledOn}`)
-		local _, size = MapDressing.placement(part, MapArt.parts[art.modelledOn])
-		check(near(size, art.size), `{prop} is modelled at {art.modelledOn}'s size`)
+		local rule = MapArt.parts[art.modelledOn]
+		check(part and rule and rule.mesh == prop, `{prop} dresses {art.modelledOn}`)
+		local _, size = MapDressing.placement(part, rule)
+		if art.tile then
+			-- A module: its own length along the tiled axes, the part's across.
+			for _, axis in { "X", "Y", "Z" } do
+				local tile, want = (art.tile :: any)[axis], (art.size :: any)[axis]
+				local fits = if tile > 0 then math.abs(tile - want) < 1e-3 else math.abs((size :: any)[axis] - want) < 1e-3
+				check(fits, `{prop}, a module, fits {art.modelledOn} on {axis}`)
+			end
+		else
+			check(near(size, art.size), `{prop} is modelled at {art.modelledOn}'s size`)
+		end
 	end
 end
 
@@ -139,35 +152,63 @@ end
 map = Map.load("BrainrotBattlefield")
 local ok, problems = MapBase.validate(map, MapConfig.BrainrotBattlefield, { "Stinkers", "Sharters" })
 check(ok, "still keeps the MapBase contract: " .. table.concat(problems, "; "))
-local dressed = 0
+local dressed, expected, wanted = 0, {}, 0
+local function key(name: string, position: Vector3): string
+	return string.format("%s %.2f %.2f %.2f", name, position.X, position.Y, position.Z)
+end
 for name, rule in MapArt.parts do
 	for _, part in partsNamed(map, name) do
 		dressed += 1
 		check(part.Transparency == 1 and part:GetAttribute("Dressed") == rule.mesh and not part.CastShadow, `{part:GetFullName()} is now the invisible hitbox`)
-		local art = part.Parent:FindFirstChild(`{name}Art`) or map.Dressing:FindFirstChild(`{name}Art`)
-		check(art and art:IsA("MeshPart"), `{part:GetFullName()} has its mesh`)
+		for _, piece in MapDressing.pieces(part, rule) do
+			expected[key(name, piece.cframe.Position)] = { part = part, piece = piece, rule = rule }
+			wanted += 1
+		end
 	end
 end
 local arts = 0
 for _, item in map:GetDescendants() do
 	if item:IsA("MeshPart") and item:GetAttribute("Dresses") then
 		arts += 1
-		local part: BasePart? = nil
-		-- The part it dresses: the one with its name, where it is.
-		for _, candidate in partsNamed(map, item:GetAttribute("Dresses")) do
-			if near(candidate.Position, item.Position) then
-				part = candidate
-			end
+		local entry = expected[key(item:GetAttribute("Dresses"), item.Position)]
+		check(entry, `{item:GetFullName()} sits where MapDressing.pieces puts it`)
+		local part, piece, rule = entry.part :: BasePart, entry.piece, entry.rule
+		check(item.Name == `{part.Name}Art` and item:GetAttribute("Prop") == rule.mesh, `{item:GetFullName()} names its part and prop`)
+		check(near(item.Size, piece.size), `{item:GetFullName()} sized to its part, whatever the import's scale`)
+		check(near(item.CFrame.LookVector, piece.cframe.LookVector) and near(item.CFrame.UpVector, piece.cframe.UpVector), `{item:GetFullName()} turned as placed`)
+		check(item.Color == part.Color and item.Material == part.Material, `{item:GetFullName()} coloured like its part`)
+		if part.Name == "SpawnFloor" then
+			check(math.abs(item.Transparency - 0.35) < 1e-3, "the spawn floor's tiles are see-through like it was")
 		end
-		check(part, `{item:GetFullName()} sits on its part`)
-		local _, size = MapDressing.placement(part :: BasePart, MapArt.parts[(part :: BasePart).Name])
-		check(near(item.Size, size), `{item:GetFullName()} sized to its part, whatever the import's scale`)
-		check(item.Color == (part :: BasePart).Color and item.Material == (part :: BasePart).Material, `{item:GetFullName()} coloured like its part`)
 		check(item.Anchored and not item.CanCollide and not item.CanQuery and not item.CanTouch, `{item:GetFullName()} is never in the way`)
 		check(item.Parent == map.Dressing or item.Parent.Name == "GasBarrel", `{item:GetFullName()} is in Dressing or its barrel`)
+		local art = PropArt[rule.mesh]
+		if art.tile then
+			for _, axis in { "X", "Y", "Z" } do
+				if (art.tile :: any)[axis] > 0 then
+					local stretch = (item.Size :: any)[axis] / (art.size :: any)[axis]
+					check(stretch >= 0.75 and stretch <= 1.25, `{item:GetFullName()}: a module stretched {stretch} on {axis}, no more than a quarter`)
+				end
+			end
+		end
+		if rule.long then
+			local right = item.CFrame.RightVector
+			local runs = if part.Size.Z > part.Size.X then math.abs(right.Z) else math.abs(right.X)
+			check(runs > 0.999, `{item:GetFullName()} runs along its wall`)
+		end
 	end
 end
-check(arts == dressed and dressed > 40, `every named part dressed ({dressed})`)
+check(arts == wanted and dressed > 60 and arts > 300, `every named part dressed ({dressed} parts, {arts} meshes)`)
+local sideWall = partsNamed(map, "SideWall")[1]
+check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
+check(#MapDressing.pieces(map.Floor.Ground, MapArt.parts.Ground) == 64, "the ground is 8 x 8 modules")
+for _, team in { "Stinkers", "Sharters" } do
+	local pads = Map.spawns(team)
+	check(#pads == 4, `{team} still have their four spawn pads`)
+	for _, pad in pads do
+		check(pad.Enabled and pad.CanCollide and pad.Transparency == 1 and pad:GetAttribute("Dressed") == "SpawnPad", `{pad:GetFullName()}: dressed and still a spawn`)
+	end
+end
 local after = solid(map)
 check(#after == #plain, `the same parts collide or can be hit ({#after} vs {#plain})`)
 for i, line in plain do
