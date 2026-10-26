@@ -134,7 +134,7 @@ for id, entry in MapConfig do
 	for _, modeId in entry.modes do
 		check(modes:FindFirstChild(modeId), `{id} supports {modeId}, which exists`)
 	end
-	check(entry.bounds.size.X == 160 and entry.bounds.size.Z == 160, `{id} is 160 x 160`)
+	check(entry.bounds.size.X == 160 * entry.scale and entry.bounds.size.Z == 160 * entry.scale, `{id} is its 160 x 160 layout, {entry.scale} times bigger`)
 end
 
 local TeamConfig = require(shared.Config.TeamConfig)

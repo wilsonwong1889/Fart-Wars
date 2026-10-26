@@ -1,6 +1,8 @@
 -- Brainrot Battlefield v0, as MapService loads it:
 --   * it keeps the MapBase contract (spawns for both teams, camera points,
---     bounds, everything anchored) and is about 160 x 160 studs
+--     bounds, everything anchored) and is its 160 x 160 stud layout built
+--     MapConfig's `scale` times bigger (the numbers below are the layout's,
+--     times S), with the floors and pads still flat
 --   * it is symmetric: every part has a mirror image across z = 0
 --   * three lanes: each divider wall has at least two gaps joining them
 --   * each team's spawn pads are on its own half, and no straight line from
@@ -21,6 +23,7 @@ local function check(value, message)
 end
 
 local entry = MapConfig.BrainrotBattlefield
+local S = entry.scale
 local map = MapService.load("BrainrotBattlefield")
 check(map.Parent == workspace and map.Name == "Map", "the map is in Workspace")
 check(map:GetAttribute("MapId") == "BrainrotBattlefield", "it says which map it is")
@@ -29,7 +32,12 @@ check(ok, "keeps the MapBase contract: " .. table.concat(problems, "; "))
 check(ServerStorage.Maps:FindFirstChild("BrainrotBattlefield"), "the template lives in ServerStorage.Maps")
 
 local ground = map.Floor.Ground
-check(ground.Size.X == 160 and ground.Size.Z == 160, "a 160 x 160 arena")
+check(ground.Size.X == 160 * S and ground.Size.Z == 160 * S, `a {160 * S} x {160 * S} arena`)
+check(math.abs(ground.Position.Y + ground.Size.Y / 2) < 1e-3, "its top still at y = 0")
+for _, pad in MapService.spawns("Stinkers") do
+	check(pad.Size.Y == 1 and pad.Size.X == 6 * S and math.abs(pad.Position.Y - 0.5) < 1e-3, "a spawn pad grows across, not up")
+end
+check(map.Floor.LaneCenterFloor.Size.Y == 0.2, "a lane floor stays a floor")
 
 local parts = {}
 for _, item in map:GetDescendants() do
@@ -69,7 +77,7 @@ for _, part in parts do
 end
 
 -- Lanes: each divider wall (x = ±26) has at least two gaps along Z.
-for _, x in { -26, 26 } do
+for _, x in { -26 * S, 26 * S } do
 	local segments = {}
 	for _, part in map.Walls:GetChildren() do
 		if part.Name == "Divider" and math.abs(part.Position.X - x) < 0.01 then
@@ -81,7 +89,7 @@ for _, x in { -26, 26 } do
 	end)
 	local gaps = 0
 	for i = 2, #segments do
-		if segments[i][1] - segments[i - 1][2] >= 8 then
+		if segments[i][1] - segments[i - 1][2] >= 8 * S then
 			gaps += 1
 		end
 	end
@@ -95,16 +103,16 @@ end
 local pads = { Stinkers = MapService.spawns("Stinkers"), Sharters = MapService.spawns("Sharters") }
 check(#pads.Stinkers >= 2 and #pads.Stinkers == #pads.Sharters, "the same number of pads each")
 for _, pad in pads.Stinkers do
-	check(pad.Position.Z < -40 and pad.TeamColor == BrickColor.new("Lime green") and not pad.Neutral, "Stinker pads are theirs, at -Z")
+	check(pad.Position.Z < -40 * S and pad.TeamColor == BrickColor.new("Lime green") and not pad.Neutral, "Stinker pads are theirs, at -Z")
 	check(pad.Duration == 0 and not pad.AllowTeamChangeOnTouch, "no forcefield yet, and touching doesn't switch teams")
 end
 for _, pad in pads.Sharters do
-	check(pad.Position.Z > 40 and pad.TeamColor == BrickColor.new("New Yeller"), "Sharter pads are theirs, at +Z")
+	check(pad.Position.Z > 40 * S and pad.TeamColor == BrickColor.new("New Yeller"), "Sharter pads are theirs, at +Z")
 end
 check(MapService.safeSpawn("Stinkers", {}) ~= nil, "a spawn with nobody around")
 local nearEnemy = pads.Stinkers[1].Position
 local safest = MapService.safeSpawn("Stinkers", { nearEnemy }) :: SpawnLocation
-check(safest ~= pads.Stinkers[1] and (safest.Position - nearEnemy).Magnitude > 20, "spawns away from an enemy")
+check(safest ~= pads.Stinkers[1] and (safest.Position - nearEnemy).Magnitude > 20 * S, "spawns away from an enemy")
 
 -- Sightlines. Blockers: the axis-aligned walls and block cover.
 local blockers = {}
@@ -166,8 +174,8 @@ for team, sign in { Stinkers = 1, Sharters = -1 } do
 	for _, pad in pads[team] do
 		local target = pad.Position + Vector3.new(0, 3, 0)
 		-- Everywhere from the lanes (past the spawn plaza) to the far wall.
-		for x = -78, 78, 4 do
-			for depth = -44, 78, 4 do
+		for x = -78 * S, 78 * S, 4 * S do
+			for depth = -44 * S, 78 * S, 4 * S do
 				local z = depth * sign
 				local spot = Vector3.new(x, 0, z)
 				if not inside(spot) then
@@ -191,10 +199,10 @@ for _, gasBarrel in map.Barrels:GetChildren() do
 	end
 	local barrel = gasBarrel.PrimaryPart
 	barrels += 1
-	check(math.abs(barrel.Position.Z) <= 30, `the barrel at {barrel.Position} is in the contested middle`)
+	check(math.abs(barrel.Position.Z) <= 30 * S, `the barrel at {barrel.Position} is in the contested middle`)
 	for _, team in { "Stinkers", "Sharters" } do
 		for _, pad in pads[team] do
-			check((barrel.Position - pad.Position).Magnitude >= 30, `the barrel at {barrel.Position} is well away from {team} spawns`)
+			check((barrel.Position - pad.Position).Magnitude >= 30 * S, `the barrel at {barrel.Position} is well away from {team} spawns`)
 		end
 	end
 end

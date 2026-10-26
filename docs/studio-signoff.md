@@ -70,7 +70,7 @@ the Output window help).
 - [ ] Fart Dash never goes through a wall (try dashing into the spawn
       room's front wall from outside).
 - [ ] Weapons (`/fw weapon spritzer`, `thunderclapper`, `stinklobber`):
-      the Spritzer stops at 60 studs; the Thunderclapper walks slower;
+      the Spritzer stops at 180 studs; the Thunderclapper walks slower;
       stink bombs arc (aim higher to throw farther) and the cloud is easy
       to see and gasses whoever stands in it.
 - [ ] Q (`/fw ability recoveryburst`, then `gaspulse`): the other client

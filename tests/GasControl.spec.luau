@@ -78,9 +78,10 @@ check(HUD.parts.zone.Visible and HUD.parts.zone.Text == "STAND IN THE PLAZA TO S
 game:GetService("RunService").Heartbeat:Fire(0.2)
 check(HUD.parts.phase.Text == "GAS CONTROL", "and which mode it is")
 
--- Holding it.
+-- Holding it. Spots are the map layout's, built MapConfig's scale bigger.
+local S = MapConfig.BrainrotBattlefield.scale
 local function put(player: Player, x: number, z: number)
-	player.Character:PivotTo(CFrame.new(x, 3, z))
+	player.Character:PivotTo(CFrame.new(x * S, 3, z * S))
 end
 task.wait(3.2) -- past spawn protection
 put(me, 14, 0)

@@ -77,6 +77,15 @@ local function position(barrel: Barrel): Vector3
 	return (barrel.model.PrimaryPart or barrel.model:FindFirstChildWhichIsA("BasePart") :: BasePart).Position
 end
 
+-- How far the blast reaches from the barrel's centre: BARREL.RADIUS past
+-- its side, so a bigger barrel (on a bigger map) reaches as far out from
+-- itself and the barrels next to it still go off.
+local function reach(barrel: Barrel): number
+	local body = barrel.model.PrimaryPart or barrel.model:FindFirstChildWhichIsA("BasePart")
+	local size = if body then body.Size else Vector3.zero
+	return BARREL.RADIUS + math.max(size.X, size.Y, size.Z) / 2
+end
+
 local function explode(barrel: Barrel)
 	if barrel.state ~= "fused" or not barrel.model.Parent then
 		return
@@ -90,11 +99,12 @@ local function explode(barrel: Barrel)
 	BarrelService.Exploded:Fire(barrel.owner)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
-	combatEvent:FireAllClients({ kind = "barrel", position = at })
+	local radius = reach(barrel)
+	combatEvent:FireAllClients({ kind = "barrel", position = at, radius = radius })
 	if barrel.ownerTeam then
 		ExplosionService.blast({
 			position = at,
-			radius = BARREL.RADIUS,
+			radius = radius,
 			gas = BARREL.GAS,
 			owner = barrel.owner,
 			ownerTeam = barrel.ownerTeam,

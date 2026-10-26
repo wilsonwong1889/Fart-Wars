@@ -56,7 +56,7 @@ repository holds credentials or API keys, and nothing should.
 | Home screen | the live battlefield behind the menu; you spectate until PLAY |
 | Result | most validated eliminations wins; level scores are a draw |
 | Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off |
-| Weapons | Gas Blaster (starter, all-round), Spritzer (level 5, 400 coins: 7% at 10 shots a second, 60-stud range), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, slower walk), Stink Lobber (level 25, 2,500: a lobbed bomb, 15% splash and a 4-second cloud that gasses enemies in it) |
+| Weapons | Gas Blaster (starter, all-round), Spritzer (level 5, 400 coins: 7% at 10 shots a second, 180-stud range), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, slower walk), Stink Lobber (level 25, 2,500: a lobbed bomb, 15% splash and a 4-second cloud that gasses enemies in it) |
 | Abilities | Shift: Fart Dash (everyone). Q, one equipped: Recovery Burst (level 10: vent 35% gas, 20 s) or Gas Pulse (level 30: after a 0.4 s wind-up, 15% to enemies within 12 studs, 25 s). One cooldown whichever is equipped; a death resets it |
 | Shop and loadouts | prices and levels checked on the server; a purchase is saved before it's confirmed. Weapon and ability changes made mid-fight wait for the next respawn; tracers apply at once |
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
@@ -177,8 +177,9 @@ clients. Exact payloads are in
 
 ## Brainrot Battlefield v0
 
-A 160 × 160 stud blockout, mirrored across the centre line so neither side
-has a better layout (`src/maps/BrainrotBattlefield.luau`):
+A 160 × 160 stud layout built three times bigger (480 × 480 studs, room
+for 20 players; `MapConfig.scale`), mirrored across the centre line so
+neither side has a better layout (`src/maps/BrainrotBattlefield.luau`):
 
 - **Three lanes** split by divider walls with two gaps each: **Bean Alley**
   (giant bean cans), **Porcelain Plaza** (a back-to-back giant toilet throne

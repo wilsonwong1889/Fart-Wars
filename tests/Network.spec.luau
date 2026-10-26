@@ -68,9 +68,10 @@ local CombatUI = require(Controllers.CombatController)
 local Effects = require(Controllers.EffectsController)
 Lifecycle.requestPlay(me, nil)
 task.wait(0.5)
--- In the open (Porcelain Plaza, clear of the throne): the bolt stops at
--- the first thing in its way.
-me.Character:PivotTo(CFrame.new(0, 3, -30))
+-- In the open (Porcelain Plaza, clear of the throne; the layout's z = -30
+-- on the map built its scale bigger): the bolt stops at the first thing
+-- in its way.
+me.Character:PivotTo(CFrame.new(0, 3, -30 * require(game.ReplicatedStorage.Shared.Config.MapConfig).BrainrotBattlefield.scale))
 check(CombatUI.fire(), "I fire")
 local shown = 0
 for _, beam in CombatUI.tracers do

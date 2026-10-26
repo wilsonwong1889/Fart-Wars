@@ -337,14 +337,16 @@ check(after < shown, "the burst is gone in a moment")
 frames(WeaponConfig.weapons.GasBlaster.range / blaster.speed + 0.1)
 check(boltPart.Transparency == 1 and glow.Transparency == 1 and (ShotFx.showing()) == 0, "and the bolt, once it's gone into its target")
 
--- A splat where it hits a wall, facing out of it; none on a player.
+-- A splat where it hits a wall, facing out of it; none on a player. Up
+-- above the map, so nothing of the map is in the way.
+local UP = Vector3.new(0, 300, 0)
 local wall = Instance.new("Part")
 wall.Name = "TestWall"
 wall.Anchored = true
 wall.Size = Vector3.new(30, 30, 2)
-wall.CFrame = CFrame.new(0, 5, -41)
+wall.CFrame = CFrame.new(Vector3.new(0, 5, -41) + UP)
 wall.Parent = workspace
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
 task.wait()
 local splat: BasePart? = nil
 for _, part in ShotFx.splats do
@@ -354,7 +356,7 @@ for _, part in ShotFx.splats do
 end
 check(splat and splat:GetAttribute("ArtSource") == "part", "a splat where it hit the wall")
 local splatPart = splat :: BasePart
-check((splatPart.Position - Vector3.new(0, 5, -39.96)).Magnitude < 0.01, "on its face")
+check((splatPart.Position - (Vector3.new(0, 5, -39.96) + UP)).Magnitude < 0.01, "on its face")
 check(math.abs(splatPart.CFrame.RightVector.Z) > 0.999, "flat to it (a disc, facing out)")
 check(splatPart.Color == gas, "in the gas colour")
 frames(SHOT.SPLAT_SECONDS * 0.5)
@@ -374,7 +376,7 @@ frames(1)
 -- Reduced effects: no bursts or splats, but the bolt still shows.
 Settings.reducedEffects = true
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
 task.wait()
 local flying, flashing = ShotFx.showing()
 check(flying == 1 and flashing == 0, "reduced effects: the bolt, nothing else")
@@ -397,7 +399,7 @@ for name, art in ShotArt do
 end
 ShotFx.clear()
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
 task.wait()
 local meshBolt, meshBurst, meshSplat
 for _, part in ShotFx.tracers do

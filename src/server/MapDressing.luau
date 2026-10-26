@@ -69,14 +69,17 @@ end
 
 -- The meshes that dress `part`: one over the whole of it, or for a
 -- module (PropArt's `tile`), as many as fit along each tiled axis, each
--- stretched a little so they come out even.
-function MapDressing.pieces(part: BasePart, rule: MapArt.Rule): { Piece }
+-- stretched a little so they come out even. On a map built `scale` times
+-- bigger than its layout, the modules are that much bigger too, so a wall
+-- keeps its bricks' proportions.
+function MapDressing.pieces(part: BasePart, rule: MapArt.Rule, scale: number?): { Piece }
 	local at, size = MapDressing.placement(part, rule)
 	local art = PropArt[rule.mesh]
 	local tile = art and art.tile
 	if not tile then
 		return { { cframe = at, size = size } }
 	end
+	tile *= scale or 1
 	local nx, ny, nz = count(size.X, tile.X), count(size.Y, tile.Y), count(size.Z, tile.Z)
 	local piece = Vector3.new(size.X / nx, size.Y / ny, size.Z / nz)
 	local pieces = {}
@@ -94,6 +97,7 @@ end
 -- Dresses every undressed part of `map` that MapArt names and whose prop
 -- is imported. Returns how many parts it dressed.
 function MapDressing.dress(map: Instance): number
+	local scale = map:GetAttribute("Scale")
 	local meshes: { [string]: MeshPart | false } = {}
 	local dressed = 0
 	for _, part in map:GetDescendants() do
@@ -116,7 +120,7 @@ function MapDressing.dress(map: Instance): number
 			folder.Name = "Dressing"
 			folder.Parent = map
 		end
-		for _, piece in MapDressing.pieces(hitbox, rule) do
+		for _, piece in MapDressing.pieces(hitbox, rule, if type(scale) == "number" then scale else nil) do
 			local art = mesh:Clone()
 			art.Name = `{hitbox.Name}Art`
 			art.Size = piece.size

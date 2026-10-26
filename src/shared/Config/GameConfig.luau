@@ -68,12 +68,13 @@ local GameConfig = {
 
 	-- Gas barrels: shots take HEALTH away (each shot its gas per hit); at 0
 	-- the fuse burns for FUSE_SECONDS, then the barrel blasts GAS onto the
-	-- enemies of whoever fired the last shot, within RADIUS. It's back
+	-- enemies of whoever fired the last shot, within RADIUS of its side
+	-- (16 from the centre of the original 5-stud barrel). It's back
 	-- RESPAWN_SECONDS later.
 	BARREL = table.freeze({
 		HEALTH = 40,
 		FUSE_SECONDS = 0.6,
-		RADIUS = 16,
+		RADIUS = 13.5,
 		GAS = 40,
 		RESPAWN_SECONDS = 20,
 	}),

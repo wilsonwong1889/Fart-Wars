@@ -540,7 +540,7 @@ function EffectsController.start()
 			EffectsController.explosion(event.position, if boom then boom.boomColor else nil)
 		elseif event.kind == "barrel" and typeof(event.position) == "Vector3" then
 			Audio.play("barrel")
-			EffectsController.explosion(event.position, BARREL_ORANGE, GameConfig.BARREL.RADIUS)
+			EffectsController.explosion(event.position, BARREL_ORANGE, if type(event.radius) == "number" then event.radius else GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
 			local dasher = Players:GetPlayerByUserId(event.player)
 			local trail = dasher and ProgressionConfig.cosmetics[dasher:GetAttribute("Trail") :: any]

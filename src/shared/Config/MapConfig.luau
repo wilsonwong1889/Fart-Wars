@@ -2,7 +2,9 @@
 -- ServerStorage.Maps (a Model made in Studio, or a ModuleScript that builds
 -- one), checks it against Interfaces/MapBase and puts it in Workspace.
 --   spawns: the folder inside the map that holds each team's SpawnLocations
---   bounds: the playable box, centred on `center`
+--   scale: how many times bigger the map is built than its layout's
+--     numbers (the builder lays it out, then MapKit.scale grows it)
+--   bounds: the playable box, centred on `center`, at full size
 --   modes: the game modes the layout supports
 --   zone: the control zone's marker Part (for zone modes such as Gas
 --     Control), and the floor ring that shows who holds it
@@ -31,6 +33,7 @@ export type MapEntry = {
 	displayName: string,
 	template: string,
 	spawns: { [string]: string },
+	scale: number,
 	bounds: { center: Vector3, size: Vector3 },
 	modes: { string },
 	zone: string?,
@@ -44,7 +47,9 @@ local maps: { [string]: MapEntry } = {
 		displayName = "Brainrot Battlefield",
 		template = "BrainrotBattlefield",
 		spawns = table.freeze({ Stinkers = "Spawns/Stinkers", Sharters = "Spawns/Sharters" }),
-		bounds = table.freeze({ center = Vector3.new(0, 30, 0), size = Vector3.new(160, 60, 160) }),
+		-- Three times the 160-stud layout, room for 20 (avatars stay their size).
+		scale = 3,
+		bounds = table.freeze({ center = Vector3.new(0, 90, 0), size = Vector3.new(480, 180, 480) }),
 		modes = table.freeze({ "TeamElimination", "GasControl" }),
 		-- Porcelain Plaza, around the throne.
 		zone = "Zones/ControlZone",

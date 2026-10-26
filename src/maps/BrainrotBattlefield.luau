@@ -2,7 +2,9 @@
 -- in Git. A Model named BrainrotBattlefield placed here in Studio replaces it
 -- (MapService uses whichever is in ServerStorage.Maps).
 --
--- 160 x 160 studs, ground at y = 0. The Skibidi Stinkers spawn at the -Z end
+-- Laid out on a 160 x 160 grid, then built MapConfig's `scale` times bigger
+-- (480 x 480 studs at 3; every number below is the layout's). Ground at
+-- y = 0. The Skibidi Stinkers spawn at the -Z end
 -- and the Sigma Sharters at +Z; everything on one half is mirrored onto the
 -- other across z = 0, so neither side has a better layout. Three lanes run
 -- along Z, split by divider walls at x = ±26 that each have two gaps:
@@ -179,6 +181,8 @@ local function build(entry: MapConfig.MapEntry): Model
 	}
 	MapKit.cameraViews(cameras, views)
 
+	MapKit.scale(model, entry.scale)
+	-- The bounds are already full size.
 	marker(model, "Bounds", entry.bounds.size, CFrame.new(entry.bounds.center))
 	model.PrimaryPart = model:FindFirstChild("Bounds") :: BasePart
 	return model

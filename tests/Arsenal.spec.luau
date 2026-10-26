@@ -1,7 +1,7 @@
 -- The new weapons and the Q abilities (masterplan 3.3), through the real
 -- remotes:
 --   * Spritzer: small hits at a fast rate (never faster over time, however
---     the shots are timed; honest jitter passes), nothing past 60 studs
+--     the shots are timed; honest jitter passes), nothing past its range
 --   * Thunderclapper: heavy hits, a slow rate, and a slower walk
 --   * Stink Lobber: the throw arcs and lands; the splash and the cloud gas
 --     enemies (never teammates), the cloud stops when you step out and
@@ -176,11 +176,12 @@ for _, gap in { 0.1, 0.1, 0.14, 0.06, 0.1 } do
 end
 check(rejects("FireWeapon", "tooFast") == refusedBefore, "a late shot followed by an early one (network jitter) isn't refused")
 reset()
-aim = lineUp(80)
+local sprayRange = WeaponConfig.weapons.Spritzer.range
+aim = lineUp(sprayRange + 20)
 task.wait(0.11)
 shoot(aim)
-check(Gas.gasOf(foe) == 0, "past 60 studs, nothing")
-check(lastHeard("shot") and (lastHeard("shot").to - lastHeard("shot").from).Magnitude <= 60.5, "the spray stops at its range")
+check(Gas.gasOf(foe) == 0, `past {sprayRange} studs, nothing`)
+check(lastHeard("shot") and (lastHeard("shot").to - lastHeard("shot").from).Magnitude <= sprayRange + 0.5, "the spray stops at its range")
 
 -- Thunderclapper.
 give("Thunderclapper")

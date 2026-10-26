@@ -1,7 +1,8 @@
 -- The map's Blender props (art/blender/build_props.py) in the game:
 --   * PropArt (generated) has every prop MapArt uses, each modelled at the
---     size of its map part, within Roblox's triangle limit; every part
---     MapArt names is in the map
+--     size of its map part in the layout (before MapConfig's scale grows
+--     the map; the dressing stretches it to fit), within Roblox's
+--     triangle limit; every part MapArt names is in the map
 --   * until the meshes are imported the map is its plain parts, as before
 --   * imported (at any scale, as a MeshPart or inside the importer's
 --     Model), each named part gets its mesh drawn exactly over it,
@@ -80,6 +81,10 @@ end
 
 -- The art.
 local map = Map.current() :: Model
+-- The map at its layout's size, which the props are modelled on.
+local layoutEntry = table.clone(MapConfig.BrainrotBattlefield)
+layoutEntry.scale = 1
+local layout = (require(game.ServerStorage.Maps.BrainrotBattlefield) :: any).build(layoutEntry)
 local used = { [MapArt.BEAN] = true }
 for name, rule in MapArt.parts do
 	used[rule.mesh] = true
@@ -92,7 +97,7 @@ for prop, art in PropArt do
 	if prop == MapArt.BEAN then
 		check(near(art.size, Vector3.new(2.4, 1.6, 1.6)), "the bean is the size of Bean Rain's beans")
 	else
-		local part = partsNamed(map, art.modelledOn)[1]
+		local part = partsNamed(layout, art.modelledOn)[1]
 		local rule = MapArt.parts[art.modelledOn]
 		check(part and rule and rule.mesh == prop, `{prop} dresses {art.modelledOn}`)
 		local _, size = MapDressing.placement(part, rule)
@@ -164,6 +169,9 @@ map = Map.load("BrainrotBattlefield")
 local ok, problems = MapBase.validate(map, MapConfig.BrainrotBattlefield, { "Stinkers", "Sharters" })
 check(ok, "still keeps the MapBase contract: " .. table.concat(problems, "; "))
 local dressed, expected, wanted = 0, {}, 0
+-- Modules grow with the map, so they keep their proportions.
+local scale = MapConfig.BrainrotBattlefield.scale
+check(map:GetAttribute("Scale") == scale, "the map says how much bigger it's built")
 local function key(name: string, position: Vector3): string
 	return string.format("%s %.2f %.2f %.2f", name, position.X, position.Y, position.Z)
 end
@@ -171,7 +179,7 @@ for name, rule in MapArt.parts do
 	for _, part in partsNamed(map, name) do
 		dressed += 1
 		check(part.Transparency == 1 and part:GetAttribute("Dressed") == rule.mesh and not part.CastShadow, `{part:GetFullName()} is now the invisible hitbox`)
-		for _, piece in MapDressing.pieces(part, rule) do
+		for _, piece in MapDressing.pieces(part, rule, scale) do
 			expected[key(name, piece.cframe.Position)] = { part = part, piece = piece, rule = rule }
 			wanted += 1
 		end
@@ -197,7 +205,7 @@ for _, item in map:GetDescendants() do
 		if art.tile then
 			for _, axis in { "X", "Y", "Z" } do
 				if (art.tile :: any)[axis] > 0 then
-					local stretch = (item.Size :: any)[axis] / (art.size :: any)[axis]
+					local stretch = (item.Size :: any)[axis] / ((art.size :: any)[axis] * scale)
 					check(stretch >= 0.75 and stretch <= 1.25, `{item:GetFullName()}: a module stretched {stretch} on {axis}, no more than a quarter`)
 				end
 			end
@@ -211,7 +219,7 @@ for _, item in map:GetDescendants() do
 end
 check(arts == wanted and dressed > 60 and arts > 300, `every named part dressed ({dressed} parts, {arts} meshes)`)
 local sideWall = partsNamed(map, "SideWall")[1]
-check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
+check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall, scale) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
 -- The big floors stay studded plastic baseplates (Roblox's own studs).
 for _, name in { "Ground", "LaneLeftFloor", "LaneRightFloor" } do
 	local floor = map.Floor:FindFirstChild(name) :: BasePart

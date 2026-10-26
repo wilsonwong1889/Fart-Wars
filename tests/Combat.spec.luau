@@ -243,12 +243,14 @@ check(Dash.dash(ada, HEAD), "after the cooldown, another")
 place(ada, start.X, start.Z + 60) -- far more than a dash allows
 task.wait(0.6)
 check((ada.Character.HumanoidRootPart.Position - start).Magnitude < 1 and rejects("FartDash", "tooFar") == 1, "too far: put back")
--- Through the spawn room's front wall (z = -57): a short hop, but a wall.
+-- Through the spawn room's front wall (z = -57 in the layout, built the
+-- map's scale bigger): a short hop, but a wall.
 task.wait(2.6)
-place(ada, 0, -53)
+local frontWall = -57 * require(game.ReplicatedStorage.Shared.Config.MapConfig).BrainrotBattlefield.scale
+place(ada, 0, frontWall + 5)
 local outside = ada.Character.HumanoidRootPart.Position
 check(Dash.dash(ada, HEAD), "a dash by the spawn room's front wall")
-place(ada, 0, -61)
+place(ada, 0, frontWall - 5)
 task.wait(0.6)
 check((ada.Character.HumanoidRootPart.Position - outside).Magnitude < 1 and rejects("FartDash", "throughWall") == 1, "through the wall: put back")
 check((Telemetry.snapshot().counters["flags.dashThroughWall"] or 0) == 1, "and flagged for review")

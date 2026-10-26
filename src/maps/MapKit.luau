@@ -128,6 +128,37 @@ function MapKit.cameraViews(cameras: Instance, views: { { Vector3 } })
 	end
 end
 
+-- Scales a built map by `factor` about the ground at the origin: every
+-- part's size and position, markers, camera points and barrels included,
+-- so the mirror across z = 0 still holds. A part lying on the ground and
+-- at most a stud tall (a floor strip, a spawn pad, the zone ring) keeps
+-- its height, so it stays something you walk on rather than a step.
+-- Rotations must be quarter turns (all the kit makes). The map keeps the
+-- factor as its Scale attribute, so the dressing's modules grow with it.
+function MapKit.scale(model: Model, factor: number)
+	if factor == 1 then
+		return
+	end
+	model:SetAttribute("Scale", factor)
+	for _, item in model:GetDescendants() do
+		if item:IsA("BasePart") then
+			local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = item.CFrame:GetComponents()
+			-- World up in the part's own axes picks out its vertical side.
+			local up = Vector3.new(math.abs(r10), math.abs(r11), math.abs(r12))
+			local size = item.Size
+			local height = up.X * size.X + up.Y * size.Y + up.Z * size.Z
+			local flat = height <= 1 and math.abs(y - height / 2) <= 0.5
+			if flat then
+				item.Size = size * (Vector3.new(1, 1, 1) - up) * factor + size * up
+			else
+				item.Size = size * factor
+				y *= factor
+			end
+			item.CFrame = CFrame.new(x * factor, y, z * factor, r00, r01, r02, r10, r11, r12, r20, r21, r22)
+		end
+	end
+end
+
 -- The control zone for zone modes (a marker) and its floor ring (hidden
 -- until a zone round turns it on), centred on `center` at ground level.
 function MapKit.controlZone(zones: Instance, floor: Instance, center: Vector3, size: Vector3, theme: MapConfig.Theme)
