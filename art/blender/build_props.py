@@ -30,6 +30,7 @@ part); blocks are sized x (width), y (depth, Roblox -Z), z (height, Roblox
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 
@@ -813,7 +814,7 @@ def layout_scene(items, art):
         bpy.context.scene.collection.objects.link(obj)
 
 
-def map_render(items, art, filename, camera_from, look_at, lens, size=(1600, 900), samples=48):
+def map_render(items, art, filename, camera_from, look_at, lens, size=(1600, 900), samples=48, clip_end=2000):
     kit.reset()
     scene = bpy.context.scene
     layout_scene(items, art)
@@ -826,7 +827,7 @@ def map_render(items, art, filename, camera_from, look_at, lens, size=(1600, 900
     background.inputs["Strength"].default_value = 1.0
     kit.camera(R2B @ Vector(camera_from), R2B @ Vector(look_at))
     scene.camera.data.lens = lens
-    scene.camera.data.clip_end = 2000
+    scene.camera.data.clip_end = clip_end
     sun = kit.light("Sun", "SUN", (0, 0, 100), 3.5)
     aim(sun, Vector((-0.4, 0.6, -1)) + sun.location)
     sun.data.angle = math.radians(8)
@@ -834,16 +835,39 @@ def map_render(items, art, filename, camera_from, look_at, lens, size=(1600, 900
     bpy.ops.render.render(write_still=True)
 
 
+def map_scale(map_id="BrainrotBattlefield"):
+    """The map's `scale` in src/shared/Config/MapConfig.luau: how many times
+    bigger than its layout's numbers the game builds it (MapKit.scale)."""
+    with open(os.path.join(kit.ROOT, "src", "shared", "Config", "MapConfig.luau")) as f:
+        text = f.read()
+    entry = re.search(rf"\b{map_id}\s*=\s*table\.freeze\(\{{(.*)", text, re.S)
+    scale = entry and re.search(r"^\s*scale\s*=\s*([\d.]+)", entry.group(1), re.M)
+    if not scale:
+        raise ValueError(f"no scale for {map_id} in MapConfig.luau")
+    return float(scale.group(1))
+
+
 def map_renders():
     refresh_layout()
     items = read_layout()
     with open(os.path.join(OUT, "manifest.json")) as f:
         art = {entry["name"]: entry["size"] for entry in json.load(f)}
-    # Roblox coordinates: the throne at the centre, the Stinkers at -Z.
-    map_render(items, art, "plaza.png", (46, 30, -60), (0, 4, -6), 30)
-    map_render(items, art, "map.png", (150, 150, -175), (0, 0, -8), 32)
+    # Roblox coordinates in the layout's numbers (the 160-stud grid the
+    # map's code is written on: the throne at the centre, the Stinkers at
+    # -Z, the lane gates at z = -42), times MapConfig's scale, so each shot
+    # frames the same thing however big the map is built.
+    s = map_scale()
+
+    def shot(filename, camera_from, look_at, lens):
+        map_render(items, art, filename, [c * s for c in camera_from], [c * s for c in look_at], lens, clip_end=700 * s)
+
+    # Inside the Stinkers' lane gates (any further back and the plaza's
+    # gate, its post and the Gutter's pipe stand between the camera and
+    # the throne), low enough that the low walls read as walls.
+    shot("plaza.png", (30, 24, -36), (0, 4, -2), 26)
+    shot("map.png", (150, 150, -175), (0, 0, -8), 32)
     # Over the Stinkers' spawn room's front wall, looking down inside.
-    map_render(items, art, "spawn.png", (14, 34, -50), (-4, 0, -68), 24)
+    shot("spawn.png", (14, 34, -50), (-4, 0, -68), 24)
 
 
 def write_luau(manifest):
