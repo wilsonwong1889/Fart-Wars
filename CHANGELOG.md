@@ -6,7 +6,9 @@
   for 20. The low cover stays low: the plaza and alley walls (5 studs;
   the alley's was 6) and the crates (6) keep about an avatar's height
   while they spread out, so you hide right behind them, shoot past their
-  ends, jump to fire over them and lob over them. The throne, the bean
+  ends, jump to fire over them and lob over them. A wide stack of crates
+  shows as a grid of ordinary crates rather than one squashed one. The
+  throne, the bean
   cans and the Gutter's toilet grew with the map and hide you whole.
 - Lane gates: each lane's entrance, on both halves, has a gate up on the
   walls with the lane's name on a lit sign that reads from both ends, and

@@ -14,7 +14,11 @@
 --   face   "away": the mesh's front (its -Z) faces away from the centre
 --          line z = 0, so the mirrored half's copy turns round instead of
 --          facing the wrong way (MapKit.mirror can't turn a mesh round)
-export type Rule = { mesh: string, turn: number?, long: boolean?, face: "away"? }
+--   tile   repeat the mesh this many studs apart along each axis (0: not
+--          along that one), at its own size whatever the map's scale: for
+--          low cover, which keeps avatar size while its footprint grows,
+--          so a wide stack of crates is several crates, not one squashed
+export type Rule = { mesh: string, turn: number?, long: boolean?, face: "away"?, tile: Vector3? }
 
 local MapArt = {}
 
@@ -33,7 +37,8 @@ MapArt.parts = {
 	-- Cover.
 	PlazaWall = { mesh = "CoverWall" },
 	AlleyWall = { mesh = "CoverWall" },
-	Crate = { mesh = "Crate" },
+	-- A crate stack: one 8-stud crate a tile, never stretched across.
+	Crate = { mesh = "Crate", tile = Vector3.new(8, 0, 8) },
 	-- Inside each GasBarrel model.
 	Barrel = { mesh = "GasBarrel" },
 	Band = { mesh = "BarrelBand" },

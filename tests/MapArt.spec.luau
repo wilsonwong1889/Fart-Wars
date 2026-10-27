@@ -238,8 +238,19 @@ for _, name in { "PlazaWall", "AlleyWall", "Crate" } do
 	for _, part in found do
 		check(part:GetAttribute("KeepHeight") == true and math.abs(part.Size.Y - art.size.Y) < 1e-3, `{part:GetFullName()} is low cover at its {rule.mesh}'s {art.size.Y}-stud height`)
 		local pieces = MapDressing.pieces(part, rule, scale)
-		check(#pieces == 1 and near(pieces[1].size, part.Size), `{part:GetFullName()}: one {rule.mesh} over the whole of it`)
-		check(math.abs(pieces[1].size.Y - art.size.Y) < 1e-3 and pieces[1].size.X > art.size.X, `{part:GetFullName()}'s {rule.mesh} stretched across, not up or down`)
+		if rule.tile then
+			-- A crate stack: a grid of crates at their own height, covering it.
+			local area = 0
+			for _, piece in pieces do
+				area += piece.size.X * piece.size.Z
+			end
+			check(#pieces > 1 and math.abs(area - part.Size.X * part.Size.Z) < 1e-3 and math.abs(pieces[1].size.Y - part.Size.Y) < 1e-3, `{part:GetFullName()}: a grid of {rule.mesh}s covering it`)
+		else
+			check(#pieces == 1 and near(pieces[1].size, part.Size), `{part:GetFullName()}: one {rule.mesh} over the whole of it`)
+		end
+		if not rule.tile then
+			check(math.abs(pieces[1].size.Y - art.size.Y) < 1e-3 and pieces[1].size.X > art.size.X, `{part:GetFullName()}'s {rule.mesh} stretched across, not up or down`)
+		end
 	end
 	local mesh, why = MapDressing.imported(rule.mesh)
 	check(mesh and why == "imported", `{rule.mesh} still passes the orientation check`)
@@ -254,6 +265,16 @@ do
 end
 local sideWall = partsNamed(map, "SideWall")[1]
 check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall, scale) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
+-- A low crate stack keeps avatar-size crates: a grid of them, each about
+-- the size the crate was modelled at, never one squashed crate.
+for _, crate in partsNamed(map, "Crate") do
+	local pieces = MapDressing.pieces(crate, MapArt.parts.Crate, scale)
+	local across = math.round(crate.Size.X / 8) * math.round(crate.Size.Z / 8)
+	check(#pieces == across and across > 1, `{crate:GetFullName()}: {#pieces} crates in its stack`)
+	for _, piece in pieces do
+		check(near(piece.size, PropArt.Crate.size, 0.5), `{crate:GetFullName()}: each crate at its own size ({piece.size})`)
+	end
+end
 -- The big floors stay studded plastic baseplates (Roblox's own studs).
 for _, name in { "Ground", "LaneLeftFloor", "LaneRightFloor" } do
 	local floor = map.Floor:FindFirstChild(name) :: BasePart

@@ -84,11 +84,11 @@ end
 function MapDressing.pieces(part: BasePart, rule: MapArt.Rule, scale: number?): { Piece }
 	local at, size = MapDressing.placement(part, rule)
 	local art = PropArt[rule.mesh]
-	local tile = art and art.tile
+	-- A rule's own tile stays its size; a PropArt module grows with the map.
+	local tile = if rule.tile then rule.tile elseif art and art.tile then art.tile * (scale or 1) else nil
 	if not tile then
 		return { { cframe = at, size = size } }
 	end
-	tile *= scale or 1
 	local nx, ny, nz = count(size.X, tile.X), count(size.Y, tile.Y), count(size.Z, tile.Z)
 	local piece = Vector3.new(size.X / nx, size.Y / ny, size.Z / nz)
 	local pieces = {}
