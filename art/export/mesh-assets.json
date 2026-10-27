@@ -1,0 +1,109 @@
+{
+ "Effects": {
+  "GasBolt": {
+   "GasBolt": "rbxassetid://102454840374652"
+  },
+  "MuzzleBurst": {
+   "MuzzleBurst": "rbxassetid://117991367394650"
+  },
+  "ShockRing": {
+   "ShockRing": "rbxassetid://132362607264995"
+  },
+  "Splat": {
+   "Splat": "rbxassetid://114059584117381"
+  }
+ },
+ "Props": {
+  "BarrelBand": {
+   "BarrelBand": "rbxassetid://124872637222839"
+  },
+  "Bean": {
+   "Bean": "rbxassetid://131840900490803"
+  },
+  "BeanCan": {
+   "BeanCan": "rbxassetid://134617265626994"
+  },
+  "BeanLabel": {
+   "BeanLabel": "rbxassetid://93542300120380"
+  },
+  "CoverWall": {
+   "CoverWall": "rbxassetid://125545050336013"
+  },
+  "Crate": {
+   "Crate": "rbxassetid://95282470653652"
+  },
+  "GasBarrel": {
+   "GasBarrel": "rbxassetid://73289176635348"
+  },
+  "PlazaTiles": {
+   "PlazaTiles": "rbxassetid://70524103129677"
+  },
+  "SpawnPad": {
+   "SpawnPad": "rbxassetid://133348224280428"
+  },
+  "SpawnTiles": {
+   "SpawnTiles": "rbxassetid://72887744007329"
+  },
+  "TallWall": {
+   "TallWall": "rbxassetid://128624843208358"
+  },
+  "TankLid": {
+   "TankLid": "rbxassetid://105367715416261"
+  },
+  "ToiletBowl": {
+   "ToiletBowl": "rbxassetid://103073382223064"
+  },
+  "ToiletSeat": {
+   "ToiletSeat": "rbxassetid://77131207171066"
+  },
+  "ToiletTank": {
+   "ToiletTank": "rbxassetid://120751096993273"
+  },
+  "Wall": {
+   "Wall": "rbxassetid://119568730668847"
+  },
+  "WallTrim": {
+   "WallTrim": "rbxassetid://71290438579380"
+  }
+ },
+ "Weapons": {
+  "GasBlaster": {
+   "Body": "rbxassetid://130559825563648",
+   "Gas": "rbxassetid://82783195363777",
+   "Glass": "rbxassetid://110060861221448",
+   "Grip": "rbxassetid://111707321403601",
+   "Metal": "rbxassetid://84532257532246",
+   "Needle": "rbxassetid://93364327195114",
+   "Pump": "rbxassetid://73661047254793",
+   "Trim": "rbxassetid://81381463176399"
+  },
+  "Spritzer": {
+   "Body": "rbxassetid://122764036601609",
+   "Gas": "rbxassetid://75037620270681",
+   "Glass": "rbxassetid://70944839244210",
+   "Grip": "rbxassetid://72132652994662",
+   "Metal": "rbxassetid://98425913659086",
+   "Pump": "rbxassetid://108814018203314",
+   "Trim": "rbxassetid://95880494127736"
+  },
+  "StinkLobber": {
+   "Body": "rbxassetid://82593292101075",
+   "Bomb": "rbxassetid://112509835087797",
+   "Fuse": "rbxassetid://131729851436647",
+   "Gas": "rbxassetid://112722656878543",
+   "Glass": "rbxassetid://98038215821514",
+   "Grip": "rbxassetid://104712253400217",
+   "Metal": "rbxassetid://85297190764022",
+   "Trim": "rbxassetid://99907051239110"
+  },
+  "Thunderclapper": {
+   "Body": "rbxassetid://80796257443918",
+   "Gas": "rbxassetid://116931887511338",
+   "Glass": "rbxassetid://103992295526507",
+   "Grip": "rbxassetid://123140960760351",
+   "Metal": "rbxassetid://88956003025350",
+   "Trim": "rbxassetid://120518496484216"
+  }
+ },
+ "_about": "Mesh assets made by importing art/export's FBX files with Studio's 3D Importer (2026-10-27), owned by the game's creator. They live in the place under ReplicatedStorage.Assets (Props, Weapons, Effects); this is the record of their IDs, by folder, model and MeshPart."
+}

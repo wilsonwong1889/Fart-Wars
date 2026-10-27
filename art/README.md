@@ -135,6 +135,16 @@ The map's props dress the parts the map is built from (`MapDressing`,
 - Every mesh has UVs measured in studs, so Roblox's material textures land
   on the meshes at an even size and run on from one module to the next.
 
+## Imported for the game
+
+All 25 FBX files (the 17 props, 4 guns and 4 shot effects: 50 meshes) were
+imported with Studio's 3D Importer on 2026-10-27 and sit in the place under
+`ReplicatedStorage.Assets` (Props, Weapons, Effects). Their mesh asset IDs
+are recorded in `art/export/mesh-assets.json`. The server dresses the map
+and builds the guns from them, so players never have to build meshes
+themselves (a client's budget for that is small). Save or publish the place
+to keep them; after changing a model, import its FBX again over the old one.
+
 ## Import the meshes into Studio (optional)
 
 The game builds the weapon and shot meshes itself, so this is only for

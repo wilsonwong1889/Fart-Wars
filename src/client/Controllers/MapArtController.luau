@@ -23,7 +23,12 @@ local function currentMap(): Instance?
 end
 
 -- Dresses `map` if the meshes are built (and starts building them if not).
+-- Builds nothing when the server already dressed it with imports, so the
+-- small mesh budget stays for what needs it.
 function MapArtController.dress(map: Instance): number
+	if not MapDressing.needsDressing(map) then
+		return 0
+	end
 	MeshBuilder.request(MapDressing.SET)
 	return MapDressing.dressRuntime(map)
 end
@@ -35,7 +40,7 @@ function MapArtController.start()
 	started = true
 	MeshBuilder.built:Connect(function(set)
 		local map = currentMap()
-		if set == MapDressing.SET and map then
+		if set == MapDressing.SET and map and MapDressing.needsDressing(map) then
 			MapDressing.dressRuntime(map)
 		end
 	end)

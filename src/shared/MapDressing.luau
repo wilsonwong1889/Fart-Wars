@@ -178,6 +178,13 @@ function MapDressing.dress(map: Instance): number
 	return dressed
 end
 
+-- Whether any part of `map` that MapArt names is still undressed (the
+-- server dresses with imports, so usually none are and a client has
+-- nothing to build).
+function MapDressing.needsDressing(map: Instance): boolean
+	return #undressed(map) > 0
+end
+
 -- Dresses `map` on this client only, from the meshes MeshBuilder built
 -- from MeshData/Props, wherever the server couldn't (no imports). The part
 -- is hidden here only, by LocalTransparencyModifier, which the server's

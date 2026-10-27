@@ -222,6 +222,14 @@ for _, item in map:GetDescendants() do
 	end
 end
 check(arts == wanted and dressed > 60 and arts > 300, `every named part dressed ({dressed} parts, {arts} meshes)`)
+-- With every prop imported, a client has nothing to dress or build.
+do
+	local Builder = require(Shared.MeshBuilder)
+	local Controller = require(game.StarterPlayer.StarterPlayerScripts.Client.Controllers.MapArtController)
+	Builder.reset()
+	check(not MapDressing.needsDressing(map) and Controller.dress(map) == 0, "imported everywhere: nothing left for a client to dress")
+	check(Builder.status() == "none built yet", "and it doesn't build the props: " .. Builder.status())
+end
 local sideWall = partsNamed(map, "SideWall")[1]
 check(#MapDressing.pieces(sideWall, MapArt.parts.SideWall, scale) == math.round(164 / PropArt.TallWall.tile.X), "a side wall is a row of wall modules, not one stretched mesh")
 -- The big floors stay studded plastic baseplates (Roblox's own studs).
