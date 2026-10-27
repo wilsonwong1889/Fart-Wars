@@ -1,7 +1,7 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 33 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 35 specs, including a 20-player, 20-minute soak).
 Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6;
 sections 8 and 9 are the Blender art (the weapons, the map).
 What's left needs real Roblox: physics, rendering, sound, the real network
