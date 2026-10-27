@@ -14,6 +14,10 @@
 --     the spawn pads still work as spawns under theirs; the ground and
 --     side lanes stay studded plastic, and the plain map's plastic blocks
 --     have studs on top (cylinders don't)
+--   * low cover (kept at avatar height while its footprint grows) still
+--     fits its props: one mesh over the whole part, stretched across but
+--     never up or down (each is laid out at its prop's modelled height),
+--     and the imports still pass the orientation check
 --   * the throne's mirrored tank turns round to face its own bowl; the
 --     Gas Gutter's sideways tank turns to face its bowl, sized to fit
 --   * a gas barrel's mesh goes and comes back with it; the hitbox under
@@ -222,6 +226,24 @@ for _, item in map:GetDescendants() do
 	end
 end
 check(arts == wanted and dressed > 60 and arts > 300, `every named part dressed ({dressed} parts, {arts} meshes)`)
+-- Low cover keeps its avatar height on the big map (the Map spec), so its
+-- props spread across the wider part but keep their own height; the
+-- orientation check compares an import with PropArt, not with the part,
+-- so the new proportions don't make it refuse them.
+for _, name in { "PlazaWall", "AlleyWall", "Crate" } do
+	local rule = MapArt.parts[name]
+	local art = PropArt[rule.mesh]
+	local found = partsNamed(map, name)
+	check(#found > 0, `the map has its {name}s`)
+	for _, part in found do
+		check(part:GetAttribute("KeepHeight") == true and math.abs(part.Size.Y - art.size.Y) < 1e-3, `{part:GetFullName()} is low cover at its {rule.mesh}'s {art.size.Y}-stud height`)
+		local pieces = MapDressing.pieces(part, rule, scale)
+		check(#pieces == 1 and near(pieces[1].size, part.Size), `{part:GetFullName()}: one {rule.mesh} over the whole of it`)
+		check(math.abs(pieces[1].size.Y - art.size.Y) < 1e-3 and pieces[1].size.X > art.size.X, `{part:GetFullName()}'s {rule.mesh} stretched across, not up or down`)
+	end
+	local mesh, why = MapDressing.imported(rule.mesh)
+	check(mesh and why == "imported", `{rule.mesh} still passes the orientation check`)
+end
 -- With every prop imported, a client has nothing to dress or build.
 do
 	local Builder = require(Shared.MeshBuilder)

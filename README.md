@@ -189,9 +189,23 @@ neither side has a better layout (`src/maps/BrainrotBattlefield.luau`):
   (giant bean cans), **Porcelain Plaza** (a back-to-back giant toilet throne
   at the centre) and **Gas Gutter** (crates, a sideways toilet, barrel
   clusters).
+- **Cover in two heights.** Tall cover (the throne, the bean cans, the
+  Gutter's toilet) grows with the map and hides you whole. Low cover (the
+  plaza and alley walls at 5 studs, the crates at 6) keeps its avatar
+  height while its footprint grows: duck behind it, shoot past its ends or
+  jump to fire over it, lob over it. It's marked `KeepHeight`, which
+  `MapKit.scale` honours.
+- **Lane gates.** Each lane's entrance, on both halves, has a gate up on
+  the walls' tops: the lane's name on a sign that reads both ways, a
+  coloured light, and a landmark on top (a giant bean can, a toilet roll
+  with its paper hanging down as the sign, a gas vent puffing green). Coming
+  out of a spawn corridor you see the side lane's sign ahead. The gates are
+  decor above the dividers, so they never block a shot, a path or a
+  sightline anyone plays along (`Landmarks`).
 - **Spawn rooms** at each end, walled at the front and sides with their
-  doors at the back. Nothing in the lanes or the enemy half can see a pad
-  (the Map spec checks over 13,000 sightlines).
+  doors at the back. Nothing in the lanes or the enemy half can see a pad,
+  standing or up on low cover (the Map spec checks over 22,000
+  sightlines, and counts only walls and cover).
 - **Gas barrels** sit in the contested middle, never by a spawn, one
   `GasBarrel` model each in the `Barrels` folder.
 - `Zones` marks the lanes and spawn areas, `CameraPoints` holds the home
@@ -280,7 +294,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
 | `WeaponArt` | the Blender art for every weapon, its moving parts, and the packed meshes (each unpacking to its size, facing out); the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); built in the game (a stand-in EditableMesh), every gun dressed in the meshes, the stand-in hidden, the hotbar too; equip, recoil, springs past rest, the twirl, sway and walk bob, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; the pump, the gauge's needle, the Stink Lobber's bomb; muzzle particles, lights and rings, impacts (light, ring), a hit's flash, barrel smoke, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, lighting and trailing smoke, the burst, splats on walls (never players), reduced effects, the imported and built meshes |
-| `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
+| `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; low cover's walls and crates stretched across its wider footprint but never up or down, their imports still accepted; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `HitFeedback` | the hit marker at the crosshair, only on the server's verdict: body, headshot (bigger, gold, the hit sound pitched up), the hit that sets them off (bigger still, a ring) and one that did nothing (grey, silent); the pop, the fade, back-to-back hits; REDUCE MOTION and REDUCED EFFECTS |
@@ -296,7 +310,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
 | `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining): no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
-| `Map` | the MapBase contract, symmetry, lanes, spawn sightlines, barrel placement, reloading |
+| `Map` | the MapBase contract, symmetry, lanes, cover heights (low cover at avatar height, the rest scaled; `MapKit.scale`'s KeepHeight on its own), spawn sightlines (standing, up on low cover, up on anything on the enemy half), the lane gates (a sign per lane per half reading both ways, lit, in sight of the spawn exits, decor above the dividers, a few dozen parts), barrel placement, reloading |
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
 
 A spec fails on any error in a background thread, not just its own checks.

@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TeamConfig = require(Shared.Config.TeamConfig)
 local MapConfig = require(Shared.Config.MapConfig)
+local UIConfig = require(Shared.Config.UIConfig)
 
 local MapKit = {}
 
@@ -16,6 +17,22 @@ export type Props = { [string]: any }
 
 -- Turns a cylinder's axis from X to Y.
 MapKit.UPRIGHT = CFrame.Angles(0, 0, math.rad(90))
+
+-- The attribute (and `props` key) that marks a part laid out at avatar
+-- height: MapKit.scale grows it across but not up. It's for low cover, the
+-- walls and crates players shoot and lob over, which would otherwise come
+-- out three times taller than the avatars behind them.
+MapKit.KEEP_HEIGHT = "KeepHeight"
+
+-- The furthest a light reaches (Roblox's limit), which MapKit.scale stops at.
+MapKit.MAX_LIGHT_RANGE = 60
+
+-- A sign's canvas width in pixels. TextScaled words top out at 100 pixels
+-- tall, so the canvas has to stay this size whatever the sign's, or the
+-- words on a big sign would come out small.
+local SIGN_PIXELS = 600
+-- The outline round a sign's words, so they read against any board.
+local SIGN_STROKE = Color3.fromRGB(35, 30, 45)
 
 -- The other half's copy of a CFrame: reflected across z = 0. The rotation
 -- is conjugated by the reflection, which mirrors any shape that is
@@ -32,8 +49,9 @@ function MapKit.folder(name: string, parent: Instance): Folder
 	return f
 end
 
--- An anchored part; `props` may set ClassName (a SpawnLocation, say). A
--- plastic block gets studs on top, like a building brick.
+-- An anchored part; `props` may set ClassName (a SpawnLocation, say) and
+-- KeepHeight (true: low cover, see MapKit.KEEP_HEIGHT). A plastic block
+-- gets studs on top, like a building brick.
 function MapKit.part(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?): BasePart
 	local className = if props and props.ClassName then props.ClassName else "Part"
 	local p = Instance.new(className) :: BasePart
@@ -45,7 +63,9 @@ function MapKit.part(parent: Instance, name: string, size: Vector3, frame: CFram
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	if props then
 		for key, value in props do
-			if key ~= "ClassName" then
+			if key == MapKit.KEEP_HEIGHT then
+				p:SetAttribute(MapKit.KEEP_HEIGHT, value)
+			elseif key ~= "ClassName" then
 				(p :: any)[key] = value
 			end
 		end
@@ -73,9 +93,10 @@ function MapKit.marker(parent: Instance, name: string, size: Vector3, frame: CFr
 	})
 end
 
--- A part on the Stinkers half and its mirror on the Sharters half. With
--- `tint`, each copy takes its own team's colour.
-function MapKit.pair(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?, tint: boolean?)
+-- A part on the Stinkers half and its mirror on the Sharters half, both
+-- returned (the Stinkers' first). With `tint`, each copy takes its own
+-- team's colour.
+function MapKit.pair(parent: Instance, name: string, size: Vector3, frame: CFrame, props: Props?, tint: boolean?): (BasePart, BasePart)
 	local function copy(at: CFrame, team: string)
 		local p = MapKit.part(parent, name, size, at, props)
 		if tint then
@@ -84,8 +105,66 @@ function MapKit.pair(parent: Instance, name: string, size: Vector3, frame: CFram
 		end
 		return p
 	end
-	copy(frame, "Stinkers")
-	copy(MapKit.mirror(frame), "Sharters")
+	return copy(frame, "Stinkers"), copy(MapKit.mirror(frame), "Sharters")
+end
+
+-- Decor: a part that is only to look at. Players walk and shoot through it
+-- and it never stops a blast or a raycast, so keep it out of reach (up on
+-- the walls, above everyone's heads) where seeing through it can't matter.
+function MapKit.decor(color: Color3, material: Enum.Material?, extra: Props?): Props
+	local props: Props = {
+		Color = color,
+		Material = material or Enum.Material.SmoothPlastic,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	}
+	for key, value in extra or {} do
+		props[key] = value
+	end
+	return props
+end
+
+-- Writes `text` on a sign's front and back (its -Z and +Z faces), in the
+-- game's display font with a dark outline, lit the same whatever the
+-- lighting, so it reads from either way down a lane.
+function MapKit.sign(part: BasePart, text: string, color: Color3)
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = `{face.Name}Sign`
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		-- The board's own proportions, so the words aren't stretched.
+		gui.CanvasSize = Vector2.new(SIGN_PIXELS, math.round(SIGN_PIXELS * part.Size.Y / part.Size.X))
+		gui.LightInfluence = 0
+		local label = Instance.new("TextLabel")
+		label.Name = "Name"
+		label.AnchorPoint = Vector2.new(0.5, 0.5)
+		label.Position = UDim2.fromScale(0.5, 0.5)
+		label.Size = UDim2.fromScale(0.92, 0.8)
+		label.BackgroundTransparency = 1
+		label.Text = text
+		label.TextScaled = true
+		label.Font = UIConfig.font
+		label.TextColor3 = color
+		label.TextStrokeColor3 = SIGN_STROKE
+		label.TextStrokeTransparency = 0
+		label.Parent = gui
+		gui.Parent = part
+	end
+end
+
+-- A coloured lamp in `part` (a neon trim, say), reaching `range` studs in
+-- the layout (MapKit.scale stretches it with the map). No shadows: they
+-- cost the most and an accent light doesn't need them.
+function MapKit.light(part: BasePart, color: Color3, range: number, brightness: number?): PointLight
+	local lamp = Instance.new("PointLight")
+	lamp.Color = color
+	lamp.Range = range
+	lamp.Brightness = brightness or 2
+	lamp.Shadows = false
+	lamp.Parent = part
+	return lamp
 end
 
 function MapKit.cylinder(color: Color3, material: Enum.Material?): Props
@@ -130,11 +209,18 @@ end
 
 -- Scales a built map by `factor` about the ground at the origin: every
 -- part's size and position, markers, camera points and barrels included,
--- so the mirror across z = 0 still holds. A part lying on the ground and
--- at most a stud tall (a floor strip, a spawn pad, the zone ring) keeps
--- its height, so it stays something you walk on rather than a step.
--- Rotations must be quarter turns (all the kit makes). The map keeps the
--- factor as its Scale attribute, so the dressing's modules grow with it.
+-- so the mirror across z = 0 still holds. Two kinds of part grow only
+-- across and keep their height and where they stand:
+--   * one lying on the ground and at most a stud tall (a floor strip, a
+--     spawn pad, the zone ring), so it stays something you walk on rather
+--     than a step
+--   * one marked KeepHeight (low cover), laid out at avatar height, so a
+--     chest-high wall stays chest-high instead of becoming a wall nobody
+--     can shoot or lob over
+-- Lights reach `factor` times further, up to Roblox's limit, so a lamp
+-- still lights what it lit in the layout. Rotations must be quarter turns
+-- (all the kit makes). The map keeps the factor as its Scale attribute, so
+-- the dressing's modules grow with it.
 function MapKit.scale(model: Model, factor: number)
 	if factor == 1 then
 		return
@@ -148,13 +234,16 @@ function MapKit.scale(model: Model, factor: number)
 			local size = item.Size
 			local height = up.X * size.X + up.Y * size.Y + up.Z * size.Z
 			local flat = height <= 1 and math.abs(y - height / 2) <= 0.5
-			if flat then
+			if flat or item:GetAttribute(MapKit.KEEP_HEIGHT) == true then
 				item.Size = size * (Vector3.new(1, 1, 1) - up) * factor + size * up
 			else
 				item.Size = size * factor
 				y *= factor
 			end
 			item.CFrame = CFrame.new(x * factor, y, z * factor, r00, r01, r02, r10, r11, r12, r20, r21, r22)
+		elseif item:IsA("Light") then
+			local light = item :: any
+			light.Range = math.min(light.Range * factor, MapKit.MAX_LIGHT_RANGE)
 		end
 	end
 end
