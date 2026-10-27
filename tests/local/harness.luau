@@ -2187,6 +2187,11 @@ end
 -- Services
 
 local function noop() end
+-- RunService:BindToRenderStep's functions, in the order they were bound.
+-- Nothing renders here, so they only run when a spec calls the spec-only
+-- RunService:RenderFrame(dt): one frame, lowest priority first.
+local renderSteps = {}
+local renderSequence = 0
 local SERVICE_METHODS = {
 	RunService = {
 		IsStudio = function()
@@ -2207,8 +2212,28 @@ local SERVICE_METHODS = {
 		IsEdit = function()
 			return true
 		end,
-		BindToRenderStep = noop,
-		UnbindFromRenderStep = noop,
+		BindToRenderStep = function(_, name, priority, fn)
+			renderSequence += 1
+			renderSteps[name] = { priority = priority, fn = fn, order = renderSequence }
+		end,
+		UnbindFromRenderStep = function(_, name)
+			renderSteps[name] = nil
+		end,
+		RenderFrame = function(_, dt)
+			local list = {}
+			for _, step in renderSteps do
+				table.insert(list, step)
+			end
+			table.sort(list, function(a, b)
+				if a.priority ~= b.priority then
+					return a.priority < b.priority
+				end
+				return a.order < b.order
+			end)
+			for _, step in list do
+				step.fn(dt or 1 / 60)
+			end
+		end,
 	},
 	Players = {
 		GetPlayers = function(self)
@@ -2484,7 +2509,12 @@ local SERVICE_METHODS = {
 		IsMouseButtonPressed = function()
 			return false
 		end,
-		GetMouseLocation = function()
+		-- As in Roblox, a mouse locked to the centre is at the screen's centre.
+		GetMouseLocation = function(self)
+			if self.MouseBehavior == Enum.MouseBehavior.LockCenter then
+				local camera = game:GetService("Workspace").CurrentCamera
+				return camera.ViewportSize / 2
+			end
 			return Vector2.zero
 		end,
 		GetLastInputType = function()
