@@ -144,6 +144,7 @@ eliminations, they get them on day 6.
   for example) is a new system, so it's on the [roadmap](roadmap.md).
 - The coin packs in `MonetizationConfig` (500 / 1,200 / 3,000) matched the
   old gun prices. Look at them before selling them.
-- Profiles saved before this change keep their level and XP toward the next.
-  They just level faster from now on (levels aren't recomputed from
-  `LifetimeXP`).
+- Profiles saved before this change keep their level and XP toward the next,
+  and level faster from now on (levels aren't recomputed from `LifetimeXP`).
+  One holding more XP than its level now needs takes the levels that XP
+  pays for, with their unlocks, when it next loads (`EconomyService`).

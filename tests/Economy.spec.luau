@@ -13,6 +13,8 @@
 --   * participation pays at 5 and 10 minutes of ACTIVE play, once; menu
 --     spectating and AFK time earn nothing
 --   * a reward granted before the profile loads isn't lost
+--   * a profile saved holding more XP than its level needs now takes those
+--     levels, and their unlocks, as it loads
 --   * the client shows coins, level, the XP bar, the next goal, reward
 --     lines (a few at most), the level-up banner and the saving state
 local Players = game:GetService("Players")
@@ -295,6 +297,31 @@ check(not Data.isLoaded(lou) and Economy.testGrant(lou, 7, 0), "Lou earns before
 task.wait(2.5)
 latency = 0
 check(Data.isLoaded(lou) and data(lou).Coins == 7, "it's there once it loads")
+
+-- A profile saved when levels cost more, holding more XP than its level
+-- needs now: it takes the levels that XP pays for, with their unlocks, as
+-- it loads (not at its next grant), and nothing else changes.
+local spare = 10
+saved.player_960 = {
+	Level = 9,
+	XP = ProgressionConfig.xpToNext(9) + ProgressionConfig.xpToNext(10) + ProgressionConfig.xpToNext(11) + spare,
+	LifetimeXP = 5000,
+}
+local vetLevels = {}
+Remotes.ProgressEvent.FiredToClient:Connect(function(player, event)
+	if player.Name == "Vet" and event.kind == "levelUp" then
+		table.insert(vetLevels, event.level)
+	end
+end)
+local vet = Instance.new("Player")
+vet.Name = "Vet"
+vet.UserId = 960
+vet.Parent = Players
+task.wait(0.1)
+check(Data.isLoaded(vet) and data(vet).Level == 12 and data(vet).XP == spare and data(vet).LifetimeXP == 5000, `XP to spare: its levels as it loads (level {data(vet).Level}, {data(vet).XP} XP)`)
+check(table.find(data(vet).UnlockedAbilities, "RecoveryBurst") and table.concat(vetLevels, ",") == "10,11,12", "with level 10's unlock and a banner for each level")
+check(vet:GetAttribute("Level") == 12 and vet:GetAttribute("XPToNext") == ProgressionConfig.xpToNext(12), "and the HUD's numbers")
+vet.Parent = nil
 
 -- Anomalous combat earnings.
 for i = 1, 4 do
