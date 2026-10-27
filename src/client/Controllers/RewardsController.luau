@@ -3,9 +3,10 @@
 --                 claimed ticked, today's lit up, CLAIM when it's open,
 --                 and the exact time to the next reset. Opens by itself on
 --                 the home screen when a claim is waiting (once a session).
---   SpinWheel     free spins: every prize with its exact chance, SPIN, a
---                 short roll that lands on what the server drew, and how
---                 long until the next free spin (active play only).
+--   SpinWheel     free spins: a prize wheel (SpinWheel) with every prize's
+--                 exact chance, SPIN, the wheel winding up, spinning and
+--                 landing on what the server drew, the win, and how long
+--                 until the next free spin (active play only).
 -- The server decides everything (RewardsRequest); these only ask and show.
 -- Each frees the mouse while it's open (MouseLock, under its own name).
 local Players = game:GetService("Players")
@@ -20,11 +21,14 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local MouseLock = require(Client.MouseLock)
 local Audio = require(Client.Audio)
+local Settings = require(Client.Settings)
+local SpinWheel = require(Client.SpinWheel)
 local HealthController = require(script.Parent.HealthController)
 
 local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 205, 50)
 local MONEY = Color3.fromRGB(90, 210, 70)
+local WHEEL_RADIUS = 175
 
 local RewardsController = {}
 
@@ -163,52 +167,22 @@ local function build()
 		Parent = box,
 	})
 
-	-- The free spin
+	-- The free spin: the wheel, SPIN under it, and a note.
 	local wheel = UI.screen("SpinWheel", 16)
 	wheel.Enabled = false
 	p.wheel = wheel
-	local spinBox = panel(wheel, "Panel", UDim2.new(0, 520, 0, 470))
-	UI.label("🎡 FREE SPIN", 44, { Name = "Title", Position = UDim2.new(0, 0, 0, 16), Size = UDim2.new(1, 0, 0, 50), Parent = spinBox })
+	local spinBox = panel(wheel, "Panel", UDim2.new(0, 560, 0, 604))
+	UI.label("🎡 FREE SPIN", 42, { Name = "Title", Position = UDim2.new(0, 0, 0, 10), Size = UDim2.new(1, 0, 0, 46), Parent = spinBox })
 	closeButton(spinBox, RewardsController.closeSpin)
-	local list = UI.new("Frame", {
-		Name = "Prizes",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 76),
-		Size = UDim2.new(1, -60, 0, 6 * 40),
-		BackgroundTransparency = 1,
-		Parent = spinBox,
-	}, { UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Center) })
-	p.prizes = {}
-	for i, prize in RewardsConfig.spin do
-		local prizeRow = UI.new("Frame", {
-			Name = prize.id,
-			LayoutOrder = i,
-			Size = UDim2.new(1, 0, 0, 36),
-			BackgroundColor3 = Color3.fromRGB(40, 36, 52),
-			Parent = list,
-		}, { UI.corner(8), UI.stroke(C.stroke, 2) })
-		UI.label(prize.label, 18, {
-			Name = "Label",
-			Position = UDim2.new(0, 12, 0, 0),
-			Size = UDim2.new(0.7, 0, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = prizeRow,
-		})
-		UI.label(string.format("%g%%", math.floor(RewardsConfig.chance(prize) * 1000 + 0.5) / 10), 18, {
-			Name = "Chance",
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -12, 0, 0),
-			Size = UDim2.new(0.3, 0, 1, 0),
-			TextXAlignment = Enum.TextXAlignment.Right,
-			TextColor3 = GOLD,
-			Parent = prizeRow,
-		})
-		p.prizes[prize.id] = prizeRow
-	end
+	local spinner = SpinWheel.new(spinBox, RewardsConfig.spin, RewardsConfig.chance, WHEEL_RADIUS)
+	spinner.holder.Position = UDim2.new(0.5, 0, 0, 84 + spinner.holder.Size.Y.Offset / 2)
+	p.spinner = spinner
+	-- Each prize's card on the wheel (its Chance shows the exact odds).
+	p.prizes = spinner.cards
 	local spin = UI.button("SPIN!", C.play, {
 		Name = "Spin",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 330),
+		Position = UDim2.new(0.5, 0, 0, 480),
 		Size = UDim2.new(0, 240, 0, 60),
 		TextSize = 36,
 		Parent = spinBox,
@@ -218,7 +192,7 @@ local function build()
 	p.spinNote = UI.label("", 18, {
 		Name = "Note",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 398),
+		Position = UDim2.new(0.5, 0, 0, 546),
 		Size = UDim2.new(1, -40, 0, 50),
 		TextWrapped = true,
 		Font = UIConfig.bodyFont,
@@ -251,7 +225,11 @@ local function renderSpin()
 	local p = RewardsController.parts
 	local spins = tonumber(player:GetAttribute("Spins")) or 0
 	UI.setEnabled(p.spin, spins > 0 and not RewardsController.busy)
-	p.spin.Text = if spins > 0 then `SPIN! ({spins})` else "NO SPINS"
+	p.spin.Text = if RewardsController.busy then "SPINNING..." elseif spins > 0 then `SPIN! ({spins})` else "NO SPINS"
+	-- Mid-spin the note waits for the result.
+	if RewardsController.busy then
+		return
+	end
 	local nextGift = player:GetAttribute("NextGiftSeconds")
 	p.spinNote.Text = if type(nextGift) == "number"
 		then `Next free spin after {math.ceil(nextGift / 60)} more minute{if nextGift > 60 then "s" else ""} of play.`
@@ -280,6 +258,9 @@ function RewardsController.closeDaily()
 end
 
 function RewardsController.openSpin()
+	if not RewardsController.busy then
+		RewardsController.parts.spinner:reset()
+	end
 	RewardsController.parts.wheel.Enabled = true
 	MouseLock.setFree("SpinWheel", true)
 	renderSpin()
@@ -306,6 +287,17 @@ function RewardsController.claim()
 	end
 end
 
+-- What the banner says came.
+local function winText(answer: { [string]: any }): string
+	if answer.cosmetic then
+		local cosmetic = ProgressionConfig.cosmetics[answer.cosmetic]
+		return `✨ {if cosmetic then cosmetic.name else tostring(answer.label)} tracer`
+	elseif (tonumber(answer.xp) or 0) > 0 then
+		return `⭐ +{UI.commas(answer.xp)} XP`
+	end
+	return `💰 +{UI.commas(tonumber(answer.coins) or 0)} coins`
+end
+
 function RewardsController.spin()
 	if RewardsController.busy then
 		return
@@ -313,22 +305,24 @@ function RewardsController.spin()
 	local p = RewardsController.parts
 	RewardsController.busy = true
 	renderSpin()
-	local answer = ask("spin")
-	-- A short roll through the prizes, landing on the one drawn.
+	p.spinNote.Text = "Spinning..."
+	-- The server draws while the wheel winds up; then it spins and lands
+	-- on what was drawn.
+	local answer, answered = nil, false
+	task.spawn(function()
+		answer = ask("spin")
+		answered = true
+	end)
+	p.spinner:windUp()
+	while not answered do
+		task.wait()
+	end
 	if answer and answer.ok and p.prizes[answer.prize] then
-		local order = {}
-		for _, prize in RewardsConfig.spin do
-			table.insert(order, prize.id)
-		end
-		local landing = table.find(order, answer.prize) :: number
-		for step = 1, #order * 2 + landing do
-			local id = order[(step - 1) % #order + 1]
-			for other, row in p.prizes do
-				row.Border.Color = if other == id then C.text else C.stroke
-			end
-			task.wait(0.04 + step * 0.006)
-		end
-		Audio.play("coins")
+		p.spinner:spinTo(answer.prize)
+		Audio.play(if answer.cosmetic then "levelUp" else "coins")
+		p.spinner:celebrate(answer.prize, winText(answer))
+	else
+		p.spinner:settle()
 	end
 	RewardsController.busy = false
 	renderSpin()
@@ -367,6 +361,19 @@ function RewardsController.start()
 			task.wait(1)
 			if RewardsController.parts.daily.Enabled then
 				renderDaily()
+			end
+		end
+	end)
+	-- The wheel's lights chase slowly while it waits (they stay still
+	-- with Reduce Motion).
+	task.spawn(function()
+		local phase = 0
+		while true do
+			task.wait(0.5)
+			local p = RewardsController.parts
+			if p.wheel.Enabled and not RewardsController.busy and not Settings.reduceMotion then
+				phase += 1
+				p.spinner:setLights(phase)
 			end
 		end
 	end)

@@ -37,7 +37,7 @@ local ids = 0
 for name, id in AudioConfig do
 	if type(id) == "string" then
 		ids += 1
-		check(string.match(id, "^rbxassetid://%d+$") ~= nil, `{name} keeps its asset ID`)
+		check(string.match(id, "^rbxassetid://%d+$") ~= nil or string.match(id, "^rbxasset://sounds/") ~= nil, `{name} keeps its asset ID (or a sound built into Roblox)`)
 		local mix = MIX[name]
 		check(mix ~= nil, `{name} has a mix`)
 		check(type(mix.volume) == "number" and mix.volume > 0 and mix.volume <= 1, `{name}'s volume is between 0 and 1`)
@@ -47,7 +47,7 @@ for name, id in AudioConfig do
 		check(mix.range == nil or RANGES[mix.range] ~= nil, `{name}'s range is one of the kinds`)
 	end
 end
-check(ids == 18, "all 18 sounds kept")
+check(ids == 19, "all 19 sounds kept")
 for name in MIX do
 	check(type(AudioConfig[name]) == "string", `the mix for {name} is for a sound`)
 end
@@ -68,7 +68,7 @@ end
 for _, name in { "dash", "splat" } do
 	check(MIX[name].pitch ~= nil and MIX[name].pitch.Max > MIX[name].pitch.Min, `{name} varies in pitch`)
 end
-for _, name in { "inflate", "critical", "alpha", "purchase", "coins", "levelUp", "hit" } do
+for _, name in { "inflate", "critical", "alpha", "purchase", "coins", "levelUp", "hit", "tick" } do
 	check(MIX[name].range == nil, `{name} is only ever flat`)
 end
 check(AudioConfig.VOICES >= 4 and AudioConfig.VOICES <= 32, "a small pool of voices")
