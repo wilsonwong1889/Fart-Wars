@@ -117,6 +117,58 @@ check(home.comingSoon.Enabled and home.soonTitle.Text == "LEADERBOARD", "Leaderb
 click(home.comingSoon:FindFirstChild("Close", true))
 check(not home.comingSoon.Enabled, "and closes")
 
+-- The lobby: the battlefield blurred, LOADOUT, SHOP and LEVELS, the
+-- featured offers two at a time, the bubble for a first-timer, and Space.
+local Lighting = game:GetService("Lighting")
+local Locker = require(client.Controllers.LockerController)
+check(Lighting.MenuBlur.Size == UIConfig.menuBlur, "the battlefield blurs behind the home screen")
+check(home.pageButtons.Loadout.Name == "Loadout" and home.pageButtons.Weapons.Name == "Shop" and home.pageButtons.Progression.Name == "Levels", "LOADOUT, SHOP and LEVELS down the left")
+local Loadout = require(client.Controllers.LoadoutController)
+click(home.pageButtons.Loadout)
+check(Loadout.isOpen and gui.Loadout.Enabled and not Locker.isOpen, "LOADOUT opens the loadout screen")
+press(Enum.KeyCode.Space)
+check(not home.teamSelect.Enabled, "Space doesn't PLAY under it")
+click(Loadout.parts.back)
+check(not Loadout.isOpen and not gui.Loadout.Enabled, "BACK closes it")
+click(home.pageButtons.Weapons)
+check(Locker.isOpen and Locker.tab == "Weapons" and Locker.section == "Featured", "SHOP: the shop, from the top")
+Locker.close()
+local function shownOffers(): { string }
+	local cards = {}
+	for _, child in home.offerRow:GetChildren() do
+		if child:IsA("TextButton") then
+			table.insert(cards, child)
+		end
+	end
+	table.sort(cards, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	local names = {}
+	for _, card in cards do
+		table.insert(names, card.Name)
+	end
+	return names
+end
+-- (No profile here yet, so no weapon offer: the Shop spec has those.)
+check(home.featured.Visible and table.concat(shownOffers(), ",") == "StarterPack,Daily", "featured: the Starter Pack and the daily reward: " .. table.concat(shownOffers(), ","))
+check(home.offerRow.StarterPack.Action.Label.Text == "SEE STORE", "the pack sends you to the store (no pass ID yet)")
+check(not home.nextOffer.Visible, "two offers: no arrows")
+click(home.offerRow.StarterPack)
+check(Locker.isOpen and Locker.tab == "Weapons" and Locker.section == "Featured", "a card opens what it's about: the pack, at the shop's top")
+Locker.close()
+click(home.home.Wallet.Plus)
+check(Locker.isOpen and Locker.section == "Coins" and Locker.parts.shop.CanvasPosition.Y > 0, "+ by the coins: the coin packs")
+Locker.close()
+me:SetAttribute("LifetimeXP", 0)
+check(home.firstTip.Visible, "a first-timer gets the bubble pointing at PLAY")
+press(Enum.KeyCode.Space)
+check(home.teamSelect.Enabled and not home.firstTip.Visible, "Space is PLAY, and the bubble goes")
+home.teamSelect.Enabled = false
+Locker.open("Settings")
+press(Enum.KeyCode.F)
+check(not home.teamSelect.Enabled, "not while another screen is open")
+Locker.close()
+
 -- PLAY, then choose a team.
 click(home.play)
 check(home.teamSelect.Enabled and me:GetAttribute("State") == "MENU_SPECTATOR", "PLAY asks for a team first")
@@ -133,8 +185,9 @@ Hotbar.renderAbility()
 check(Hotbar.parts.bar.Visible and Hotbar.parts.slots[1]:GetAttribute("Weapon") == "GasBlaster", "the hotbar: the Gas Blaster in slot 1")
 check(Hotbar.parts.slots[1].Border.Color == UIConfig.colors.text and Hotbar.parts.slots[2]:GetAttribute("Weapon") == nil, "in hand, and nothing else owned yet")
 check(not Hotbar.pick(2), "an empty slot does nothing")
-check(MenuBar.parts.corner.Visible and MenuBar.parts.buttons.Weapons and MenuBar.parts.buttons.Settings, "coins and the menu buttons, top right")
+check(MenuBar.parts.corner.Visible and MenuBar.parts.buttons.Loadout and MenuBar.parts.buttons.Weapons and MenuBar.parts.buttons.Settings, "coins and the menu buttons, top right")
 check(not home.home.Enabled, "the home screen goes")
+check(Lighting.MenuBlur.Size == 0, "and the blur with it")
 check(hud.yourTeam.Visible and hud.yourTeam.Text == "YOU: SKIBIDI STINKERS", "the HUD says my team")
 check(hud.controls.Visible, "the controls card shows")
 check(cam.CameraType == Enum.CameraType.Custom and cam.CameraSubject == me.Character.Humanoid, "the camera follows my avatar")

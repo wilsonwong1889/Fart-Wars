@@ -520,7 +520,7 @@ check(slot:FindFirstChild("Icon") == icon, "kept between renders")
 -- The locker's previews.
 Locker.open("Weapons")
 task.wait(0.1)
-local card = Locker.parts.content:FindFirstChild("GasBlaster")
+local card = Locker.card("GasBlaster")
 local preview = card and card:FindFirstChild("Preview", true)
 check(preview and preview:IsA("ViewportFrame") and preview:FindFirstChildOfClass("Model"), "each weapon card shows the weapon")
 local angle = preview:GetAttribute("Angle")
