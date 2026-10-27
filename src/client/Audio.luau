@@ -32,6 +32,11 @@ Audio.flat = {} :: { [string]: Sound }
 -- The voices for sounds in the world, made as they're needed.
 Audio.voices = {} :: { Voice }
 
+-- How one play can differ from the sound's mix: an exact pitch (playback
+-- speed, 1 as recorded; replaces the random one) and a volume (times the
+-- mix's), as the headshot cue does with the hit sound.
+export type Options = { pitch: number?, volume: number? }
+
 local anchor: BasePart? = nil
 local random = Random.new()
 
@@ -41,11 +46,13 @@ local function idOf(name: string): string?
 end
 
 -- This play's volume and pitch.
-local function tune(sound: Sound, name: string)
+local function tune(sound: Sound, name: string, options: Options?)
 	local mix = MIX[name]
-	sound.Volume = (if mix then mix.volume else DEFAULT_VOLUME) * Settings.volume
+	sound.Volume = (if mix then mix.volume else DEFAULT_VOLUME) * Settings.volume * (options and options.volume or 1)
 	local pitch = mix and mix.pitch
-	sound.PlaybackSpeed = if pitch then random:NextNumber(pitch.Min, pitch.Max) else 1
+	sound.PlaybackSpeed = if options and options.pitch then options.pitch
+		elseif pitch then random:NextNumber(pitch.Min, pitch.Max)
+		else 1
 end
 
 -- The invisible anchor the voices hang on (made again, with fresh voices,
@@ -117,7 +124,7 @@ local function voiceFor(name: string, now: number): Voice
 	return oldest :: Voice
 end
 
-local function playAt(name: string, id: string, at: Vector3): Sound?
+local function playAt(name: string, id: string, at: Vector3, options: Options?): Sound?
 	local mix = MIX[name]
 	local range = RANGES[mix and mix.range or "shot"] or RANGES.shot
 	local camera = workspace.CurrentCamera
@@ -136,13 +143,13 @@ local function playAt(name: string, id: string, at: Vector3): Sound?
 	end
 	sound.RollOffMinDistance = range.min
 	sound.RollOffMaxDistance = range.max
-	tune(sound, name)
+	tune(sound, name, options)
 	sound.TimePosition = 0
 	sound:Play()
 	return sound
 end
 
-local function playFlat(name: string, id: string): Sound
+local function playFlat(name: string, id: string, options: Options?): Sound
 	local sound = Audio.flat[name]
 	if not sound then
 		sound = Instance.new("Sound")
@@ -151,16 +158,17 @@ local function playFlat(name: string, id: string): Sound
 		sound.Parent = SoundService
 		Audio.flat[name] = sound
 	end
-	tune(sound, name)
+	tune(sound, name, options)
 	sound.TimePosition = 0
 	sound:Play()
 	return sound
 end
 
 -- Plays `name`: from `at` in the world when given (other players' shots,
--- explosions, abilities...), else flat. Returns the Sound, or nil when it
--- has no ID, sound is off in Settings, or it's too far away to hear.
-function Audio.play(name: string, at: Vector3?): Sound?
+-- explosions, abilities...), else flat; `options` adjusts this one play.
+-- Returns the Sound, or nil when it has no ID, sound is off in Settings, or
+-- it's too far away to hear.
+function Audio.play(name: string, at: Vector3?, options: Options?): Sound?
 	if not Settings.sound or Settings.volume <= 0 then
 		return nil
 	end
@@ -169,9 +177,9 @@ function Audio.play(name: string, at: Vector3?): Sound?
 		return nil
 	end
 	if at then
-		return playAt(name, id, at)
+		return playAt(name, id, at, options)
 	end
-	return playFlat(name, id)
+	return playFlat(name, id, options)
 end
 
 return Audio
