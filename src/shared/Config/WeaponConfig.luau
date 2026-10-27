@@ -117,7 +117,7 @@ local weapons: { [string]: Weapon } = {
 		tracerColor = Color3.fromRGB(255, 170, 60),
 		fireSound = "thunderclapper",
 		unlock = "shop",
-		price = 1200,
+		price = 3000,
 		level = 15,
 	}),
 	StinkLobber = table.freeze({
@@ -134,7 +134,7 @@ local weapons: { [string]: Weapon } = {
 		tracerColor = Color3.fromRGB(160, 200, 60),
 		fireSound = "lobber",
 		unlock = "shop",
-		price = 2500,
+		price = 7000,
 		level = 25,
 		-- The farthest throw (about 45 degrees, from head height) lands just
 		-- inside its range, peaking about as high as the dividers (42

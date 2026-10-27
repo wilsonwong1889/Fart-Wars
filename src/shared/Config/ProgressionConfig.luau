@@ -97,9 +97,10 @@ function ProgressionConfig.ownsCosmetic(owned: { string }, id: string): boolean
 	return cosmetic ~= nil and (cosmetic.free == true or table.find(owned, id) ~= nil)
 end
 
--- XP from `level` to the next: 100 at level 1, rising on a gentle curve.
+-- XP from `level` to the next: 100 for the first levels, then rising ever
+-- faster (730 at level 24, 4,090 at 49). Pacing: docs/economy.md.
 function ProgressionConfig.xpToNext(level: number): number
-	return math.round((100 + 40 * (level - 1) ^ 1.25) / 10) * 10
+	return math.round((100 + 0.25 * (level - 1) ^ 2.5) / 10) * 10
 end
 
 return table.freeze(ProgressionConfig)

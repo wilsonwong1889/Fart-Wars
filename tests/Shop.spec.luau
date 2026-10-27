@@ -140,11 +140,11 @@ check(request("buy", "weapon", "Spritzer").reason == "owned", "buying it twice: 
 
 -- A purchase that can't be saved.
 xpTo(15)
-coins(1200 - data().Coins)
+coins(3000 - data().Coins)
 failNext = 3
 answer = request("buy", "weapon", "Thunderclapper")
 check(not answer.ok and answer.reason == "saveFailed", "the save fails: so does the purchase")
-check(data().Coins == 1200 and not table.find(data().OwnedWeapons, "Thunderclapper"), "coins back, no weapon")
+check(data().Coins == 3000 and not table.find(data().OwnedWeapons, "Thunderclapper"), "coins back, no weapon")
 check(not table.find(saved.player_1.OwnedWeapons, "Thunderclapper"), "nothing half-saved")
 check(data().Ledger[#data().Ledger].reason == "refund", "the refund is in the ledger")
 
@@ -239,11 +239,11 @@ check(blurb, "and its description: it fizzles out past 90 studs")
 check(p.content.StinkLobber.Action.Text == "LEVEL 25", "the Stink Lobber: level 25 first")
 xpTo(25)
 task.wait(0.1)
-check(p.content.StinkLobber.Action.Text == "2500 COINS", "level 25, but not the coins")
-coins(2500)
+check(p.content.StinkLobber.Action.Text == "7000 COINS", "level 25, but not the coins")
+coins(7000)
 task.wait(0.1)
 local buy = p.content.StinkLobber.Action
-check(buy.Text == "BUY 2500", "now: BUY 2500")
+check(buy.Text == "BUY 7000", "now: BUY 7000")
 local shopButton = Home.parts.pageButtons.Weapons
 check(Locker.buyable() == 1 and shopButton.Badge.Visible and shopButton.Badge.Count.Text == "1", "the home screen's SHOP badge: one to buy")
 -- A tip says so too (once), between fights.
@@ -261,7 +261,7 @@ check(tipShown("You can buy the Stink Lobber now"), "a tip: the Stink Lobber is 
 latency = 0.5
 click(buy)
 check(p.confirm.Visible and not Locker.busy, "BUY asks first, spending nothing yet")
-check(p.confirmPrice.Text == "💰 2,500" and p.confirmLeft.Text == "You'll have 0 coins left.", "with the price and what's left")
+check(p.confirmPrice.Text == "💰 7,000" and p.confirmLeft.Text == "You'll have 0 coins left.", "with the price and what's left")
 click(p.confirmNo)
 check(not p.confirm.Visible and not Locker.busy and not table.find(data().OwnedWeapons, "StinkLobber"), "NO: nothing bought")
 click(buy)
@@ -329,7 +329,7 @@ lou.Parent = Players
 task.wait(0.1)
 Data.update(lou, function(d)
 	d.Level = 25
-	d.Coins = 3000
+	d.Coins = 7500
 end)
 latency = 1
 task.spawn(function()
