@@ -14,6 +14,7 @@
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
 --   /fw selftest   /fw daily   /fw spins 3   /fw health   /fw perf
 --   /fw mode gascontrol (the next round's mode)
+--   /fw bots   /fw bots off   /fw bots on   /fw bots fill 6   /fw bots skill 0.7
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -37,7 +38,9 @@ local DataService = require(Services.DataService)
 local EconomyService = require(Services.EconomyService)
 local LoadoutService = require(Services.LoadoutService)
 local RewardsService = require(Services.RewardsService)
+local BotDirector = require(Services.BotDirector)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
+local BotConfig = require(Shared.Config.BotConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
@@ -222,6 +225,44 @@ function TestControls.ability(player: Player, id: string): (boolean, string)
 	return false, `no Q ability "{id}"`
 end
 
+-- Bots: who's playing; "off" (every bot goes) or "on" again; "fill <n>",
+-- another fill target ("fill" alone: BotConfig's); "skill <0-1>", their
+-- difficulty ("skill" alone: BotConfig's).
+function TestControls.bots(action: string?, value: number?): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	if not FeatureFlags.BOTS then
+		return false, "bots are off (FeatureFlags.BOTS)"
+	end
+	local applied = true
+	if action == "on" or action == "off" then
+		applied = BotDirector.testSetEnabled(action == "on")
+	elseif action == "fill" then
+		if value and value < 0 then
+			return false, "usage: bots fill <n>"
+		end
+		applied = BotDirector.testSetFill(value)
+	elseif action == "skill" then
+		if value and (value < 0 or value > 1) then
+			return false, "usage: bots skill <0-1>"
+		end
+		applied = BotDirector.testSetDifficulty(value)
+	elseif action ~= nil then
+		return false, "usage: bots [on | off | fill <n> | skill <0-1>]"
+	end
+	if not applied then
+		return false, "the bot director isn't running"
+	end
+	local status = BotDirector.status()
+	local names = {}
+	for _, bot in status.bots do
+		table.insert(names, `{bot.name} ({bot.team}{if bot.alive then "" else ", respawning"})`)
+	end
+	local line = if #names > 0 then table.concat(names, ", ") else "none"
+	return true, `bots {if status.enabled then "on" else "off"}, fill to {status.fillTo}, skill {status.difficulty}: {#status.bots} bots: {line}`
+end
+
 -- Every gas barrel back, full.
 function TestControls.barrels(): (boolean, string)
 	if not TestControls.allowed(nil) then
@@ -362,6 +403,7 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		report("OK", "Chat", if chatOk then `{chatVersion} (/fw via Chatted)` else "legacy chat")
 	end
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
+	report("OK", "Bots", if FeatureFlags.BOTS then `on: up to {BotConfig.FILL_TO} in the server at skill {BotConfig.DIFFICULTY}` else "off")
 	report("WARN", "Release", `test controls on (allow-list: {#GameConfig.TEST_CONTROLS.USER_IDS}); turn GameConfig.TEST_CONTROLS.ENABLED off before a public release`)
 	if AdminCode.ENABLED then
 		report("WARN", "Admin code", "on: anyone with the code gets everything; turn AdminCode.ENABLED off before a public release")
@@ -533,7 +575,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf, mode <id>"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>]"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -576,6 +618,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.health()
 	elseif command == "perf" then
 		ok, message = TestControls.perf()
+	elseif command == "bots" then
+		ok, message = TestControls.bots(words[3], tonumber(words[4]))
 	end
 	Messages.send(player, "test", (if ok then "TEST: " else "TEST failed: ") .. message)
 	return message

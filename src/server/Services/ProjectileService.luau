@@ -3,11 +3,11 @@
 -- along the aim, under the weapon's gravity, until it hits something or
 -- has travelled its range. Where it lands, it splashes the thrower's
 -- enemies (a blast through ExplosionService, so walls stop it and barrels
--- in range go off) and leaves a cloud that gasses enemies standing in it
--- every tick until it fades. Friendly fire stays off throughout, and the
--- gas is credited to the thrower and the weapon. At most
--- GameConfig.BUDGET.MAX_CLOUDS clouds last at once: a new one ends the
--- oldest early.
+-- in range go off) and leaves a cloud that gasses enemies standing in it,
+-- players and bots, every tick until it fades. Friendly fire stays off
+-- throughout, and the gas is credited to the thrower and the weapon. At
+-- most GameConfig.BUDGET.MAX_CLOUDS clouds last at once: a new one ends
+-- the oldest early.
 --   CombatEvent { kind = "lob", shooter, from, to, path, flight }    all clients
 --   CombatEvent { kind = "cloud", position, radius, endsAt, team }  all clients
 local Players = game:GetService("Players")
@@ -23,6 +23,7 @@ local Health = require(Server.Health)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local GasService = require(script.Parent.GasService)
+local BotService = require(script.Parent.BotService)
 local CombatService = require(script.Parent.CombatService)
 local ExplosionService = require(script.Parent.ExplosionService)
 
@@ -134,6 +135,12 @@ function ProjectileService.throw(thrower: Player, from: Vector3, direction: Vect
 	task.delay(flight, land, thrower, team, to, weapon)
 end
 
+local function inCloud(cloud: Cloud, root: Instance?): boolean
+	return root ~= nil and root:IsA("BasePart")
+		and (root.Position - cloud.position).Magnitude <= cloud.radius
+		and not ExplosionService.blocked(cloud.position, root.Position)
+end
+
 -- Clouds gas the enemies inside them, a tick at a time.
 function ProjectileService.step()
 	local at = now()
@@ -144,16 +151,20 @@ function ProjectileService.step()
 		elseif at >= cloud.nextTickAt then
 			cloud.nextTickAt += cloud.tick
 			local owner = if cloud.owner and cloud.owner.Parent == Players then cloud.owner else nil
+			local source: GasService.Source = { attacker = owner, team = cloud.team, cause = "cloud", weapon = cloud.weapon }
 			for _, player in Players:GetPlayers() do
 				local team = TeamService.teamOf(player)
 				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 				if team and team ~= cloud.team
 					and PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE
-					and root and root:IsA("BasePart")
-					and (root.Position - cloud.position).Magnitude <= cloud.radius
-					and not ExplosionService.blocked(cloud.position, root.Position)
+					and inCloud(cloud, root)
 				then
-					GasService.add(player, cloud.gas, { attacker = owner, team = cloud.team, cause = "cloud", weapon = cloud.weapon })
+					GasService.add(player, cloud.gas, source)
+				end
+			end
+			for _, bot in BotService.all() do
+				if bot.team ~= cloud.team and inCloud(cloud, BotService.rootOf(bot)) then
+					BotService.addGas(bot, cloud.gas, source)
 				end
 			end
 		end

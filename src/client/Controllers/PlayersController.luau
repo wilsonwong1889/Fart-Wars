@@ -3,6 +3,8 @@
 -- HIDE EMOTES (on this screen only) and REPORT (a reason, sent to the
 -- server for review). The note at the bottom says how to report through
 -- Roblox too (Esc > Report), which is what reaches Roblox moderation.
+-- Bots on the field are listed after the players, marked BOT, with nothing
+-- to block, hide or report.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
@@ -12,6 +14,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
+local Combatants = require(Client.Combatants)
 local Settings = require(Client.Settings)
 local UI = require(Client.UI)
 
@@ -119,7 +122,8 @@ render = function()
 		end
 	end
 	local list = others()
-	p.empty.Visible = #list == 0
+	local bots = Combatants.bots()
+	p.empty.Visible = #list == 0 and #bots == 0
 	for i, other in list do
 		local userId = other.UserId
 		local expanded = PlayersController.reporting == userId
@@ -188,6 +192,41 @@ render = function()
 				Parent = row,
 			})
 		end
+	end
+	for i, bot in bots do
+		local row = UI.new("Frame", {
+			Name = tostring(bot.id),
+			LayoutOrder = #list + i,
+			Size = UDim2.new(1, -8, 0, 42),
+			BackgroundColor3 = C.panelLight,
+			Parent = p.list,
+		}, { UI.corner(8) })
+		local team = bot.team and TeamConfig.teams[bot.team]
+		UI.new("Frame", {
+			Name = "Team",
+			Size = UDim2.new(0, 6, 1, 0),
+			BackgroundColor3 = if team then team.color else C.muted,
+			BorderSizePixel = 0,
+			Parent = row,
+		})
+		UI.label(`{UI.teamSymbol(bot.team)}{bot.name}`, 15, {
+			Name = "PlayerName",
+			Position = UDim2.new(0, 14, 0, 10),
+			Size = UDim2.new(0, 210, 0, 22),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Font = UIConfig.bodyFont,
+			Parent = row,
+		})
+		UI.label("BOT · run by the game", 14, {
+			Name = "Bot",
+			Position = UDim2.new(0, 230, 0, 10),
+			Size = UDim2.new(0, 268, 0, 22),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = C.muted,
+			Font = UIConfig.bodyFont,
+			Parent = row,
+		})
 	end
 end
 PlayersController.render = render
@@ -263,6 +302,14 @@ function PlayersController.start()
 		end
 		task.defer(render)
 	end)
+	-- Bots come and go with each life (render does nothing while closed).
+	local function onAvatar(_, who: Combatants.Combatant?)
+		if who and who.bot then
+			task.defer(render)
+		end
+	end
+	Combatants.AvatarAdded:Connect(onAvatar)
+	Combatants.AvatarRemoved:Connect(onAvatar)
 end
 
 return PlayersController

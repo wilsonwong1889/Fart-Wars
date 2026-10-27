@@ -23,6 +23,8 @@ local function run(scriptInstance: Instance)
 	fn()
 end
 run(server.Bootstrap)
+-- No bots: these checks count the players themselves.
+require(server.Services.BotDirector).testSetEnabled(false)
 local Gas = require(server.Services.GasService)
 local Eliminations = require(server.Services.EliminationService)
 local Lifecycle = require(server.Services.PlayerLifecycleService)

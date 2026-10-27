@@ -1,9 +1,9 @@
 -- What gas looks like, on every client:
---   * inflation: each avatar carries a gas belly (a local, non-colliding
---     ball) that grows and changes colour with its gas stage, so the
---     hitbox and camera never change; at the critical stage and during the
---     countdown the avatar gets a slow red outline pulse (well under three
---     flashes a second)
+--   * inflation: each avatar (players' and bots') carries a gas belly (a
+--     local, non-colliding ball) that grows and changes colour with its gas
+--     stage, so the hitbox and camera never change; at the critical stage
+--     and during the countdown the avatar gets a slow red outline pulse
+--     (well under three flashes a second)
 --   * explosions: a burst and a lingering cloud, from a small pool so a
 --     chain of explosions never piles up parts; barrels burst orange, and a
 --     barrel with its fuse lit gets a steady red outline
@@ -29,6 +29,7 @@ local UIConfig = require(Shared.Config.UIConfig)
 local ArtAssets = require(Shared.Config.ArtAssets)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
+local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
@@ -283,8 +284,8 @@ function EffectsController.emote(userId: number, id: string): BillboardGui?
 	if Settings.hiddenEmotes[userId] then
 		return nil
 	end
-	local other = Players:GetPlayerByUserId(userId)
-	local head = other and other.Character and other.Character:FindFirstChild("Head")
+	local character = Combatants.character(userId)
+	local head = character and character:FindFirstChild("Head")
 	local cosmetic = ProgressionConfig.cosmetics[id]
 	if not (head and head:IsA("BasePart") and cosmetic and cosmetic.kind == "emote") then
 		return nil
@@ -450,13 +451,6 @@ local function watchCharacter(character: Model)
 	renderGas(character)
 end
 
-local function watchPlayer(other: Player)
-	other.CharacterAdded:Connect(watchCharacter)
-	if other.Character then
-		watchCharacter(other.Character)
-	end
-end
-
 local function build()
 	local p = EffectsController.parts
 	local screen = UI.screen("Announcements", 15)
@@ -484,10 +478,10 @@ end
 
 function EffectsController.alpha(userId: number, text: string)
 	local p = EffectsController.parts
-	local other = Players:GetPlayerByUserId(userId)
-	local team = other and other:GetAttribute("TeamId")
+	local who = Combatants.get(userId)
+	local team = who and who.team
 	p.alphaText.Text = text
-	p.alphaName.Text = if other then string.upper(other.DisplayName) else ""
+	p.alphaName.Text = if who then string.upper(who.name) else ""
 	p.alphaName.TextColor3 = if team and TeamConfig.teams[team] then TeamConfig.teams[team].color else C.text
 	Audio.play("alpha")
 	local token = (p.alpha:GetAttribute("Shown") or 0) + 1
@@ -506,10 +500,8 @@ function EffectsController.start()
 	end
 	started = true
 	build()
-	for _, other in Players:GetPlayers() do
-		watchPlayer(other)
-	end
-	Players.PlayerAdded:Connect(watchPlayer)
+	-- Every avatar, each player's and each bot's life.
+	Combatants.watch(watchCharacter)
 	local map = workspace:FindFirstChild("Map")
 	if map then
 		task.spawn(watchMap, map)
@@ -534,16 +526,17 @@ function EffectsController.start()
 		end
 		if event.kind == "explosion" and typeof(event.position) == "Vector3" then
 			Audio.play("explosion")
-			-- In the killer's boom colour, if they have one equipped.
-			local killer = type(event.killer) == "number" and Players:GetPlayerByUserId(event.killer)
-			local boom = killer and ProgressionConfig.cosmetics[killer:GetAttribute("Boom") :: any]
+			-- In the killer's boom colour, if they have one equipped (bots
+			-- don't).
+			local killer = Combatants.get(event.killer)
+			local boom = killer and killer.player and ProgressionConfig.cosmetics[killer.player:GetAttribute("Boom") :: any]
 			EffectsController.explosion(event.position, if boom then boom.boomColor else nil)
 		elseif event.kind == "barrel" and typeof(event.position) == "Vector3" then
 			Audio.play("barrel")
 			EffectsController.explosion(event.position, BARREL_ORANGE, if type(event.radius) == "number" then event.radius else GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
-			local dasher = Players:GetPlayerByUserId(event.player)
-			local trail = dasher and ProgressionConfig.cosmetics[dasher:GetAttribute("Trail") :: any]
+			local dasher = Combatants.get(event.player)
+			local trail = dasher and dasher.player and ProgressionConfig.cosmetics[dasher.player:GetAttribute("Trail") :: any]
 			EffectsController.dashPuff(event.from, event.direction, if trail then trail.trailColor else nil)
 		elseif event.kind == "emote" and type(event.player) == "number" and type(event.emote) == "string" then
 			EffectsController.emote(event.player, event.emote)

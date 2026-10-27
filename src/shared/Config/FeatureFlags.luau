@@ -46,6 +46,12 @@ return table.freeze({
 	-- Teammates outlined in their team colour.
 	TEAMMATE_HIGHLIGHTS = true,
 
+	-- Bots (BotDirector): while fewer than BotConfig.FILL_TO people are in
+	-- the server (and at least one is), "[BOT]" players fill it up, keeping
+	-- the teams level; each human who joins takes a bot's place. Kills of or
+	-- by bots score team points but pay out nothing. Off: never any bots.
+	BOTS = true,
+
 	-- Structured "[FW]" lines in the output for every service event and
 	-- rejected request. Counters are kept either way.
 	DEBUG_LOGS = true,

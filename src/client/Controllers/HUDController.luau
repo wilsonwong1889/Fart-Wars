@@ -4,7 +4,8 @@
 --                 team; messages; the AFK warning; the one-time controls
 --                 card on a first PLAY
 --   ResultsScreen the winner (or draw) and the countdown to the next round
---   Scoreboard    Tab (held): who is on each team (stats come with combat)
+--   Scoreboard    Tab (held): who is on each team, any bots after the
+--                 players (stats come with combat)
 -- Everything shown comes from ClientState; times come from the snapshot's
 -- end time and the server clock, never a local countdown.
 local Players = game:GetService("Players")
@@ -20,6 +21,7 @@ local States = require(Shared.States)
 local RoundClock = require(Shared.RoundClock)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
+local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
 local InputController = require(script.Parent.InputController)
 
@@ -439,6 +441,22 @@ local function renderScoreboard()
 				TextColor3 = if member == Players.LocalPlayer then C.accent else C.text,
 				Parent = rows,
 			})
+		end
+		-- The bots on the field (their names say they're bots).
+		local order = #members
+		for _, bot in Combatants.bots() do
+			if bot.team == team then
+				order += 1
+				UI.label(bot.name, 17, {
+					Name = tostring(bot.id),
+					LayoutOrder = order,
+					Size = UDim2.new(1, 0, 0, 22),
+					Font = UIConfig.bodyFont,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextColor3 = C.muted,
+					Parent = rows,
+				})
+			end
 		end
 	end
 	local watching = 0

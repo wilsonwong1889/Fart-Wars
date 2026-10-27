@@ -36,6 +36,8 @@ do
 	setfenv(run, setmetatable({ script = server.Bootstrap }, { __index = getfenv() }))
 	run()
 end
+-- No bots: these checks count the players themselves.
+require(server.Services.BotDirector).testSetEnabled(false)
 local RoundService = require(server.Services.RoundService)
 local TeamService = require(server.Services.TeamService)
 local MapService = require(server.Services.MapService)

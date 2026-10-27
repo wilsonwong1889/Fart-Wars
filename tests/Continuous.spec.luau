@@ -30,6 +30,8 @@ local function run(scriptInstance: Instance)
 	fn()
 end
 run(server.Bootstrap)
+-- No bots: these checks count the players themselves.
+require(server.Services.BotDirector).testSetEnabled(false)
 local RoundService = require(server.Services.RoundService)
 local Scores = require(server.Services.MatchScoreService)
 local TestControls = require(server.TestControls)

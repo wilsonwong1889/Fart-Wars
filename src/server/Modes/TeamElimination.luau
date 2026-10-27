@@ -25,13 +25,17 @@ return GameModeBase.new({
 			return false
 		end
 		-- A real elimination: an active killer on the scoring team took out
-		-- an active player on the other one.
+		-- an active player on the other one. Either may be a bot.
 		local killer, victim = event.killer, event.victim
-		if not (killer and victim) or killer == victim then
+		local killerBot, victimBot = event.killerBot, event.victimBot
+		if not ((killer or killerBot) and (victim or victimBot)) then
 			return false
 		end
-		local killerTeam = event.killerTeam or context.teamOf(killer)
-		local victimTeam = event.victimTeam or context.teamOf(victim)
+		if (killer and killer == victim) or (killerBot and killerBot == victimBot) then
+			return false
+		end
+		local killerTeam = event.killerTeam or (killer and context.teamOf(killer))
+		local victimTeam = event.victimTeam or (victim and context.teamOf(victim))
 		return killerTeam == event.team and victimTeam ~= nil and victimTeam ~= killerTeam
 	end,
 })

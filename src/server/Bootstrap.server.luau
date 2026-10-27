@@ -9,6 +9,7 @@
 --   ExperimentService     retention experiments: cohorts, values, telemetry
 --   EliminationService    each death credited once; streaks; the alpha call
 --   GasService            the gas meter, recovery, countdowns, explosions
+--   BotService            bots: their slots, gas meters and credit
 --   CombatService         the Gas Blaster: shots and hits
 --   ExplosionService      blasts and chain reactions
 --   BarrelService         gas barrels
@@ -28,6 +29,7 @@
 --   ZoneService           Gas Control's zone: who holds it, its points
 --   SeasonService         the free seasonal track and weekly challenges
 --   EventService          live events: Bean Rain (flagged off)
+--   BotDirector           bots fill the server to four: who, where, their brains
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
@@ -52,6 +54,7 @@ local AFKService = require(Services.AFKService)
 local ExperimentService = require(Services.ExperimentService)
 local EliminationService = require(Services.EliminationService)
 local GasService = require(Services.GasService)
+local BotService = require(Services.BotService)
 local CombatService = require(Services.CombatService)
 local ExplosionService = require(Services.ExplosionService)
 local BarrelService = require(Services.BarrelService)
@@ -70,6 +73,7 @@ local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
 local SeasonService = require(Services.SeasonService)
 local EventService = require(Services.EventService)
+local BotDirector = require(Services.BotDirector)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
 local Health = require(script.Parent.Health)
@@ -86,6 +90,7 @@ AFKService.start()
 ExperimentService.start()
 EliminationService.start()
 GasService.start()
+BotService.start()
 CombatService.start()
 ExplosionService.start()
 BarrelService.start()
@@ -104,6 +109,7 @@ RoundService.start()
 ZoneService.start()
 SeasonService.start()
 EventService.start()
+BotDirector.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then

@@ -35,6 +35,8 @@ local function run(scriptInstance: Instance)
 	fn()
 end
 run(server.Bootstrap)
+-- No bots: these checks count the players themselves.
+require(server.Services.BotDirector).testSetEnabled(false)
 local TestControls = require(server.TestControls)
 local MapBase = require(ReplicatedStorage.Shared.Interfaces.MapBase)
 

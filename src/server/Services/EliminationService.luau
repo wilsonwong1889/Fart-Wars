@@ -5,6 +5,10 @@
 -- STREAK.ALPHA_AT tells the whole server "BRO IS THE ALPHA FART!" once.
 -- Streaks end with any death; the best one is kept for the session.
 -- Other services hear about it through Eliminated and Alpha (rewards).
+-- Bots (BotService) score and show in the kill feed like players, by their
+-- negative ids, but earn nothing: a bot's death never fires Eliminated, a
+-- player killed by a bot fires it with no killer (and `killerBot`), and
+-- kills of or by bots build no streak.
 --   CombatEvent { kind = "elimination", event, victim, killer?, team?, assists, cause }
 --   CombatEvent { kind = "alpha", player, text }
 local Players = game:GetService("Players")
@@ -30,11 +34,15 @@ EliminationService.Alpha = Signal.new()
 
 export type Info = {
 	killer: Player?,
+	-- A bot killer (its id), in place of `killer`; killerTeam is then needed.
+	killerBot: number?,
 	-- Teams as they were when the gas went in, so a player leaving or
 	-- switching mid-countdown can't change who scores.
 	killerTeam: string?,
 	victimTeam: string?,
 	assists: { Player }?,
+	-- Bots that helped (kill feed only).
+	assistBots: { number }?,
 	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "died" (reset or fell while gassed), "test"
 	-- The weapon that set off the explosion (its shot, stink bomb or cloud).
 	weapon: string?,
@@ -43,6 +51,8 @@ export type Elimination = {
 	event: number,
 	victim: Player,
 	killer: Player?,
+	-- The bot that got the kill (then `killer` is nil: bots earn nothing).
+	killerBot: number?,
 	assists: { Player },
 	cause: string,
 	weapon: string?,
@@ -97,6 +107,34 @@ local function announce(player: Player)
 	end)
 end
 
+-- The killer's team, or nil if there's no killer who can score: nobody
+-- scores off themselves or a teammate.
+local function scoringTeam(killer: Player?, killerBot: number?, info: Info, victimTeam: string?): string?
+	local team = if killer then info.killerTeam or TeamService.teamOf(killer) elseif killerBot then info.killerTeam else nil
+	return if team ~= nil and team ~= victimTeam then team else nil
+end
+
+-- Recent attackers other than the killer who are still here and not (now)
+-- on the victim's team, as players and as IDs for the kill feed.
+local function helpers(info: Info, killer: Player?, victim: Player?, victimTeam: string?): ({ Player }, { number })
+	local assists, ids = {}, {}
+	if info.assists then
+		for _, helper in info.assists do
+			-- Not someone who has since joined the victim's team.
+			if helper ~= killer and helper ~= victim and helper.Parent == Players and TeamService.teamOf(helper) ~= victimTeam then
+				table.insert(assists, helper)
+				table.insert(ids, helper.UserId)
+			end
+		end
+	end
+	for _, id in info.assistBots or {} do
+		if id ~= info.killerBot then
+			table.insert(ids, id)
+		end
+	end
+	return assists, ids
+end
+
 -- Ends `victim`'s life on `character` and credits it. Returns the death's
 -- event ID, or nil if that life was already over.
 function EliminationService.eliminate(victim: Player, character: Model, info: Info): number?
@@ -108,31 +146,27 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 	done[character] = eventId
 
 	local victimTeam = info.victimTeam or TeamService.teamOf(victim)
-	local killer = info.killer
-	local killerTeam = if killer then info.killerTeam or TeamService.teamOf(killer) else nil
-	if killer and (killer == victim or killerTeam == nil or killerTeam == victimTeam) then
-		killer, killerTeam = nil, nil
+	local killer = if info.killer ~= victim then info.killer else nil
+	local killerBot = if killer then nil else info.killerBot
+	local killerTeam = scoringTeam(killer, killerBot, info, victimTeam)
+	if not killerTeam then
+		killer, killerBot = nil, nil
 	end
-	local assists = {}
-	if info.assists then
-		for _, helper in info.assists do
-			-- Not someone who has since joined the victim's team.
-			if helper ~= killer and helper ~= victim and helper.Parent == Players and TeamService.teamOf(helper) ~= victimTeam then
-				table.insert(assists, helper)
-			end
-		end
-	end
+	local assists, assistIds = helpers(info, killer, victim, victimTeam)
 
 	local counted = false
-	if killer and killerTeam then
+	if killerTeam then
 		counted = MatchScoreService.recordElimination({
 			team = killerTeam,
 			source = "elimination",
 			killer = killer,
+			killerBot = killerBot,
 			victim = victim,
 			killerTeam = killerTeam,
 			victimTeam = victimTeam,
 		})
+	end
+	if killer then
 		local entry = record(killer)
 		entry.eliminations += 1
 		entry.streak += 1
@@ -148,8 +182,8 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 	Telemetry.log("Elimination", "elimination", {
 		event = eventId,
 		victim = victim,
-		killer = killer,
-		assists = #assists,
+		killer = killer or killerBot,
+		assists = #assistIds,
 		cause = info.cause,
 		counted = counted,
 	})
@@ -159,15 +193,11 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		humanoid.Health = 0
 	end
 
-	local assistIds = {}
-	for _, helper in assists do
-		table.insert(assistIds, helper.UserId)
-	end
 	combatEvent():FireAllClients({
 		kind = "elimination",
 		event = eventId,
 		victim = victim.UserId,
-		killer = if killer then killer.UserId else nil,
+		killer = if killer then killer.UserId else killerBot,
 		team = killerTeam,
 		assists = assistIds,
 		cause = info.cause,
@@ -176,12 +206,73 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		event = eventId,
 		victim = victim,
 		killer = killer,
+		killerBot = killerBot,
 		assists = assists,
 		cause = info.cause,
 		weapon = if killer then info.weapon else nil,
 		counted = counted,
 	}
 	EliminationService.Eliminated:Fire(elimination)
+	return eventId
+end
+
+-- The same for a bot (`victim` is its id; info.victimTeam is needed): the
+-- point, the kill feed and the avatar's death, but no Eliminated (nobody
+-- earns anything off a bot) and no streak. Returns the event ID, or nil
+-- if that life was already over.
+function EliminationService.eliminateBot(victim: number, character: Model, info: Info): number?
+	if done[character] then
+		return nil
+	end
+	lastEvent += 1
+	local eventId = lastEvent
+	done[character] = eventId
+
+	local victimTeam = info.victimTeam
+	local killer = info.killer
+	local killerBot = if killer or info.killerBot == victim then nil else info.killerBot
+	local killerTeam = scoringTeam(killer, killerBot, info, victimTeam)
+	if not killerTeam then
+		killer, killerBot = nil, nil
+	end
+	local _, assistIds = helpers(info, killer, nil, victimTeam)
+
+	local counted = false
+	if killerTeam then
+		counted = MatchScoreService.recordElimination({
+			team = killerTeam,
+			source = "elimination",
+			killer = killer,
+			killerBot = killerBot,
+			victimBot = victim,
+			killerTeam = killerTeam,
+			victimTeam = victimTeam,
+		})
+	end
+	Telemetry.count(`Elimination.cause.{info.cause}`)
+	Telemetry.log("Elimination", "botElimination", {
+		event = eventId,
+		victim = victim,
+		killer = killer or killerBot,
+		assists = #assistIds,
+		cause = info.cause,
+		counted = counted,
+	})
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		humanoid.Health = 0
+	end
+
+	combatEvent():FireAllClients({
+		kind = "elimination",
+		event = eventId,
+		victim = victim,
+		killer = if killer then killer.UserId else killerBot,
+		team = killerTeam,
+		assists = assistIds,
+		cause = info.cause,
+	})
 	return eventId
 end
 

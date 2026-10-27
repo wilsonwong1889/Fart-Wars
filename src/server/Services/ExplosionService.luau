@@ -7,7 +7,9 @@
 -- queue up and at most PER_TICK resolve each tick, so a big chain costs a
 -- few frames, not one spike. A killer who has left still blasts for their
 -- team, credited to nobody; an explosion with no team behind it (a test
--- gas) blasts nobody.
+-- gas) blasts nobody. Bots are in it like players: a blast gasses enemy
+-- bots, an exploding bot blasts its killer's enemies (BotService.Exploded),
+-- and a bot's blast is credited to that bot.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -22,6 +24,7 @@ local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local GasService = require(script.Parent.GasService)
+local BotService = require(script.Parent.BotService)
 
 local EXPLOSION = GameConfig.EXPLOSION
 
@@ -32,11 +35,14 @@ export type Blast = {
 	radius: number,
 	gas: number,
 	owner: Player?,
+	-- A bot that owns it (its id), in place of `owner`.
+	ownerBot: number?,
 	ownerTeam: string,
 	cause: string, -- "chain", "barrel", "lob" (a stink bomb), "pulse" (Gas Pulse)
 	depth: number,
 	-- Who caused it (doesn't take its own blast).
 	source: Player?,
+	sourceBot: number?,
 	-- The weapon behind it, for mastery (stink bombs).
 	weapon: string?,
 }
@@ -79,24 +85,39 @@ function ExplosionService.blocked(from: Vector3, to: Vector3): boolean
 	return workspace:Raycast(from, to - from, params) ~= nil
 end
 
+local function reaches(blast: Blast, root: Instance?): boolean
+	return root ~= nil and root:IsA("BasePart")
+		and (root.Position - blast.position).Magnitude <= blast.radius
+		and not ExplosionService.blocked(blast.position, root.Position)
+end
+
 local function resolve(blast: Blast)
 	Telemetry.count("Explosion.blasts")
+	-- A bot that has gone still blasts for its team, credited to nobody;
+	-- one that has since changed teams doesn't gas its new teammates.
+	local ownerBot = blast.ownerBot and BotService.get(blast.ownerBot)
+	local source: GasService.Source = {
+		attacker = blast.owner,
+		bot = ownerBot and ownerBot.id,
+		team = blast.ownerTeam,
+		cause = blast.cause,
+		chainDepth = blast.depth,
+		weapon = blast.weapon,
+	}
 	for _, player in Players:GetPlayers() do
 		local team = TeamService.teamOf(player)
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if player ~= blast.source and team and team ~= blast.ownerTeam
+			and not (ownerBot and ownerBot.team == team)
 			and PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE
-			and root and root:IsA("BasePart")
-			and (root.Position - blast.position).Magnitude <= blast.radius
-			and not ExplosionService.blocked(blast.position, root.Position)
+			and reaches(blast, root)
 		then
-			GasService.add(player, blast.gas, {
-				attacker = blast.owner,
-				team = blast.ownerTeam,
-				cause = blast.cause,
-				chainDepth = blast.depth,
-				weapon = blast.weapon,
-			})
+			GasService.add(player, blast.gas, source)
+		end
+	end
+	for _, bot in BotService.all() do
+		if bot.id ~= blast.sourceBot and bot.team ~= blast.ownerTeam and reaches(blast, BotService.rootOf(bot)) then
+			BotService.addGas(bot, blast.gas, source)
 		end
 	end
 	ExplosionService.Blasted:Fire(blast)
@@ -114,18 +135,34 @@ function ExplosionService.start()
 		return
 	end
 	started = true
-	-- A player explosion blasts the killer's enemies around it.
-	GasService.Exploded:Connect(function(victim, position, killer, depth, killerTeam)
+	-- A player or bot explosion blasts the killer's enemies around it.
+	GasService.Exploded:Connect(function(victim, position, killer, depth, killerTeam, killerBot)
 		if killerTeam then
 			ExplosionService.blast({
 				position = position,
 				radius = EXPLOSION.RADIUS,
 				gas = EXPLOSION.CHAIN_GAS,
 				owner = killer,
+				ownerBot = killerBot,
 				ownerTeam = killerTeam,
 				cause = "chain",
 				depth = depth + 1,
 				source = victim,
+			})
+		end
+	end)
+	BotService.Exploded:Connect(function(bot, position, killer, depth, killerTeam, killerBot)
+		if killerTeam then
+			ExplosionService.blast({
+				position = position,
+				radius = EXPLOSION.RADIUS,
+				gas = EXPLOSION.CHAIN_GAS,
+				owner = killer,
+				ownerBot = killerBot,
+				ownerTeam = killerTeam,
+				cause = "chain",
+				depth = depth + 1,
+				sourceBot = bot.id,
 			})
 		end
 	end)

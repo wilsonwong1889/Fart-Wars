@@ -5,14 +5,15 @@
 --     server's verdict comes back as a hit marker (bigger for a headshot)
 --   * your gas meter and its stage, the countdown when you're about to
 --     blow, and your current streak
---   * other players' shots as tracers, a red marker pointing at whoever
---     hit you, a kill feed (with assists), and "EXPLODED" cards
+--   * other players' (and bots') shots as tracers, a red marker pointing
+--     at whoever hit you, a kill feed (with assists), and "EXPLODED" cards;
+--     a bot goes by its name and team like anyone else (Combatants)
 --   * Shift: Fart Dash (on the ground, off cooldown); the client moves the
 --     avatar and the server checks it
 --   * Q: the equipped ability (Recovery Burst, Gas Pulse) with its cooldown
 --   * the weapon in hand (and a note when a new loadout waits for the
 --     respawn); tracers in the shooter's cosmetic colour if they have one
---   * teammates outlined in the team colour
+--   * teammates, bots on your team too, outlined in the team colour
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -28,6 +29,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
+local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
@@ -91,11 +93,12 @@ local function canAct(): boolean
 	return ClientState.isActive() and not InputController.menuOpen and humanoid() ~= nil and not exploding()
 end
 
-local function nameOf(userId: number): (string, Color3)
-	local other = Players:GetPlayerByUserId(userId)
-	local team = other and other:GetAttribute("TeamId")
+-- A player's or a bot's name (with the team symbol) and team colour.
+local function nameOf(id: number): (string, Color3)
+	local who = Combatants.get(id)
+	local team = who and who.team
 	local color = if team and TeamConfig.teams[team] then TeamConfig.teams[team].color else C.text
-	return if other then `{UI.teamSymbol(team :: any)}{other.DisplayName}` else "Someone", color
+	return if who then `{UI.teamSymbol(team)}{who.name}` else "Someone", color
 end
 
 local function build()
@@ -442,7 +445,8 @@ local function onCombatEvent(event: { [string]: any })
 	if event.kind == "shot" then
 		if event.shooter ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.to) == "Vector3" then
 			local _, color = nameOf(event.shooter)
-			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
+			local shooter = Combatants.get(event.shooter)
+			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(shooter and shooter.player, color))
 		end
 	elseif event.kind == "hit" then
 		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text
@@ -483,14 +487,15 @@ local function onCombatEvent(event: { [string]: any })
 	end
 end
 
--- Teammates get an outline in the team colour, through walls.
+-- Teammates (players and bots) get an outline in the team colour, through
+-- walls.
 local function refreshTeammates()
 	local mine = player:GetAttribute("TeamId")
-	for _, other in Players:GetPlayers() do
-		local character = other.Character
-		if character and other ~= player then
+	for _, character in Combatants.avatars() do
+		local other = Combatants.fromCharacter(character)
+		if other and character ~= player.Character then
 			local existing = character:FindFirstChild("TeammateOutline")
-			local team = other:GetAttribute("TeamId")
+			local team = other.team
 			local show = FeatureFlags.TEAMMATE_HIGHLIGHTS and mine ~= nil and team == mine and TeamConfig.teams[team]
 			-- The team's symbol over teammates' heads too (not colour alone).
 			local mark = character:FindFirstChild("TeamMark")
@@ -602,18 +607,19 @@ function CombatController.start()
 		lastDash = -math.huge
 		lastStage = 0
 	end)
-	-- Teammate outlines follow team changes and new avatars; a slow sweep
-	-- catches anything missed.
+	-- Teammate outlines follow team changes and new avatars (a bot carries
+	-- its team on its avatar); a slow sweep catches anything missed.
 	local function watch(other: Player)
 		other:GetAttributeChangedSignal("TeamId"):Connect(refreshTeammates)
-		other.CharacterAdded:Connect(function()
-			task.defer(refreshTeammates)
-		end)
 	end
 	for _, other in Players:GetPlayers() do
 		watch(other)
 	end
 	Players.PlayerAdded:Connect(watch)
+	Combatants.watch(function(character)
+		character:GetAttributeChangedSignal("TeamId"):Connect(refreshTeammates)
+		task.defer(refreshTeammates)
+	end)
 	task.spawn(function()
 		while true do
 			refreshTeammates()
