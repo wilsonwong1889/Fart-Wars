@@ -86,8 +86,10 @@ local weapons: { [string]: Weapon } = {
 		id = "Spritzer",
 		displayName = "Spritzer",
 		description = "A rapid spray that melts anyone close and fizzles out past 90 studs.",
-		gasPerHit = 7,
-		headshotGas = 9,
+		-- Enough to win a body-shot fight up close against the Gas Blaster
+		-- (12 hits, 1.1 s against its 5 hits, 1.2 s); headshots tie it.
+		gasPerHit = 9,
+		headshotGas = 11,
 		fireInterval = 0.1,
 		range = 90, -- close quarters: win the fight at the next cover, not across the lane
 		effectiveRange = 45,

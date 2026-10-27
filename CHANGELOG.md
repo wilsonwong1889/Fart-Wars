@@ -41,7 +41,9 @@
   gun reached nearly everywhere, so the Gas Blaster did everyone's job.
   Now the Spritzer wins up close, the Gas Blaster at middle distances, the
   Thunderclapper down the long sightlines and the Stink Lobber over
-  cover. The Lobber throws slower and falls faster: aim higher to throw
+  cover. The Spritzer hits harder to back that up: 9% a hit, 11% to the
+  head (was 7% and 9%), so up close it now eliminates faster than the Gas
+  Blaster (1.1 s against 1.2 s). The Lobber throws slower and falls faster: aim higher to throw
   farther (farthest at about 45 degrees), a steep throw clears the throne,
   and no throw bursts in the air any more (steep ones used to).
 - Levels come faster in the middle, and the late guns cost more: the

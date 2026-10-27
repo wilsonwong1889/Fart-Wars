@@ -1,7 +1,9 @@
 -- Weapon balance on the full-size Brainrot Battlefield (WeaponConfig's
 -- ranges and CombatService.gasAt), through the real Bootstrap and remotes:
 --   * each weapon has its role: the Spritzer reaches least, all of it
---     inside the Gas Blaster's full gas; the Thunderclapper reaches
+--     inside the Gas Blaster's full gas, and up close it eliminates faster
+--     than the Gas Blaster (body shots; headshots at least tie); the
+--     Thunderclapper reaches
 --     farthest, never the arena's length, and past its effective range it
 --     out-gasses the Gas Blaster; the Stink Lobber in between
 --   * fall-off: full gas out to the effective range, less past it, never
@@ -52,14 +54,22 @@ local function perSecond(id: string, distance: number): number
 	local weapon = W[id]
 	return if distance > weapon.range then 0 else gasAt(weapon, distance, false) / weapon.fireInterval
 end
-local closeOk, longOk = true, true
+-- Time from the first hit to 100% gas, with every shot landing.
+local function timeToKill(id: string, distance: number, headshot: boolean): number
+	local weapon = W[id]
+	local hits = math.ceil(100 / gasAt(weapon, distance, headshot))
+	return (hits - 1) * weapon.fireInterval
+end
+local closeBody, closeHead, longOk = true, true, true
 for d = 0, W.Spritzer.effectiveRange :: number do
-	closeOk = closeOk and perSecond("Spritzer", d) >= perSecond("GasBlaster", d)
+	closeBody = closeBody and timeToKill("Spritzer", d, false) < timeToKill("GasBlaster", d, false) - 1e-9
+	closeHead = closeHead and timeToKill("Spritzer", d, true) <= timeToKill("GasBlaster", d, true) + 1e-9
 end
 for d = W.Thunderclapper.effectiveRange :: number, W.Thunderclapper.range do
 	longOk = longOk and perSecond("Thunderclapper", d) >= perSecond("GasBlaster", d)
 end
-check(closeOk, "up close, the Spritzer gasses at least as fast as the Gas Blaster")
+check(closeBody, `up close, the Spritzer eliminates faster than the Gas Blaster ({timeToKill("Spritzer", 0, false)} s against {timeToKill("GasBlaster", 0, false)} s)`)
+check(closeHead, "and with headshots it's at least as fast")
 check(longOk, "past its effective range, the Thunderclapper out-gasses the Gas Blaster")
 
 -- Fall-off, for every instant weapon.
