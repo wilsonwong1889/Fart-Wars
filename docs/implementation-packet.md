@@ -19,7 +19,7 @@ src/
       WeaponConfig.luau         weapons by the masterplan's contract, with handling, price and level
       AbilityConfig.luau        abilities by the masterplan's contract (Fart Dash, the Q abilities)
       ProgressionConfig.luau    coin and XP grants, the level curve, unlocks, mastery, limits
-      AudioConfig.luau          sound asset IDs by name (empty = silent)
+      AudioConfig.luau          sound asset IDs by name, each one's mix and how far it carries
       UIConfig.luau             palette, words, key bindings, controls card
     Interfaces/
       MapBase.luau              the map contract and its validator
@@ -44,7 +44,7 @@ src/
     ClientState.luau            snapshot, counts, state, messages
     Settings.luau               the player's Settings choices (effects, sound, tips)
     UI.luau                     UI building helpers
-    Audio.luau                  plays AudioConfig sounds
+    Audio.luau                  plays AudioConfig sounds, flat or from where they happen
     Controllers/                Input, Camera, Combat, Effects, HUD, Progress, Locker, Tips, Home
 tests/                          specs + the Roblox stand-in harness
 scripts/run_specs.py            runs the specs on the Luau CLI
@@ -64,7 +64,7 @@ Services start in this order and never require one that starts later.
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
 | `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `vent(player, amount) -> number`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
-| `CombatService` | `start()`, `fire(player, direction, shotId)`, `weaponOf(player)`, `setWeapon(player, id)`, signals `PartHit(shooter, part, weapon, from)`, `Lobbed(shooter, from, direction, weapon)` |
+| `CombatService` | `start()`, `fire(player, direction, shotId)`, `gasAt(weapon, distance, headshot)` (a hit's gas after fall-off), `weaponOf(player)`, `setWeapon(player, id)`, signals `PartHit(shooter, part, weapon, from)`, `Lobbed(shooter, from, direction, weapon)` |
 | `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source?, weapon? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
 | `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()` |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
@@ -281,7 +281,6 @@ specially; an older server never writes a newer save.
 - Chat test commands are a TextChatService command (`/fw`, `!fw`) and
   `Player.Chatted` for legacy chat; if neither delivers them, use the
   command bar. `/fw selftest` says which one is in use.
-- Sounds are empty `AudioConfig` slots until real assets are uploaded.
 - The Stink Lobber has no arc preview: aim higher to throw farther. Worth
   adding if playtesters struggle to place bombs.
 - A stink bomb's flight is worked out when it's thrown; it lands where the

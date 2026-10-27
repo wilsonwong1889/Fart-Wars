@@ -135,7 +135,7 @@ hit({ gas = 100, headshot = true })
 check(marker.TextSize == LOOKS.kaboom.size and sound.PlaybackSpeed == HIT.headshotPitch, "a finishing headshot: that marker, the headshot sound")
 settle()
 
--- A hit that did nothing (protected, or already going off).
+-- A hit that did nothing (a teammate, spawn protection, or already going off).
 sound.Playing = false
 hit({ gas = 100, headshot = true, blocked = true })
 check(marker.Visible and marker.TextSize == LOOKS.blocked.size and marker.TextColor3 == LOOKS.blocked.color, "a hit that did nothing: small and grey")

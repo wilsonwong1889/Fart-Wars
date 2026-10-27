@@ -276,10 +276,10 @@ end
 -- it pops in at the crosshair and fades. A headshot's is bigger and gold,
 -- and the hit sound plays higher and louder; the hit that fills a target's
 -- gas (they're going off) is bigger still, orange, and throws a ring out;
--- one that did nothing (protected, or already going off) is small, grey
--- and silent. REDUCE MOTION just shows and hides it (no pop or fade, a
--- still ring); REDUCED EFFECTS (or low detail) keeps the pop but drops the
--- fade and the ring.
+-- one that did nothing (a teammate, spawn protection, or already going
+-- off) is small, grey and silent. REDUCE MOTION just shows and hides it
+-- (no pop or fade, a still ring); REDUCED EFFECTS (or low detail) keeps
+-- the pop but drops the fade and the ring.
 local HIT = UIConfig.hitMarker
 local hitTweens: { [Instance]: Tween } = {}
 

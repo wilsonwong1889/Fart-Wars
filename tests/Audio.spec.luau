@@ -228,8 +228,8 @@ CombatService.setWeapon(ada, "Spritzer")
 type Heard = { name: string, at: Vector3?, sound: Sound? }
 local heard: { Heard } = {}
 local play = Audio.play
-Audio.play = function(name: string, position: Vector3?): Sound?
-	local sound = play(name, position)
+Audio.play = function(name: string, position: Vector3?, options: Audio.Options?): Sound?
+	local sound = play(name, position, options)
 	table.insert(heard, { name = name, at = position, sound = sound })
 	return sound
 end
@@ -312,9 +312,9 @@ local head = ada.Character:FindFirstChild("Head") :: BasePart
 check(head ~= nil, "Ada has a head")
 camera.CFrame = CFrame.new(head.Position + Vector3.new(0, 0, 20))
 got = event({ kind = "emote", player = ada.UserId, emote = "Toot" })
-check(#got >= 1 and inWorld(got[1], "emote", head.Position, "near"), "another player's emote: from their head")
+check(#got == 1 and inWorld(got[1], "emote", head.Position, "near"), "another player's emote: from their head, its own sound only (not Recovery Burst's vent)")
 got = event({ kind = "emote", player = me.UserId, emote = "Toot" })
-check(#got >= 1 and flat(got[1], "emote"), "my own emote: flat")
+check(#got == 1 and flat(got[1], "emote"), "my own emote: flat")
 camera.CFrame = CFrame.new(eye)
 
 -- Announcements and my own warnings.

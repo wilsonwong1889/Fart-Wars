@@ -38,6 +38,7 @@ local Loadout = require(server.Services.LoadoutService)
 local Data = require(server.Services.DataService)
 local Telemetry = require(server.Telemetry)
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
+local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local Remotes = ReplicatedStorage.Remotes
 local HttpService = game:GetService("HttpService")
 
@@ -126,10 +127,12 @@ local function shoot(direction: Vector3)
 	shotId += 1
 	Remotes.FireWeapon.OnServerEvent:Fire(me, direction, shotId)
 end
--- Down the Gas Gutter lane (x = 53), aimed at the body.
+-- Down Bean Alley's outer edge (x = -76 in the layout, times the map's
+-- scale), where nothing stands between the two of us, aimed at the body.
+local LANE_X = -76 * MapConfig.BrainrotBattlefield.scale
 local function lineUp(distance: number): Vector3
-	place(me, 53, -14)
-	place(foe, 53, -14 + distance)
+	place(me, LANE_X, -14)
+	place(foe, LANE_X, -14 + distance)
 	place(mate, 30, -40)
 	local head = me.Character.Head.Position
 	return (foe.Character.HumanoidRootPart.Position - head).Unit
@@ -178,10 +181,16 @@ check(rejects("FireWeapon", "tooFast") == refusedBefore, "a late shot followed b
 reset()
 local sprayRange = WeaponConfig.weapons.Spritzer.range
 aim = lineUp(sprayRange + 20)
+local clear = RaycastParams.new()
+clear.FilterType = Enum.RaycastFilterType.Exclude
+clear.FilterDescendantsInstances = { me.Character, foe.Character }
+local eye = me.Character.Head.Position
+local wall = workspace:Raycast(eye, foe.Character.HumanoidRootPart.Position - eye, clear)
+check(wall == nil, `nothing but distance between us ({wall and wall.Instance:GetFullName()})`)
 task.wait(0.11)
 shoot(aim)
 check(Gas.gasOf(foe) == 0, `past {sprayRange} studs, nothing`)
-check(lastHeard("shot") and (lastHeard("shot").to - lastHeard("shot").from).Magnitude <= sprayRange + 0.5, "the spray stops at its range")
+check(lastHeard("shot") and math.abs((lastHeard("shot").to - lastHeard("shot").from).Magnitude - sprayRange) < 0.5, "the spray flies its range and stops there")
 
 -- Thunderclapper.
 give("Thunderclapper")

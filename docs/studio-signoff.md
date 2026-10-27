@@ -1,7 +1,7 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 36 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 38 specs, including a 20-player, 20-minute soak).
 Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6;
 sections 8 and 9 are the Blender art (the weapons, the map).
 What's left needs real Roblox: physics, rendering, sound, the real network
@@ -24,7 +24,8 @@ the Output window help).
 
 - [ ] The Output shows `[Fart Wars] server ready` and no red errors.
 - [ ] Chat `/fw selftest`. Expected: **0 failures**. Warnings for test
-      controls and empty sound slots are normal. If the command does
+      controls, the admin code, store IDs and art not yet imported or
+      uploaded are normal. If the command does
       nothing, run `game.ServerScriptService.Server.TestControls.Command:Invoke("selftest")`
       in the server command bar instead, and note that chat commands don't
       arrive. (Not `require(...).selftest()`: the command bar's `require`
@@ -71,7 +72,22 @@ the Output window help).
 
 - [ ] The round starts (5:00 counting down on both clients, the same time).
 - [ ] Shoot each other across a lane: tracers line up with the crosshair
-      in first and third person; hit markers; headshots show bigger.
+      in first and third person. Hit markers pop at the crosshair: white
+      for a body hit, bigger and gold with a higher hit sound for a
+      headshot, orange with a ring for the hit that sets them off, small,
+      grey and silent on a spawn-protected player.
+- [ ] Sound: the other client's shots, dashes, emotes and abilities come
+      from where they happen (left or right, quieter far away; shots fade
+      out by about 250 studs, explosions by 400); your own shots and hits
+      sound the same wherever you look. An emote makes only its own
+      sound. Nothing is much louder than the rest (tune `AudioConfig.MIX`
+      by ear if it is).
+- [ ] Low cover (the plaza and alley walls, the crates) is about an
+      avatar's height: right behind it you're hard to hit from the front,
+      and you can shoot past its ends or jump to fire over it; a stink
+      bomb clears it.
+      The lane gates' signs read from both ends of each lane, lit, and
+      nothing up there stops a shot or the camera.
 - [ ] Gas: the meter and the belly grow by stage; the critical outline
       pulses slowly (no flashing); at 100 a one-second countdown, then the
       explosion, the kill feed and "EXPLODED" card.
@@ -124,7 +140,8 @@ the Output window help).
       readable with nothing overlapping.
 - [ ] Roblox graphics quality 1: effects thin out, the game stays smooth.
       Settings → Reduced effects does the same at any quality.
-- [ ] Settings → Sound effects off: silence (once sounds are uploaded).
+- [ ] Settings → Sound effects off: silence; turning the volume down
+      turns every sound down, near and far.
 - [ ] Settings → Tips off: no more tips.
 - [ ] Settings → 3rd person mouse lock off: a free cursor in third person
       (right-drag turns the camera); first person still locks it. On again:
@@ -265,7 +282,6 @@ turn it back off unless you're keeping it):
 
 - [ ] `GameConfig.TEST_CONTROLS.ENABLED = false` (or `USER_IDS` empty;
       in live servers only listed users can use them anyway).
-- [ ] Upload the game's sounds and fill in `AudioConfig`.
 - [ ] Decide `GameConfig.MODERATION.KICK_AT_FLAGS` (0 = review only)
       after looking at the flags real players trigger (`flags.*` in
       `/fw stats`).

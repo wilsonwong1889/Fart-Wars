@@ -429,6 +429,19 @@ function EconomyService.testGrant(player: Player, coins: number, xp: number): bo
 	return EconomyService.grant(player, `test:{testGrants}`, "test", coins, xp)
 end
 
+-- A profile saved holding more XP than its level needs now (the curve has
+-- been made cheaper since) takes the levels that XP pays for, with their
+-- unlocks, as it arrives rather than at its next grant. Levels are never
+-- worked out again from LifetimeXP. (With PROGRESSION off, nothing levels.)
+local function catchUp(player: Player)
+	local profile = DataService.get(player)
+	if FeatureFlags.PROGRESSION and profile and profile.data.XP >= EconomyService.xpToNext(profile.data) then
+		withProfile(player, function(data, events)
+			gainXP(player, data, events, "catchUp", 0)
+		end)
+	end
+end
+
 onJoin = function(player: Player)
 	if sessions[player] then
 		return
@@ -445,6 +458,7 @@ onJoin = function(player: Player)
 	}
 	-- A profile that was ready before this (DataStores failing at once).
 	if DataService.isLoaded(player) then
+		catchUp(player)
 		EconomyService.publish(player)
 	end
 end
@@ -485,6 +499,7 @@ function EconomyService.start()
 		for _, change in queued do
 			withProfile(player, change)
 		end
+		catchUp(player)
 		EconomyService.publish(player)
 	end)
 	EliminationService.Eliminated:Connect(onEliminated)

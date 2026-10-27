@@ -54,8 +54,13 @@ you.
   `prestige`). If veterans win too often against new players, look at
   matchmaking and weapon balance before anything else.
 - Prices can change without invalidating purchases: ownership is a list of
-  IDs in the profile, never a price, so a weapon bought at 1,200 stays
-  owned if it later costs 1,000 (or 1,500).
+  IDs in the profile, never a price, so a Thunderclapper bought at the
+  old 1,200 stays owned now that it costs 3,000.
+- A coin sink after the last gun. Once a player owns all three shop guns,
+  nothing in the beta costs coins, and an average player banks about
+  2,000 a day ([`economy.md`](economy.md)); `samples.unspentCoins` will
+  show it. Coin-priced cosmetics are the obvious candidate, never anything
+  that changes combat. A new system, so not in the beta.
 
 ## Battle pass (seasons)
 

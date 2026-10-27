@@ -1,33 +1,35 @@
 -- What the client shows: palette, words, keys and screen timings.
+local colors = table.freeze({
+	panel = Color3.fromRGB(24, 20, 34),
+	panelLight = Color3.fromRGB(44, 38, 60),
+	stroke = Color3.fromRGB(12, 10, 18),
+	text = Color3.fromRGB(245, 242, 250),
+	muted = Color3.fromRGB(170, 162, 190),
+	accent = Color3.fromRGB(150, 230, 60),
+	play = Color3.fromRGB(102, 220, 60),
+	warning = Color3.fromRGB(255, 120, 60),
+	disabled = Color3.fromRGB(90, 86, 100),
+})
+
 local UIConfig = {
-	colors = table.freeze({
-		panel = Color3.fromRGB(24, 20, 34),
-		panelLight = Color3.fromRGB(44, 38, 60),
-		stroke = Color3.fromRGB(12, 10, 18),
-		text = Color3.fromRGB(245, 242, 250),
-		muted = Color3.fromRGB(170, 162, 190),
-		accent = Color3.fromRGB(150, 230, 60),
-		play = Color3.fromRGB(102, 220, 60),
-		warning = Color3.fromRGB(255, 120, 60),
-		disabled = Color3.fromRGB(90, 86, 100),
-	}),
+	colors = colors,
 	font = Enum.Font.FredokaOne,
 	bodyFont = Enum.Font.GothamBold,
 
 	-- The hit marker at the crosshair, by the server's verdict: a body hit,
 	-- a headshot, the hit that fills the target's gas ("kaboom": they're
-	-- going off) and one that did nothing ("blocked": protected, or already
-	-- going off). Each pops in at `pop` times its size and settles in
-	-- popSeconds, shows for `seconds` and fades over the last fadeSeconds;
-	-- the kaboom one also throws a ring out to ringSize pixels across. A
-	-- headshot plays the hit sound at headshotPitch (playback speed) and
-	-- headshotVolume (times the usual).
+	-- going off) and one that did nothing ("blocked": a teammate, spawn
+	-- protection, or already going off). Each pops in at `pop` times its
+	-- size and settles in popSeconds, shows for `seconds` and fades over
+	-- the last fadeSeconds; the kaboom one also throws a ring out to
+	-- ringSize pixels across. A headshot plays the hit sound at
+	-- headshotPitch (playback speed) and headshotVolume (times the usual).
 	hitMarker = table.freeze({
 		looks = table.freeze({
-			body = table.freeze({ size = 30, color = Color3.fromRGB(245, 242, 250), pop = 1.5, seconds = 0.2 }),
+			body = table.freeze({ size = 30, color = colors.text, pop = 1.5, seconds = 0.2 }),
 			headshot = table.freeze({ size = 42, color = Color3.fromRGB(255, 205, 50), pop = 1.7, seconds = 0.3 }),
-			kaboom = table.freeze({ size = 50, color = Color3.fromRGB(255, 120, 60), pop = 1.9, seconds = 0.45 }),
-			blocked = table.freeze({ size = 24, color = Color3.fromRGB(170, 162, 190), pop = 1, seconds = 0.15 }),
+			kaboom = table.freeze({ size = 50, color = colors.warning, pop = 1.9, seconds = 0.45 }),
+			blocked = table.freeze({ size = 24, color = colors.muted, pop = 1, seconds = 0.15 }),
 		}),
 		popSeconds = 0.12,
 		fadeSeconds = 0.1,
