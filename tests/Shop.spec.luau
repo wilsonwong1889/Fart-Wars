@@ -8,9 +8,10 @@
 --   * equipping: only what you own; from the home screen it's in hand at
 --     once, mid-fight it waits for the respawn (and the HUD says so); the
 --     weapon's handling comes with it; abilities and tracers likewise
---   * the locker: tabs, each weapon's stats and button, BUY with its
---     pending state and the answer, EQUIP, the progression track, settings
---     (effects, sound, tips); a tip when a weapon becomes affordable
+--   * the locker: tabs, the shop's rail, each weapon's stats and button,
+--     BUY with its pending state and the answer, EQUIP, the loadout's Q
+--     abilities, the progression track, settings (effects, sound, tips); a
+--     tip when a weapon becomes affordable
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -219,10 +220,11 @@ check(answer.ok and me:GetAttribute("Tracer") == nil, "and off again")
 Locker.open("Weapons")
 task.wait(0.1)
 local p = Locker.parts
-check(p.screen.Enabled and p.tabs.Weapons and p.tabs.Abilities and p.tabs.Progression and p.tabs.Settings, "the locker with its four tabs")
-local spritzer = p.content:FindFirstChild("Spritzer")
+check(p.screen.Enabled and p.tabs.Loadout and p.tabs.Weapons and p.tabs.Progression and p.tabs.Settings, "the locker with its four tabs")
+check(p.rail.Visible and p.content.Shop and p.content.Shop.Weapons, "the shop: one page, with its rail")
+local spritzer = Locker.card("Spritzer")
 check(spritzer and spritzer:FindFirstChild("Action").Text == "EQUIP", "the Spritzer: owned, EQUIP")
-check(p.content.Thunderclapper.Action.Text == "EQUIPPED", "the Thunderclapper: EQUIPPED")
+check(Locker.card("Thunderclapper").Action.Text == "EQUIPPED", "the Thunderclapper: EQUIPPED")
 local stats = {}
 for _, child in spritzer:GetChildren() do
 	if child.Name == "Stat" then
@@ -230,20 +232,42 @@ for _, child in spritzer:GetChildren() do
 	end
 end
 local statText = table.concat(stats, " | ")
-check(string.find(statText, "GAS 9% (head 11%)", 1, true) and string.find(statText, "RANGE 90 · instant", 1, true) and string.find(statText, "RATE 10.0/s", 1, true) and string.find(spritzer.Details.Text, "Handling", 1, true), "its stats: " .. statText)
-local blurb = false
-for _, child in spritzer:GetChildren() do
-	blurb = blurb or (child:IsA("TextLabel") and string.find(child.Text, "fizzles out past 90 studs", 1, true) ~= nil)
-end
-check(blurb, "and its description: it fizzles out past 90 studs")
-check(p.content.StinkLobber.Action.Text == "LEVEL 25", "the Stink Lobber: level 25 first")
+check(string.find(statText, "GAS 9% (head 11%)", 1, true) and string.find(statText, `RANGE {require(game.ReplicatedStorage.Shared.Config.WeaponConfig).weapons.Spritzer.range}`, 1, true) and string.find(statText, "RATE 10.0/s", 1, true) and string.find(spritzer.Details.Text, "Handling", 1, true), "its stats: " .. statText)
+check(Locker.card("StinkLobber").Action.Text == "LEVEL 25", "the Stink Lobber: level 25 first")
 xpTo(25)
 task.wait(0.1)
-check(p.content.StinkLobber.Action.Text == "7000 COINS", "level 25, but not the coins")
+check(Locker.card("StinkLobber").Action.Text == "7000 COINS", "level 25, but not the coins")
 coins(7000)
 task.wait(0.1)
-local buy = p.content.StinkLobber.Action
+local buy = Locker.card("StinkLobber").Action
 check(buy.Text == "BUY 7000", "now: BUY 7000")
+-- The home screen's featured offers follow: the Stink Lobber is next.
+local function shownOffers(): { string }
+	local cards = {}
+	for _, child in Home.parts.offerRow:GetChildren() do
+		if child:IsA("TextButton") then
+			table.insert(cards, child)
+		end
+	end
+	table.sort(cards, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+	local names = {}
+	for _, card in cards do
+		table.insert(names, card.Name)
+	end
+	return names
+end
+Home.parts.offerStart = 1
+Home.renderOffers()
+local weaponOffer = Home.parts.offerRow:FindFirstChild("Weapon")
+check(weaponOffer and weaponOffer.Title.Text == "STINK LOBBER" and weaponOffer.Action.Label.Text == "BUY 7,000" and weaponOffer:FindFirstChild("Preview"), "featured: the Stink Lobber, BUY 7,000, with the gun")
+check(Home.parts.nextOffer.Visible, "more than two offers: arrows")
+local first = shownOffers()
+click(Home.parts.nextOffer)
+check(shownOffers()[1] == first[2], "the next arrow moves along: " .. table.concat(shownOffers(), ","))
+click(Home.parts.prevOffer)
+check(shownOffers()[1] == first[1], "and back")
 local shopButton = Home.parts.pageButtons.Weapons
 check(Locker.buyable() == 1 and shopButton.Badge.Visible and shopButton.Badge.Count.Text == "1", "the home screen's SHOP badge: one to buy")
 -- A tip says so too (once), between fights.
@@ -268,20 +292,27 @@ click(buy)
 click(p.confirmYes)
 check(not p.confirm.Visible, "YES closes the question")
 check(Locker.busy and string.find(p.status.Text, "Buying", 1, true), "while it saves: Buying...")
-check(p.content.Spritzer.Action:GetAttribute("Enabled") == false, "and the other buttons wait")
+check(Locker.card("Spritzer").Action:GetAttribute("Enabled") == false, "and the other buttons wait")
 task.wait(1)
 latency = 0
 check(not Locker.busy and p.status.Text == "Bought! It's yours.", "then the answer")
-check(table.find(data().OwnedWeapons, "StinkLobber") and p.content.StinkLobber.Action.Text == "EQUIP", "it's yours: EQUIP")
+check(table.find(data().OwnedWeapons, "StinkLobber") and Locker.card("StinkLobber").Action.Text == "EQUIP", "it's yours: EQUIP")
 check(Locker.buyable() == 0 and not shopButton.Badge.Visible, "and the badge goes")
 task.wait(0.3)
-click(p.content.StinkLobber.Action)
+click(Locker.card("StinkLobber").Action)
 task.wait(0.1)
 check(data().EquippedWeapon == "StinkLobber" and string.find(p.status.Text, "respawn", 1, true), "EQUIP mid-fight: on the next respawn")
-click(p.tabs.Abilities)
-check(p.content.RecoveryBurst.Action.Text == "EQUIPPED" and p.content.GasPulse.Action.Text == "LEVEL 30", "abilities: equipped and locked")
-check(p.content.FartDash.Action.Text == "EVERYONE HAS IT", "Fart Dash is everyone's")
-click(p.tabs.Progression)
+local Loadout = require(Controllers.LoadoutController)
+click(p.tabs.Loadout)
+check(Loadout.isOpen and not Locker.isOpen, "LOADOUT: its own screen, over the locker")
+local lp = Loadout.parts
+check(string.find(lp.ability.AbilityName.Text, "Recovery Burst", 1, true) and string.find(lp.dash.AbilityName.Text, "Fart Dash", 1, true), "Q: Recovery Burst; SHIFT: Fart Dash")
+click(lp.ability)
+local options = lp.pickerOptions
+check(lp.picker.Visible and options.RecoveryBurst.Border.Thickness == 4 and options.GasPulse:GetAttribute("Enabled") == false and options.GasPulse.ItemName.Text == "Gas Pulse" and options.GasPulse.Note.Text == "🔒 LEVEL 30", "the Q picker: equipped and locked")
+Loadout.closePicker()
+Locker.open("Progression")
+check(Locker.isOpen and not Loadout.isOpen, "a locker page closes the loadout")
 check(p.content.Track.Level.Text == "LEVEL 25" and p.content.Track.Unlock20.Text:sub(1, 3) == "✓", "progression: the level and the track")
 check(string.find(p.content.Stats.Badges.Text, "None yet", 1, true), "no badges yet")
 click(p.tabs.Settings)

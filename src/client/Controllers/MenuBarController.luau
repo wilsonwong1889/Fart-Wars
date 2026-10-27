@@ -1,9 +1,9 @@
 -- The top-right corner while playing, in the home screen's style: your
--- coins (+ opens the store), the menu's sections as tiles: Shop (weapons),
--- Abilities, Levels (progression) and Settings, each opening that page of
--- the locker (Shop and Abilities with the home screen's badges); and below
--- them the free spin (how many, or the time to the next) and the daily
--- reward ("!" when one is waiting).
+-- coins (+ opens the shop's coin packs), the menu's sections as tiles:
+-- Loadout, Shop, Levels and Settings, each opening that page (Loadout and
+-- Shop with the home screen's badges); and below them the free spin (how
+-- many, or the time to the next) and the daily reward ("!" when one is
+-- waiting).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,8 +17,8 @@ local RewardsController = require(script.Parent.RewardsController)
 local SeasonController = require(script.Parent.SeasonController)
 
 local C = UIConfig.colors
--- The locker pages along the top, in the home screen's colours.
-local PAGES = { "Weapons", "Abilities", "Progression", "Settings" }
+-- The menu's pages along the top, in the home screen's colours.
+local PAGES = UIConfig.menuSections
 
 local MenuBarController = {}
 
@@ -76,7 +76,7 @@ local function build()
 		Parent = wallet,
 	})
 	UI.onClick(plus, function()
-		LockerController.open("Store")
+		LockerController.open("Weapons", "Coins")
 	end)
 
 	-- The locker's pages as tiles.
@@ -151,7 +151,7 @@ local function refresh()
 	p.daily.Text = if player:GetAttribute("DailyReady") == true then "CLAIM!" else "DAILY"
 	UI.setBadge(p.daily, if player:GetAttribute("DailyReady") == true then "!" else nil)
 	UI.setBadge(p.buttons.Weapons, LockerController.buyable())
-	UI.setBadge(p.buttons.Abilities, LockerController.newAbilities())
+	UI.setBadge(p.buttons.Loadout, LockerController.newAbilities())
 end
 MenuBarController.refresh = refresh
 

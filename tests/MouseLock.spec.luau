@@ -70,6 +70,7 @@ task.wait(0.5)
 local Controllers = client.Controllers
 local Home = require(Controllers.HomeController)
 local Locker = require(Controllers.LockerController)
+local Loadout = require(Controllers.LoadoutController)
 local Rewards = require(Controllers.RewardsController)
 local PlayersScreen = require(Controllers.PlayersController)
 local Season = require(Controllers.SeasonController)
@@ -105,6 +106,9 @@ local screens = {
 	end,
 	Locker = function()
 		return Locker.parts.screen.Enabled
+	end,
+	Loadout = function()
+		return Loadout.parts.screen.Enabled
 	end,
 	Players = function()
 		return PlayersScreen.parts.screen.Enabled
@@ -225,6 +229,10 @@ check(Settings.lockMouse and toggle.Text == "3RD PERSON MOUSE LOCK: ON", "and on
 only("the setting doesn't touch the screens' reasons", { "Locker" })
 click(Locker.parts.screen:FindFirstChild("Close", true))
 only("locker closed", {})
+click(MenuBar.parts.buttons.Loadout)
+only("LOADOUT: its own screen", { "Loadout" })
+click(Loadout.parts.back)
+only("its BACK", {})
 click(MenuBar.parts.spin)
 only("the free spin", { "SpinWheel" })
 click(Rewards.parts.wheel:FindFirstChild("Close", true))
@@ -265,8 +273,8 @@ task.wait(0.6)
 only("back in the match", {})
 press(Enum.KeyCode.M)
 click(home.menu:FindFirstChild("Leaderboard", true))
-click(MenuBar.parts.buttons.Abilities)
-only("menu, Coming Soon and the locker", { "GameMenu", "ComingSoon", "Locker" })
+click(MenuBar.parts.buttons.Loadout)
+only("menu, Coming Soon and the loadout", { "GameMenu", "ComingSoon", "Loadout" })
 -- Moved out by the server (not a button): the menu closes itself.
 ReplicatedStorage.Remotes.RequestSpectate.OnServerEvent:Fire(me)
 task.wait(0.3)

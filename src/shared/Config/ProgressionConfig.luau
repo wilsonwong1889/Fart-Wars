@@ -55,9 +55,10 @@ local ProgressionConfig = {
 		table.freeze({ eliminations = 300, coins = 1000, badge = "Platinum" }),
 	}),
 
-	-- Cosmetics, nothing that changes combat, three kinds: tracers (your
-	-- shots' colour), trails (your Fart Dash puffs) and emotes (E). `source`
-	-- says how to get one; `free` ones everybody has.
+	-- Cosmetics, nothing that changes combat, four kinds: tracers (your
+	-- shots' colour), trails (your Fart Dash puffs), emotes (E) and booms
+	-- (the explosions of players you eliminate). `source` says how to get
+	-- one; `free` ones everybody has.
 	cosmetics = table.freeze({
 		GoldenGas = table.freeze({ id = "GoldenGas", kind = "tracer", name = "Golden Gas", tracerColor = Color3.fromRGB(255, 200, 40), source = "Level 20" }),
 		RainbowRot = table.freeze({ id = "RainbowRot", kind = "tracer", name = "Rainbow Rot", tracerColor = Color3.fromRGB(200, 90, 255), source = "Level 40" }),
@@ -76,9 +77,24 @@ local ProgressionConfig = {
 		SludgeTrail = table.freeze({ id = "SludgeTrail", kind = "trail", name = "Sludge Trail", trailColor = Color3.fromRGB(110, 150, 40), source = "Season 1, tier 10" }),
 		ToxicBoom = table.freeze({ id = "ToxicBoom", kind = "boom", name = "Toxic Boom", boomColor = Color3.fromRGB(170, 60, 255), source = "Season 1, tier 15" }),
 		BrainrotGold = table.freeze({ id = "BrainrotGold", kind = "tracer", name = "Brainrot Gold", tracerColor = Color3.fromRGB(255, 180, 0), source = "Season 1, tier 20" }),
+		-- The daily shop's (DailyShopConfig): bought with coins on the day
+		-- they're in it.
+		OceanBreeze = table.freeze({ id = "OceanBreeze", kind = "tracer", name = "Ocean Breeze", tracerColor = Color3.fromRGB(60, 170, 255), source = "Daily shop" }),
+		BubblegumBlast = table.freeze({ id = "BubblegumBlast", kind = "tracer", name = "Bubblegum Blast", tracerColor = Color3.fromRGB(255, 110, 190), source = "Daily shop" }),
+		PlasmaPuff = table.freeze({ id = "PlasmaPuff", kind = "tracer", name = "Plasma Puff", tracerColor = Color3.fromRGB(120, 90, 255), source = "Daily shop" }),
+		SolarStink = table.freeze({ id = "SolarStink", kind = "tracer", name = "Solar Stink", tracerColor = Color3.fromRGB(255, 150, 30), source = "Daily shop" }),
+		BubbleTrail = table.freeze({ id = "BubbleTrail", kind = "trail", name = "Bubble Trail", trailColor = Color3.fromRGB(160, 220, 255), source = "Daily shop" }),
+		LavaTrail = table.freeze({ id = "LavaTrail", kind = "trail", name = "Lava Trail", trailColor = Color3.fromRGB(255, 90, 40), source = "Daily shop" }),
+		GalaxyTrail = table.freeze({ id = "GalaxyTrail", kind = "trail", name = "Galaxy Trail", trailColor = Color3.fromRGB(140, 80, 255), source = "Daily shop" }),
+		ConfettiBoom = table.freeze({ id = "ConfettiBoom", kind = "boom", name = "Confetti Boom", boomColor = Color3.fromRGB(255, 100, 200), source = "Daily shop" }),
+		GoldBoom = table.freeze({ id = "GoldBoom", kind = "boom", name = "Gold Boom", boomColor = Color3.fromRGB(255, 200, 40), source = "Daily shop" }),
+		Beans = table.freeze({ id = "Beans", kind = "emote", name = "Beans!", emoji = "🥫", text = "BEANS!", source = "Daily shop" }),
+		GoodGame = table.freeze({ id = "GoodGame", kind = "emote", name = "GG", emoji = "🤝", text = "GG!", source = "Daily shop" }),
+		UhOh = table.freeze({ id = "UhOh", kind = "emote", name = "Uh Oh", emoji = "💦", text = "UH OH...", source = "Daily shop" }),
+		SilentButDeadly = table.freeze({ id = "SilentButDeadly", kind = "emote", name = "Silent but Deadly", emoji = "🤫", text = "SILENT BUT DEADLY...", source = "Daily shop" }),
 	}),
 	-- Cosmetics in the order the locker shows them.
-	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot", "SeasonSpark", "SludgeTrail", "ToxicBoom", "BrainrotGold" }),
+	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot", "SeasonSpark", "SludgeTrail", "ToxicBoom", "BrainrotGold", "OceanBreeze", "BubblegumBlast", "PlasmaPuff", "SolarStink", "BubbleTrail", "LavaTrail", "GalaxyTrail", "ConfettiBoom", "GoldBoom", "Beans", "GoodGame", "UhOh", "SilentButDeadly" }),
 
 	-- Sanity limits on any one transaction, and how many recent ones each
 	-- profile keeps for audits.

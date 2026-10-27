@@ -186,8 +186,9 @@ check(Effects.emote(me.UserId, "GoldenGas") == nil, "a tracer isn't an emote")
 Locker.open("Store")
 task.wait(0.1)
 local content = Locker.parts.content
-check(content:FindFirstChild("StarterPack") and content.StarterPack.Action.Text == "OWNED", "the store: the Starter Pack, owned")
-check(content.Coins.Coins500.Action.Text == "UNAVAILABLE", "coin packs unavailable until their IDs are set")
+check(Locker.tab == "Weapons" and Locker.section == "Featured", "the store: the shop's featured part")
+check(Locker.card("StarterPack") and Locker.card("StarterPack").Action.Text == "OWNED", "the Starter Pack, owned")
+check(Locker.card("Coins500").Action.Text == "UNAVAILABLE", "coin packs unavailable until their IDs are set")
 Locker.open("Progression")
 task.wait(0.1)
 local grid = content.Stats.Cosmetics

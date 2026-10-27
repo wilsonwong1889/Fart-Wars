@@ -1188,7 +1188,7 @@ local DEFAULTS = {
 	UIListLayout = { Padding = UDim.new(0, 0), AbsoluteContentSize = Vector2.zero },
 	UIGridLayout = { CellSize = UDim2.new(0, 100, 0, 100), CellPadding = UDim2.new(0, 5, 0, 5), AbsoluteContentSize = Vector2.zero },
 	UIGradient = { Enabled = true, Rotation = 0 },
-	ScrollingFrame = { CanvasSize = UDim2.new(0, 0, 2, 0), CanvasPosition = Vector2.zero, ScrollBarThickness = 12, ScrollingEnabled = true },
+	ScrollingFrame = { CanvasSize = UDim2.new(0, 0, 2, 0), CanvasPosition = Vector2.zero, AbsoluteCanvasSize = Vector2.zero, AbsoluteWindowSize = Vector2.zero, ScrollBarThickness = 12, ScrollingEnabled = true },
 	IntValue = { Value = 0 }, NumberValue = { Value = 0 }, StringValue = { Value = "" }, BoolValue = { Value = false },
 	Sound = { Volume = 0.5, PlaybackSpeed = 1, Looped = false, Playing = false, IsPlaying = false, SoundId = "", TimePosition = 0, TimeLength = 0, IsLoaded = true },
 	Light = { Brightness = 1, Range = 8, Color = c3(1, 1, 1), Enabled = true, Shadows = false },
@@ -2554,6 +2554,7 @@ local SERVICE_METHODS = {
 		end,
 	},
 	ServerStorage = {},
+	ReplicatedFirst = { RemoveDefaultLoadingScreen = noop },
 }
 
 local SERVICE_CLASS = { Workspace = "Workspace" }

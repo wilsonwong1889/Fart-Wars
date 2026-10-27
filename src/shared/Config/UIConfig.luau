@@ -87,30 +87,61 @@ local UIConfig = {
 	rewardSeconds = 2.5,
 	levelUpSeconds = 3.5,
 
+	-- The loading screen's tips, one every few seconds while it waits.
+	loadingTips = table.freeze({
+		"Tip: SHIFT for a Fart Dash out of trouble.",
+		"Tip: shoot a gas barrel when enemies are standing near it.",
+		"Tip: headshots gas harder than body hits.",
+		"Tip: keep out of fire for 5 seconds and your gas starts going down.",
+		"Tip: V switches between first and third person.",
+		"Tip: press M for the menu and TAB for the scoreboard.",
+	}),
+	loadingSeconds = table.freeze({
+		-- Each stage waits at most this long, so a slow server never traps
+		-- the player behind the loading screen.
+		stage = 15,
+		tip = 4,
+		fade = 0.5,
+	}),
 	-- Contextual tips: each once a session, never mid-fight.
 	tipSeconds = 6,
 	tips = table.freeze({
 		dash = "Tip: SHIFT for a Fart Dash out of trouble.",
 		barrels = "Tip: shoot a gas barrel when enemies are standing near it.",
-		buy = "You can buy the %s now: press M, then Weapons.",
-		ability = "%s unlocked: press M, then Abilities, to equip it.",
+		buy = "You can buy the %s now: press M, then Shop.",
+		ability = "%s unlocked: press M, then Loadout, to equip it.",
 	}),
 
-	-- The locker's tabs, on the home screen and in the M menu.
-	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Store", "Settings" }),
+	-- The locker's tabs, on the home screen and in the M menu (Loadout is
+	-- its own screen, LoadoutController).
+	menuSections = table.freeze({ "Loadout", "Weapons", "Progression", "Settings" }),
 	-- Entries that arrive in later phases.
 	comingSoon = table.freeze({ "Leaderboard" }),
 	-- How each locker page looks on its buttons, tabs and header.
 	pages = table.freeze({
+		Loadout = table.freeze({ label = "LOADOUT", icon = "🔫", color = Color3.fromRGB(240, 122, 34) }),
 		Weapons = table.freeze({ label = "SHOP", icon = "🛒", color = Color3.fromRGB(92, 205, 50) }),
-		Abilities = table.freeze({ label = "ABILITIES", icon = "⚡", color = Color3.fromRGB(45, 155, 245) }),
 		Progression = table.freeze({ label = "LEVELS", icon = "⭐", color = Color3.fromRGB(155, 95, 235) }),
-		Store = table.freeze({ label = "STORE", icon = "💎", color = Color3.fromRGB(255, 170, 30) }),
 		Settings = table.freeze({ label = "SETTINGS", icon = "⚙️", color = Color3.fromRGB(115, 120, 140) }),
 	}),
+	-- The shop is one long page; these are its parts, top to bottom, and the
+	-- rail beside it that jumps to each.
+	shopSections = table.freeze({
+		table.freeze({ id = "Featured", label = "FEATURED", icon = "⭐", color = Color3.fromRGB(240, 122, 34) }),
+		table.freeze({ id = "Weapons", label = "WEAPONS", icon = "🔫", color = Color3.fromRGB(92, 205, 50) }),
+		table.freeze({ id = "Daily", label = "DAILY", icon = "⏳", color = Color3.fromRGB(196, 90, 235) }),
+		table.freeze({ id = "Coins", label = "COINS", icon = "💰", color = Color3.fromRGB(255, 185, 35) }),
+	}),
 	-- The home screen: the locker's pages down the left, everything else as
-	-- tiles down the right (Season only while one is on).
-	lobbyPages = table.freeze({ "Weapons", "Abilities", "Progression", "Store" }),
+	-- tiles down the right (Season only while one is on). A page button can
+	-- take its own label, icon and colour.
+	lobbyPages = table.freeze({
+		table.freeze({ name = "Loadout", page = "Loadout" }),
+		table.freeze({ name = "Shop", page = "Weapons" }),
+		table.freeze({ name = "Levels", page = "Progression" }),
+	}),
+	-- The blur over the battlefield behind the home screen.
+	menuBlur = 12,
 	lobbyTiles = table.freeze({
 		table.freeze({ id = "Rewards", label = "DAILY", icon = "🎁", color = Color3.fromRGB(255, 185, 35) }),
 		table.freeze({ id = "Spin", label = "SPIN", icon = "🎡", color = Color3.fromRGB(165, 90, 235) }),

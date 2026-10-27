@@ -1,11 +1,13 @@
 -- The shop and the locker, through one RemoteFunction:
 --   ShopRequest:InvokeServer("buy", "weapon", id)
+--   ShopRequest:InvokeServer("buy", "cosmetic", id)  (today's daily shop)
 --   ShopRequest:InvokeServer("equip", "weapon" | "ability" | "cosmetic", id?)
 --   ShopRequest:InvokeServer("profile", "all")   (the screens' first look)
 --   ShopRequest:InvokeServer("redeem", code)      (the admin code: AdminCode)
 -- returns { ok, reason, message } (and `profile` for "profile"). Nothing
 -- the client says about prices, coins or ownership is used: a purchase
--- checks the weapon is for sale, not owned, the player's level and coins,
+-- checks the weapon is for sale, not owned, the player's level and coins
+-- (a cosmetic: that it's in today's daily shop, by the server's clock),
 -- all on the server. The coins and the weapon change together and are
 -- saved before the answer goes back; if the save fails, both are put back
 -- and the client is told, so the screen never shows a purchase that
@@ -17,6 +19,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local DailyShopConfig = require(Shared.Config.DailyShopConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local RateLimit = require(Server.RateLimit)
@@ -108,6 +112,51 @@ function ShopService.buy(player: Player, id: string): Result
 	return result(true, "bought")
 end
 
+-- The server's clock, for the daily shop (specs move it).
+ShopService.now = os.time
+
+-- A cosmetic from today's daily shop, for its price in coins: saved with
+-- the coins taken, or neither.
+function ShopService.buyCosmetic(player: Player, id: string): Result
+	local profile = DataService.get(player)
+	if not profile then
+		return result(false, "loading")
+	elseif profile.temporary or profile.lost then
+		return result(false, "notSaving")
+	end
+	local item = DailyShopConfig.onSale(id, ShopService.now())
+	if not item or not ProgressionConfig.cosmetics[id] then
+		return result(false, "unknown")
+	end
+	if ProgressionConfig.ownsCosmetic(profile.data.OwnedCosmetics, id) then
+		return result(false, "owned")
+	end
+	purchases += 1
+	local ledgerId = `purchase:{id}:{purchases}`
+	if not EconomyService.spend(player, ledgerId, "purchase", item.price) then
+		return result(false, "coins")
+	end
+	DataService.update(player, function(d)
+		table.insert(d.OwnedCosmetics, id)
+	end)
+	if not DataService.save(player) then
+		DataService.update(player, function(d)
+			local index = table.find(d.OwnedCosmetics, id)
+			if index then
+				table.remove(d.OwnedCosmetics, index)
+			end
+		end)
+		EconomyService.refund(player, ledgerId, item.price)
+		LoadoutService.push(player)
+		return result(false, "saveFailed")
+	end
+	Telemetry.count("Shop.cosmetics")
+	Telemetry.count(`Shop.bought.{id}`)
+	Telemetry.log("Shop", "bought", { player = player, cosmetic = id, price = item.price })
+	LoadoutService.push(player)
+	return result(true, "bought")
+end
+
 -- One request from a client, checked and answered.
 function ShopService.request(player: Player, action: unknown, kind: unknown, id: unknown): Result
 	if type(action) ~= "string" or type(kind) ~= "string" or (id ~= nil and (type(id) ~= "string" or #(id :: string) > 40)) then
@@ -131,6 +180,8 @@ function ShopService.request(player: Player, action: unknown, kind: unknown, id:
 	local ok, answer = pcall(function(): Result
 		if action == "buy" and kind == "weapon" and id then
 			return ShopService.buy(player, id :: string)
+		elseif action == "buy" and kind == "cosmetic" and id then
+			return ShopService.buyCosmetic(player, id :: string)
 		elseif action == "redeem" then
 			local redeemed, why = AdminCode.redeem(player, kind)
 			return { ok = redeemed, reason = why, message = AdminCode.MESSAGES[why] or why }
