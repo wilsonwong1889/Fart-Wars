@@ -1,5 +1,67 @@
 # Changelog
 
+## 0.13.0: a bigger battlefield, mouse aim, sound in the world, a range for every gun
+
+- Brainrot Battlefield is three times bigger (480 × 480 studs), with room
+  for 20. The low cover stays low: the plaza and alley walls (5 studs;
+  the alley's was 6) and the crates (6) keep about an avatar's height
+  while they spread out, so you hide right behind them, shoot past their
+  ends, jump to fire over them and lob over them. The throne, the bean
+  cans and the Gutter's toilet grew with the map and hide you whole.
+- Lane gates: each lane's entrance, on both halves, has a gate up on the
+  walls with the lane's name on a lit sign that reads from both ends, and
+  a landmark on top (a giant bean can, a toilet roll, a gas vent puffing
+  green), so you know where you are on a field this big. They're above
+  everyone's heads and never stop a shot, a player or the camera.
+- In a match the mouse is locked to the crosshair in first and third
+  person, and third person sits over your right shoulder. Left Alt frees
+  the mouse (again to lock it); every screen with buttons frees it while
+  it's open. Settings → 3rd person mouse lock off gives a free cursor in
+  third person.
+- Sound comes from where it happens and fades with distance: other
+  players' shots (you didn't hear them before), explosions, barrels,
+  stink bombs, abilities, dashes and emotes. Your own shots, hits and
+  warnings sound the same wherever you look. Every sound has its own
+  volume and a little pitch variety, so repeats don't sound identical.
+  Your own stink bomb is no longer heard twice, and an emote no longer
+  also makes the Recovery Burst's vent sound (that sound means someone
+  vented).
+- Hit markers pop at the crosshair: white for a body hit; bigger and gold,
+  with a higher hit sound, for a headshot; bigger still, orange and with a
+  ring for the hit that sets someone off; small, grey and silent when the
+  hit did nothing (spawn protection, or they're already going off).
+  Reduce motion and Reduced effects tone it down.
+- Every gun has its own range, and long shots do less: full gas out to a
+  gun's effective range, then less, down to half at its full range, and
+  nothing past it (a headshot always stays the better hit; the server
+  measures the distance). Spritzer full gas to 45 studs, reach 90 (was
+  180); Gas Blaster 120 and 260 (was 480); Thunderclapper 240 and 420 (was
+  660); Stink Lobber thrown up to 150 (was 270). Why: on the big map every
+  gun reached nearly everywhere, so the Gas Blaster did everyone's job.
+  Now the Spritzer wins up close, the Gas Blaster at middle distances, the
+  Thunderclapper down the long sightlines and the Stink Lobber over
+  cover. The Lobber throws slower and falls faster: aim higher to throw
+  farther (farthest at about 45 degrees), a steep throw clears the throne,
+  and no throw bursts in the air any more (steep ones used to).
+- Levels come faster in the middle, and the late guns cost more: the
+  Thunderclapper is 3,000 coins (was 1,200) and the Stink Lobber 7,000
+  (was 2,500). Every level costs less XP than before (61,640 to level 50,
+  was 115,240), most of all where the guns unlock. Why: levels came so
+  slowly that a player had a gun's coins many hours before its level (an
+  hour a day, the Stink Lobber's level took until day 19) and finished
+  with thousands of coins and nothing to buy. Now coins and levels arrive
+  together: at an hour a day, all three guns in about a week, and level
+  50 still takes weeks. If you own a gun, you keep it. Your level is kept;
+  if you already hold more XP than your next level now costs, you get
+  those levels when you join.
+- The map's props, walls and floors, the guns and the shot effects are the
+  Blender models everywhere: imported into the game
+  (`art/export/mesh-assets.json` lists them), so the server dresses the
+  map and no player's device has to build them.
+- Specs: `Audio`, `HitFeedback` and `Balance` are new (38 in all); `Map`
+  checks low cover and the gates; `Soak` now plays the same game every
+  run.
+
 ## 0.12.0: better guns, shots and animation, with nothing to import
 
 - The guns and shot effects are the Blender meshes in game with nothing
