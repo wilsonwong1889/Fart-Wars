@@ -18,12 +18,12 @@ local UIConfig = {
 
 	-- The hit marker at the crosshair, by the server's verdict: a body hit,
 	-- a headshot, the hit that fills the target's gas ("kaboom": they're
-	-- going off) and one that did nothing ("blocked": protected, or already
-	-- going off). Each pops in at `pop` times its size and settles in
-	-- popSeconds, shows for `seconds` and fades over the last fadeSeconds;
-	-- the kaboom one also throws a ring out to ringSize pixels across. A
-	-- headshot plays the hit sound at headshotPitch (playback speed) and
-	-- headshotVolume (times the usual).
+	-- going off) and one that did nothing ("blocked": a teammate, spawn
+	-- protection, or already going off). Each pops in at `pop` times its
+	-- size and settles in popSeconds, shows for `seconds` and fades over
+	-- the last fadeSeconds; the kaboom one also throws a ring out to
+	-- ringSize pixels across. A headshot plays the hit sound at
+	-- headshotPitch (playback speed) and headshotVolume (times the usual).
 	hitMarker = table.freeze({
 		looks = table.freeze({
 			body = table.freeze({ size = 30, color = colors.text, pop = 1.5, seconds = 0.2 }),

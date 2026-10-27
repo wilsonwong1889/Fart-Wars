@@ -29,7 +29,8 @@
 - Hit markers pop at the crosshair: white for a body hit; bigger and gold,
   with a higher hit sound, for a headshot; bigger still, orange and with a
   ring for the hit that sets someone off; small, grey and silent when the
-  hit did nothing (spawn protection, or they're already going off).
+  hit did nothing (a teammate, spawn protection, or they're already going
+  off).
   Reduce motion and Reduced effects tone it down.
 - Every gun has its own range, and long shots do less: full gas out to a
   gun's effective range, then less, down to half at its full range, and
