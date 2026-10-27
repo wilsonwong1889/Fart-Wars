@@ -40,6 +40,7 @@ local Rounds = require(Services.RoundService)
 local Explosions = require(Services.ExplosionService)
 local Projectiles = require(Services.ProjectileService)
 local Combat = require(Services.CombatService)
+local Loadout = require(Services.LoadoutService)
 local Telemetry = require(server.Telemetry)
 local Health = require(server.Health)
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
@@ -56,6 +57,9 @@ Data.setStore({
 	end,
 })
 
+-- One seeded dice for everything the bots do. The bots are kept in a list,
+-- not a table keyed by Player (whose order changes from run to run with
+-- memory addresses), so the same dice land on the same bots every run.
 local rng = Random.new(20261026)
 local everyone = setmetatable({}, { __mode = "k" }) -- every Player ever, weakly
 
@@ -73,7 +77,7 @@ run(game.StarterPlayer.StarterPlayerScripts.Client.ClientBootstrap)
 Lifecycle.requestPlay(me, nil)
 
 type Bot = { player: Player, shotId: number, lastShot: number, lazy: boolean, back: number? }
-local bots: { [Player]: Bot } = {}
+local bots: { Bot } = {}
 local nextId = 0
 local function join(): Player
 	nextId += 1
@@ -91,7 +95,7 @@ local function join(): Player
 			Economy.testGrant(player, rng:NextInteger(0, 1000), rng:NextInteger(1000, 2000))
 		end
 	end
-	bots[player] = { player = player, shotId = 0, lastShot = -math.huge, lazy = rng:NextNumber() < 0.1 }
+	table.insert(bots, { player = player, shotId = 0, lastShot = -math.huge, lazy = rng:NextNumber() < 0.1 })
 	task.wait(0.05)
 	Remotes.RequestPlay.OnServerEvent:Fire(player, nil)
 	return player
@@ -99,6 +103,10 @@ end
 for _ = 1, 19 do
 	join()
 end
+-- One of them mains the Stink Lobber from the start, so stink bombs fly
+-- under load in every run; the rest have to reach level 25, save up, buy
+-- and equip theirs, which the dice may never get round to.
+assert(Loadout.testGive(bots[1].player, "weapon", "StinkLobber"), "a Stink Lobber main")
 
 local LANES = { -53, 0, 53 }
 local function wander(player: Player)
@@ -242,17 +250,13 @@ for second = 1, MINUTES * 60 do
 	end
 	if second % 30 == 0 then
 		-- Churn: someone leaves, someone new arrives.
-		local leaving = nil
-		for player in bots do
+		for i, bot in bots do
 			if rng:NextNumber() < 0.2 then
-				leaving = player
+				table.remove(bots, i)
+				bot.player.Parent = nil
+				join()
 				break
 			end
-		end
-		if leaving then
-			bots[leaving] = nil
-			leaving.Parent = nil
-			join()
 		end
 	end
 	if second % 15 == 0 then
@@ -282,8 +286,8 @@ for _, name in Health.loopNames() do
 end
 
 -- Everyone leaves.
-for player in bots do
-	player.Parent = nil
+for _, bot in bots do
+	bot.player.Parent = nil
 end
 me.Parent = nil
 table.clear(bots)
