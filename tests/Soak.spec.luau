@@ -44,6 +44,7 @@ local Loadout = require(Services.LoadoutService)
 local Telemetry = require(server.Telemetry)
 local Health = require(server.Health)
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
+local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local Remotes = ReplicatedStorage.Remotes
 
 local saved: { [string]: string } = {}
@@ -108,12 +109,15 @@ end
 -- and equip theirs, which the dice may never get round to.
 assert(Loadout.testGive(bots[1].player, "weapon", "StinkLobber"), "a Stink Lobber main")
 
-local LANES = { -53, 0, 53 }
+-- Somewhere in one of the three lanes (the layout's spots, times the map's
+-- scale).
+local S = MapConfig.BrainrotBattlefield.scale
+local LANES = { -53 * S, 0, 53 * S }
 local function wander(player: Player)
 	local character = player.Character
 	if character then
-		local x = LANES[rng:NextInteger(1, 3)] + rng:NextNumber(-6, 6)
-		character:PivotTo(CFrame.new(x, 3, rng:NextNumber(-45, 45)))
+		local x = LANES[rng:NextInteger(1, 3)] + rng:NextNumber(-6, 6) * S
+		character:PivotTo(CFrame.new(x, 3, rng:NextNumber(-45, 45) * S))
 	end
 end
 local function alive(player: Player): boolean
