@@ -2,6 +2,7 @@
 --   ShopRequest:InvokeServer("buy", "weapon", id)
 --   ShopRequest:InvokeServer("equip", "weapon" | "ability" | "cosmetic", id?)
 --   ShopRequest:InvokeServer("profile", "all")   (the screens' first look)
+--   ShopRequest:InvokeServer("redeem", code)      (the admin code: AdminCode)
 -- returns { ok, reason, message } (and `profile` for "profile"). Nothing
 -- the client says about prices, coins or ownership is used: a purchase
 -- checks the weapon is for sale, not owned, the player's level and coins,
@@ -19,6 +20,7 @@ local WeaponConfig = require(Shared.Config.WeaponConfig)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local RateLimit = require(Server.RateLimit)
+local AdminCode = require(Server.AdminCode)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local ExperimentService = require(script.Parent.ExperimentService)
@@ -129,6 +131,9 @@ function ShopService.request(player: Player, action: unknown, kind: unknown, id:
 	local ok, answer = pcall(function(): Result
 		if action == "buy" and kind == "weapon" and id then
 			return ShopService.buy(player, id :: string)
+		elseif action == "redeem" then
+			local redeemed, why = AdminCode.redeem(player, kind)
+			return { ok = redeemed, reason = why, message = AdminCode.MESSAGES[why] or why }
 		elseif action == "equip" then
 			local equipped, why = LoadoutService.equip(player, kind :: string, id :: string?)
 			return result(equipped, why)

@@ -97,7 +97,7 @@ function LockerController.request(action: string, kind: string, id: string?)
 		return
 	end
 	LockerController.busy = true
-	setStatus(if action == "buy" then "Buying... (saving your purchase)" else "Equipping...")
+	setStatus(if action == "buy" then "Buying... (saving your purchase)" elseif action == "redeem" then "Checking the code..." else "Equipping...")
 	render()
 	task.spawn(function()
 		local remote = ClientState.remote("ShopRequest") :: RemoteFunction
@@ -107,7 +107,7 @@ function LockerController.request(action: string, kind: string, id: string?)
 		LockerController.busy = false
 		if ok and type(answer) == "table" then
 			setStatus(tostring(answer.message), if answer.ok then C.accent else C.warning)
-			if answer.ok and action == "buy" then
+			if answer.ok and (action == "buy" or action == "redeem") then
 				Audio.play("purchase")
 			end
 		else
@@ -551,6 +551,41 @@ local function settingsTab(content: Frame)
 		UI.applyScale()
 		render()
 	end, "Bigger or smaller panels and text, everywhere.")
+	-- A code box (the admin code; the server checks it).
+	local codeRow = row("Code", #toggles + 3)
+	local codeBox = UI.new("TextBox", {
+		Name = "CodeBox",
+		Size = UDim2.new(0, 200, 0, 38),
+		BackgroundColor3 = Color3.fromRGB(20, 18, 30),
+		Text = "",
+		PlaceholderText = "ENTER CODE",
+		PlaceholderColor3 = C.muted,
+		TextColor3 = C.text,
+		Font = UIConfig.font,
+		TextSize = 17,
+		ClearTextOnFocus = false,
+		Parent = codeRow,
+	}, { UI.corner(10), UI.stroke(C.stroke, 3) })
+	local redeem = UI.button("REDEEM", C.play, {
+		Name = "Redeem",
+		Position = UDim2.new(0, 206, 0, 0),
+		Size = UDim2.new(0, 94, 0, 38),
+		TextSize = 16,
+		Parent = codeRow,
+	})
+	local function submit()
+		local code = codeBox.Text
+		if code ~= "" then
+			LockerController.request("redeem", code)
+		end
+	end
+	UI.onClick(redeem, submit)
+	codeBox.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			submit()
+		end
+	end)
+	note(codeRow, "Got a code? Type it here.")
 	text(list, "CONTROLS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	local controls = {}
 	for _, entry in UIConfig.controls do

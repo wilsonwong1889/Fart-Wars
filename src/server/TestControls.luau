@@ -6,7 +6,8 @@
 --   local fw = game.ServerScriptService.Server.TestControls.Command
 --   fw:Invoke("selftest")   fw:Invoke("end 5")   fw:Invoke("gas 95", player)
 -- or as chat commands from a player who may use them (anyone in Studio; in
--- live servers only GameConfig.TEST_CONTROLS.USER_IDS), with /fw or !fw:
+-- live servers GameConfig.TEST_CONTROLS.USER_IDS and whoever entered the
+-- admin code this session, AdminCode), with /fw or !fw:
 --   /fw score stinkers 3   /fw end 5   /fw reloadmap   /fw idle 44
 --   /fw spawn   /fw team sharters   /fw resetgas   /fw gas 95
 --   /fw weapon gasblaster   /fw barrels   /fw stats
@@ -51,6 +52,7 @@ local PropArt = require(Shared.Config.PropArt)
 local ShotArt = require(Shared.Config.ShotArt)
 local MapDressing = require(Shared.MapDressing)
 local Messages = require(script.Parent.Messages)
+local AdminCode = require(script.Parent.AdminCode)
 local Health = require(script.Parent.Health)
 local Profiler = require(script.Parent.Profiler)
 local Telemetry = require(script.Parent.Telemetry)
@@ -67,7 +69,7 @@ local ALIASES = {
 }
 
 -- Server code may always use them while they're on; a player only in
--- Studio or by user ID.
+-- Studio, by user ID, or with the admin code.
 function TestControls.allowed(player: Player?): boolean
 	if not GameConfig.TEST_CONTROLS.ENABLED then
 		return false
@@ -75,7 +77,7 @@ function TestControls.allowed(player: Player?): boolean
 	if player == nil then
 		return true
 	end
-	return RunService:IsStudio() or table.find(GameConfig.TEST_CONTROLS.USER_IDS, player.UserId) ~= nil
+	return RunService:IsStudio() or table.find(GameConfig.TEST_CONTROLS.USER_IDS, player.UserId) ~= nil or AdminCode.isAdmin(player)
 end
 
 function TestControls.score(team: string, count: number?): (boolean, string)
@@ -361,6 +363,9 @@ function TestControls.selftest(player: Player?): (boolean, string)
 	end
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
 	report("WARN", "Release", `test controls on (allow-list: {#GameConfig.TEST_CONTROLS.USER_IDS}); turn GameConfig.TEST_CONTROLS.ENABLED off before a public release`)
+	if AdminCode.ENABLED then
+		report("WARN", "Admin code", "on: anyone with the code gets everything; turn AdminCode.ENABLED off before a public release")
+	end
 	local forSale = 0
 	for _, item in MonetizationConfig.passes do
 		forSale += if item.id ~= 0 then 1 else 0

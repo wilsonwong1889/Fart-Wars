@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local RewardsConfig = require(Shared.Config.RewardsConfig)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
@@ -158,7 +159,7 @@ function DataService.defaults(): Data
 		DailyTrack = 0,
 		LastDailyDay = 0,
 		DailyClaims = 0,
-		Spins = 0,
+		Spins = RewardsConfig.STARTING_SPINS,
 		SpinsUsed = 0,
 		GiftDay = 0,
 		GiftsToday = 0,

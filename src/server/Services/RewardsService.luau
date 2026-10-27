@@ -12,7 +12,9 @@
 -- Every payout goes through EconomyService.grant with an ID that can't
 -- repeat (the UTC day, the spin's number), and the claim is recorded
 -- before it pays, so nothing can be claimed twice. Temporary (unsaved)
--- profiles can't claim: it would be lost and claimable again.
+-- profiles can't claim: it would be lost and claimable again. Studio is the
+-- exception (unsavedInStudio): there nothing saves anyway, and the daily,
+-- gifts and spins should still be testable without API access.
 --   RewardsRequest:InvokeServer("status" | "claimDaily" | "spin")
 --     -> { ok, reason, message, ... }
 --   ProgressEvent { kind = "gift", spins }
@@ -20,6 +22,7 @@
 -- NextGiftSeconds (nil when no more gifts today).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RewardsConfig = require(Shared.Config.RewardsConfig)
@@ -59,6 +62,18 @@ RewardsService.MESSAGES = table.freeze({
 	badPayload = "That request didn't make sense.",
 	rateLimited = "Slow down a little.",
 })
+
+-- Whether an unsaved (temporary) profile may claim and spin in Studio.
+RewardsService.unsavedInStudio = true
+
+-- Whether rewards are paused for this profile: it isn't saving (outside
+-- Studio), so a claim would be lost and claimable again.
+local function paused(profile: DataService.Profile): boolean
+	if profile.lost then
+		return true
+	end
+	return profile.temporary and not (RewardsService.unsavedInStudio and RunService:IsStudio())
+end
 
 type Session = { giftSeconds: number, sinceSync: number }
 local sessions: { [Player]: Session } = {}
@@ -105,7 +120,7 @@ function RewardsService.publish(player: Player)
 	local data = profile.data
 	local day, ready = RewardsService.dailyState(data)
 	player:SetAttribute("DailyDay", day)
-	player:SetAttribute("DailyReady", ready and not profile.temporary)
+	player:SetAttribute("DailyReady", ready and not paused(profile))
 	player:SetAttribute("Spins", data.Spins)
 	local session = sessions[player]
 	local giving = session ~= nil and RewardsService.giftsLeft(data) > 0 and data.Spins < RewardsConfig.MAX_SPINS
@@ -123,13 +138,13 @@ function RewardsService.status(player: Player): Result
 	local session = sessions[player]
 	return result(true, "status", {
 		day = day,
-		ready = ready and not profile.temporary,
+		ready = ready and not paused(profile),
 		claims = data.DailyClaims,
 		spins = data.Spins,
 		giftsLeft = RewardsService.giftsLeft(data),
 		nextGiftSeconds = if session then math.max(0, math.ceil(giftSeconds(player) - session.giftSeconds)) else giftSeconds(player),
 		secondsToReset = 86400 - os.time() % 86400,
-		saving = not profile.temporary,
+		saving = not paused(profile),
 	})
 end
 
@@ -152,7 +167,7 @@ local function usable(player: Player): (DataService.Profile?, string?)
 	local profile = DataService.get(player)
 	if not profile then
 		return nil, "loading"
-	elseif profile.temporary or profile.lost then
+	elseif paused(profile) then
 		return nil, "notSaving"
 	end
 	return profile, nil
@@ -266,7 +281,7 @@ function RewardsService.tick(dt: number)
 	local day = today()
 	for player, session in sessions do
 		local profile = DataService.get(player)
-		if profile and not profile.temporary and FeatureFlags.REWARDS then
+		if profile and not paused(profile) and FeatureFlags.REWARDS then
 			local data = profile.data
 			if data.GiftDay ~= day then
 				DataService.update(player, function(d)

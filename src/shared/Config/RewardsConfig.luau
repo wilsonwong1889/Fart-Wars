@@ -21,6 +21,9 @@ local RewardsConfig = {
 	GIFTS_PER_DAY = 6,
 	-- Spins bank up to this many.
 	MAX_SPINS = 10,
+	-- Free spins a brand-new profile starts with, so the wheel works from
+	-- the first visit.
+	STARTING_SPINS = 1,
 
 	-- Playing with friends (masterplan 4.3). The squad bonus: for every
 	-- SQUAD_MINUTES of active play with a Roblox friend active on your team

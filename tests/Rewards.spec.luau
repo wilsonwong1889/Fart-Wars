@@ -75,6 +75,7 @@ local function newDay()
 end
 
 check(me:GetAttribute("DailyReady") == true and me:GetAttribute("DailyDay") == 1, "a new player has day 1 waiting")
+check(data().Spins == RewardsConfig.STARTING_SPINS and me:GetAttribute("Spins") == RewardsConfig.STARTING_SPINS, "and a starting free spin")
 check(UI.parts.daily.Enabled, "the daily screen opens by itself on the home screen")
 check(UI.parts.claim:GetAttribute("Enabled") ~= false and UI.parts.claim.Text == "CLAIM!", "with CLAIM! ready")
 
@@ -96,7 +97,7 @@ newDay()
 Rewards.claimDaily(me)
 newDay()
 local day3 = Rewards.claimDaily(me)
-check(day3.ok and day3.spins == 1 and data().Spins == 1, "day 3: a free spin with the coins")
+check(day3.ok and day3.spins == 1 and data().Spins == RewardsConfig.STARTING_SPINS + 1, "day 3: a free spin with the coins")
 -- Missing days: three days off.
 Data.update(me, function(d)
 	d.LastDailyDay = RewardsConfig.day(os.time()) - 3
@@ -129,6 +130,11 @@ Lifecycle.requestPlay(me, nil)
 task.wait(0.2)
 check(UI.parts.daily.Enabled == false, "PLAY closes the daily screen")
 check(MenuBar.parts.corner.Visible and string.find(MenuBar.parts.spin.Text, "SPIN"), "the spin button top right")
+-- From an empty bank, so the day's cap is reached before the bank's.
+Data.update(me, function(d)
+	d.Spins = 0
+end)
+spinsBefore = 0
 local function fidget()
 	if me.Character then
 		me.Character:PivotTo(me.Character:GetPivot() * CFrame.new(6, 0, 0))
@@ -196,10 +202,16 @@ end
 check(shown == #RewardsConfig.spin and UI.parts.prizes.coins50.Chance.Text == "40%", "every prize with its chance on the spin screen")
 UI.closeSpin()
 
--- A temporary profile can't claim.
+-- A temporary profile can't claim in a live server; in Studio it can.
 assert(Data.get(me)).temporary = true
 newDay()
+Rewards.unsavedInStudio = false
 check(Rewards.claimDaily(me).reason == "notSaving" and Rewards.spin(me).reason == "notSaving", "an unsaved session can't claim or spin")
+Rewards.unsavedInStudio = true
+Data.update(me, function(d)
+	d.Spins = 1
+end)
+check(Rewards.claimDaily(me).ok and Rewards.spin(me).ok, "in Studio an unsaved session claims and spins")
 assert(Data.get(me)).temporary = false
 
 return { status = "PASS", checks = checks }
