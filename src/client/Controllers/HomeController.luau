@@ -13,6 +13,9 @@
 --   GameMenu    M in a match: resume, switch team (only when it evens the
 --               teams), spectate, and the same sections. The mouse is free
 --               while it's open, even in first person.
+-- Every one of them frees the mouse from the crosshair while it shows
+-- (MouseLock, each under its own name; the team screen only opens over the
+-- home screen, so the home screen's covers it).
 -- Buttons only send intent; the server decides, and the screens follow
 -- the player's State attribute.
 local Players = game:GetService("Players")
@@ -28,6 +31,7 @@ local RoundClock = require(Shared.RoundClock)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local MouseLock = require(Client.MouseLock)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
@@ -59,10 +63,16 @@ local function otherTeam(team: string?): string?
 	return nil
 end
 
+-- Shows or hides the Coming Soon card, freeing the mouse while it's up.
+local function showComingSoon(on: boolean)
+	HomeController.parts.comingSoon.Enabled = on
+	MouseLock.setFree("ComingSoon", on)
+end
+
 local function openComingSoon(section: string)
 	local p = HomeController.parts
 	p.soonTitle.Text = string.upper(section)
-	p.comingSoon.Enabled = true
+	showComingSoon(true)
 end
 
 -- What a home-screen tile opens.
@@ -506,7 +516,7 @@ local function build()
 		Parent = card,
 	})
 	UI.onClick(ok, function()
-		soon.Enabled = false
+		showComingSoon(false)
 	end)
 end
 
@@ -599,6 +609,7 @@ local function render()
 	local p = HomeController.parts
 	local active = ClientState.isActive()
 	p.home.Enabled = not active
+	MouseLock.setFree("HomeScreen", not active)
 	if active then
 		p.teamSelect.Enabled = false
 	end
@@ -607,8 +618,8 @@ local function render()
 	if not active and HomeController.menuOpen then
 		HomeController.setMenu(false)
 	end
-	if active then
-		p.comingSoon.Enabled = p.comingSoon.Enabled and HomeController.menuOpen
+	if active and p.comingSoon.Enabled and not HomeController.menuOpen then
+		showComingSoon(false)
 	end
 	local mine = ClientState.teamId()
 	local target = otherTeam(mine)
@@ -668,8 +679,9 @@ function HomeController.setMenu(open: boolean)
 	open = open and ClientState.isActive()
 	HomeController.menuOpen = open
 	p.menu.Enabled = open
+	MouseLock.setFree("GameMenu", open)
 	if not open then
-		p.comingSoon.Enabled = false
+		showComingSoon(false)
 		LockerController.close()
 	end
 	InputController.menuOpen = open

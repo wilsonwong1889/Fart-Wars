@@ -3,6 +3,7 @@
 -- HIDE EMOTES (on this screen only) and REPORT (a reason, sent to the
 -- server for review). The note at the bottom says how to report through
 -- Roblox too (Esc > Report), which is what reaches Roblox moderation.
+-- The mouse is free while it's open (MouseLock "Players").
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
@@ -14,6 +15,7 @@ local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
 local Settings = require(Client.Settings)
 local UI = require(Client.UI)
+local MouseLock = require(Client.MouseLock)
 
 local C = UIConfig.colors
 
@@ -43,6 +45,7 @@ local render: () -> ()
 function PlayersController.open()
 	PlayersController.isOpen = true
 	PlayersController.parts.screen.Enabled = true
+	MouseLock.setFree("Players", true)
 	render()
 end
 
@@ -50,6 +53,7 @@ function PlayersController.close()
 	PlayersController.isOpen = false
 	PlayersController.reporting = nil
 	PlayersController.parts.screen.Enabled = false
+	MouseLock.setFree("Players", false)
 end
 
 function PlayersController.block(other: Player)

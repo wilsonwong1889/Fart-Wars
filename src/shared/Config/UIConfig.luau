@@ -123,6 +123,7 @@ local UIConfig = {
 		{ "E", "Emote" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
+		{ "ALT", "Free the mouse" },
 		{ "M", "Menu" },
 		{ "TAB", "Scoreboard" },
 	}),

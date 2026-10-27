@@ -76,8 +76,12 @@ repository holds credentials or API keys, and nothing should.
 
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
 Q ability (once unlocked), 1-4 pick a weapon from the hotbar, E emote, Space jump,
-V first/third person, M menu, Tab (hold) scoreboard. R and F are kept free
-for later mechanics.
+V first/third person, Left Alt free the mouse (again to lock it), M menu,
+Tab (hold) scoreboard. R and F are kept free for later mechanics. In a match
+the mouse is locked to the crosshair in both views (third person sits over
+the shoulder); Alt frees it, and every screen with buttons frees it while
+it's open. Settings → 3rd person mouse lock off gives a free cursor in third
+person.
 
 **On screen:** score boxes in each team's colour either side of the timer;
 coins and the Shop / Abilities / Levels / Settings buttons top right; the
@@ -288,6 +292,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
 | `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
+| `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
 | `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining): no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
 | `Map` | the MapBase contract, symmetry, lanes, spawn sightlines, barrel placement, reloading |
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
