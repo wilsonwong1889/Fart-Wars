@@ -16,8 +16,17 @@
 -- so nothing out in the lanes or the enemy half can see the spawn pads.
 -- Gas barrels sit in the contested middle, never by a spawn; each is a
 -- GasBarrel model (Barrel and Band) that BarrelService makes explosive.
--- The pieces (mirroring, pads, barrels, markers, the control zone) come
--- from MapKit, so the next arena is built the same way.
+-- Low cover (the plaza and alley walls, the crates) is laid out at avatar
+-- height and marked KeepHeight, so the scaling spreads it across but
+-- leaves it chest-high: something to duck behind, shoot past and lob
+-- over. The tall cover (the throne, the bean cans, the Gutter's toilet),
+-- the dividers and the walls grow with everything else.
+-- Each lane has a gate across its entrance, up on the walls' tops out of
+-- everyone's reach: its name on a sign that reads both ways, in its own
+-- colours and light, under a landmark (a bean can, a toilet roll, a gas
+-- vent), so you know where you are on a field this big.
+-- The pieces (mirroring, pads, barrels, markers, the control zone, signs)
+-- come from MapKit, so the next arena is built the same way.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -30,6 +39,13 @@ local DIVIDER_HEIGHT = 14
 local DIVIDER_X = 26
 -- Divider wall segments along Z (the gaps between them join the lanes).
 local DIVIDER_SEGMENTS = { { -45, -24 }, { -12, 12 }, { 24, 45 } }
+-- Low walls: an avatar's height, which is what the Blender cover wall is
+-- modelled at (PropArt's CoverWall), so its mesh only stretches across.
+local LOW_WALL_HEIGHT = 5
+-- The lane gates: across the lanes just inside where the dividers start,
+-- their beams' tops level with the side walls'.
+local GATE_Z = -42
+local GATE_TOP = BOUNDARY_HEIGHT
 local MapKit = require(script.Parent.MapKit)
 local UPRIGHT = MapKit.UPRIGHT
 local mirror = MapKit.mirror
@@ -38,6 +54,7 @@ local part = MapKit.part
 local marker = MapKit.marker
 local pair = MapKit.pair
 local cylinder = MapKit.cylinder
+local decor = MapKit.decor
 
 type Props = MapKit.Props
 
@@ -58,6 +75,8 @@ local function build(entry: MapConfig.MapEntry): Model
 	local wall: Props = { Color = theme.wall, Material = Enum.Material.Plastic }
 	local wallTop: Props = { Color = theme.wallTop, Material = Enum.Material.Plastic }
 	local trim: Props = { Color = theme.trim, Material = Enum.Material.Neon }
+	-- Low cover keeps its layout height when the map is scaled up.
+	local lowWall: Props = { Color = theme.wall, Material = Enum.Material.Plastic, KeepHeight = true }
 
 	-- Ground and the three lane strips (colour only; they're walkable too).
 	part(floorFolder, "Ground", Vector3.new(HALF * 2, 4, HALF * 2), CFrame.new(0, -2, 0), {
@@ -117,6 +136,13 @@ local function build(entry: MapConfig.MapEntry): Model
 
 	MapKit.spawnPads(spawns, { -15, -5, 5, 15 }, -66)
 
+	-- Cover comes in two heights. Tall cover (the throne, the bean cans, the
+	-- Gutter's toilet) hides you whole and grows with the map like the
+	-- walls. Low cover (the plaza and alley walls, the crates) is laid out
+	-- at an avatar's height and keeps it: you duck behind it, shoot past
+	-- its ends or jump to fire over it, and a lob clears it easily. Grown
+	-- 3x it would have been 15-18 studs of wall nobody could see past.
+
 	-- Porcelain Plaza: the throne (two giant toilets back to back across the
 	-- centre line) and low cover on the way to it.
 	local porcelain = cylinder(theme.porcelain)
@@ -125,25 +151,29 @@ local function build(entry: MapConfig.MapEntry): Model
 	pair(cover, "ThroneBowl", Vector3.new(6, 12, 12), CFrame.new(0, 3, -10) * UPRIGHT, porcelain)
 	pair(cover, "ThroneSeat", Vector3.new(1, 13, 13), CFrame.new(0, 6.5, -10) * UPRIGHT, cylinder(theme.trim, Enum.Material.Neon))
 	for _, spot in { Vector3.new(-14, 0, -30), Vector3.new(14, 0, -22), Vector3.new(-6, 0, -44) } do
-		pair(cover, "PlazaWall", Vector3.new(10, 5, 2), CFrame.new(spot.X, 2.5, spot.Z), wall)
+		pair(cover, "PlazaWall", Vector3.new(10, LOW_WALL_HEIGHT, 2), CFrame.new(spot.X, LOW_WALL_HEIGHT / 2, spot.Z), lowWall)
 	end
 
-	-- Bean Alley: bean cans tall enough to hide behind, with a label band.
+	-- Bean Alley: bean cans tall enough to hide behind, with a label band,
+	-- and a low wall (as low as the plaza's, so the same mesh fits it).
 	local bean = cylinder(theme.bean)
 	local label = cylinder(theme.beanLabel)
 	for _, spot in { Vector3.new(-53, 0, -32), Vector3.new(-40, 0, -14), Vector3.new(-66, 0, -6) } do
 		pair(cover, "BeanCan", Vector3.new(10, 8, 8), CFrame.new(spot.X, 5, spot.Z) * UPRIGHT, bean)
 		pair(cover, "BeanLabel", Vector3.new(4, 8.4, 8.4), CFrame.new(spot.X, 5, spot.Z) * UPRIGHT, label)
 	end
-	pair(cover, "AlleyWall", Vector3.new(14, 6, 2), CFrame.new(-56, 3, -20), wall)
+	pair(cover, "AlleyWall", Vector3.new(14, LOW_WALL_HEIGHT, 2), CFrame.new(-56, LOW_WALL_HEIGHT / 2, -20), lowWall)
 
 	-- Gas Gutter: a sideways toilet, crates, and barrel clusters (decor).
+	-- The crates are low cover at the 6 studs the Blender crate is modelled
+	-- at: just over an avatar's head, low enough to jump onto or lob over.
 	pair(cover, "GutterTank", Vector3.new(4, 10, 12), CFrame.new(60, 5, -26), { Color = theme.porcelain, Material = Enum.Material.SmoothPlastic })
 	pair(cover, "GutterBowl", Vector3.new(5, 9, 9), CFrame.new(54, 2.5, -26) * UPRIGHT, porcelain)
 	for _, spot in { Vector3.new(40, 0, -36), Vector3.new(46, 0, -8) } do
 		pair(cover, "Crate", Vector3.new(8, 6, 8), CFrame.new(spot.X, 3, spot.Z), {
 			Color = theme.crate,
 			Material = Enum.Material.Plastic,
+			KeepHeight = true,
 		})
 	end
 	for _, spot in {
@@ -155,6 +185,74 @@ local function build(entry: MapConfig.MapEntry): Model
 		Vector3.new(36, 0, -28),
 	} do
 		MapKit.gasBarrels(barrels, spot, theme)
+	end
+
+	-- Lane gates (Landmarks): one across each half's lane entrances at
+	-- z = GATE_Z, resting on the dividers' and side walls' tops. Coming out
+	-- of a spawn's corridor into a side lane you see that lane's sign up
+	-- ahead; the plaza's shows through the gaps beside the spawn room. Each
+	-- sign reads both ways, so a lane has its name from either end. It is
+	-- all decor (MapKit.decor) and all of it is above the dividers, out of
+	-- everyone's reach: it never blocks a shot, a path or a line of sight
+	-- anyone plays along, nobody can get stuck in it, and the walls still
+	-- do all the hiding of the spawns (their sightline check counts only
+	-- walls and cover).
+	local landmarks = folder("Landmarks", model)
+	local BEAM = 2 -- the beams' and the pipe's thickness
+	local DEPTH = 4 -- the posts', beams' and roll's depth along Z
+	local SIGN_BOTTOM = 16 -- two studs above the dividers
+	-- A side lane's beam spans from its divider post to the side wall.
+	local sideX = (HALF + DIVIDER_X + 1) / 2
+	local sideLength = HALF - DIVIDER_X - 1
+	local beamY = GATE_TOP - BEAM / 2
+
+	-- A post on each divider's top, carrying the beams on either side.
+	local postHeight = GATE_TOP + 2 - DIVIDER_HEIGHT
+	for _, x in { -DIVIDER_X, DIVIDER_X } do
+		pair(landmarks, "GatePost", Vector3.new(2, postHeight, DEPTH), CFrame.new(x, DIVIDER_HEIGHT + postHeight / 2, GATE_Z), decor(theme.wall, Enum.Material.Plastic))
+	end
+
+	-- A lane's sign hanging at `x` from its gate down to SIGN_BOTTOM, with a
+	-- neon trim along its bottom that lights it in the lane's accent colour.
+	local function laneSign(name: string, text: string, x: number, width: number, top: number, board: Color3, words: Color3, accent: Color3)
+		local height = top - SIGN_BOTTOM
+		local signs = { pair(landmarks, `{name}Sign`, Vector3.new(width, height, 1), CFrame.new(x, SIGN_BOTTOM + height / 2, GATE_Z), decor(board)) }
+		for _, sign in signs do
+			MapKit.sign(sign, text, words)
+		end
+		local glows = { pair(landmarks, `{name}Glow`, Vector3.new(width + 0.4, 0.6, 1.2), CFrame.new(x, SIGN_BOTTOM - 0.3, GATE_Z), decor(accent, Enum.Material.Neon, { CastShadow = false })) }
+		for _, glow in glows do
+			MapKit.light(glow, accent, 20)
+		end
+	end
+
+	-- Bean Alley: a brick beam, an orange sign, and a giant bean can on top.
+	pair(landmarks, "AlleyBeam", Vector3.new(sideLength, BEAM, DEPTH), CFrame.new(-sideX, beamY, GATE_Z), decor(theme.wallTop, Enum.Material.Plastic))
+	laneSign("Alley", "BEAN ALLEY", -sideX, 30, GATE_TOP - BEAM, theme.bean, theme.beanLabel, theme.beanLabel)
+	local canAt = CFrame.new(-sideX, GATE_TOP + 4, GATE_Z) * UPRIGHT
+	pair(landmarks, "AlleyCan", Vector3.new(8, 6, 6), canAt, decor(theme.bean, nil, { Shape = Enum.PartType.Cylinder }))
+	pair(landmarks, "AlleyCanLabel", Vector3.new(3.5, 6.4, 6.4), canAt, decor(theme.beanLabel, nil, { Shape = Enum.PartType.Cylinder }))
+
+	-- Porcelain Plaza: a giant toilet roll between the posts, its paper
+	-- hanging down as the sign (its top tucked inside the roll).
+	pair(landmarks, "PlazaRoll", Vector3.new(DIVIDER_X * 2 - 2, DEPTH, DEPTH), CFrame.new(0, GATE_TOP - DEPTH / 2, GATE_Z), decor(theme.porcelain, nil, { Shape = Enum.PartType.Cylinder }))
+	laneSign("Plaza", "PORCELAIN PLAZA", 0, 30, GATE_TOP - DEPTH + 1, theme.porcelain, theme.trim, theme.trim)
+
+	-- Gas Gutter: a gas pipe, a green sign, and a vent on top puffing gas.
+	pair(landmarks, "GutterPipe", Vector3.new(sideLength, BEAM, BEAM), CFrame.new(sideX, beamY, GATE_Z), decor(theme.barrel, nil, { Shape = Enum.PartType.Cylinder }))
+	laneSign("Gutter", "GAS GUTTER", sideX, 30, GATE_TOP - BEAM, theme.barrel, theme.barrelBand, theme.barrelBand)
+	pair(landmarks, "GutterVent", Vector3.new(6, 3, 3), CFrame.new(sideX, GATE_TOP + 2, GATE_Z) * UPRIGHT, decor(theme.barrel, nil, { Shape = Enum.PartType.Cylinder }))
+	pair(landmarks, "GutterVentRim", Vector3.new(0.6, 3.6, 3.6), CFrame.new(sideX, GATE_TOP + 4.7, GATE_Z) * UPRIGHT, decor(theme.barrelBand, Enum.Material.Neon, {
+		Shape = Enum.PartType.Cylinder,
+		CastShadow = false,
+	}))
+	local puffs = { pair(landmarks, "GutterPuff", Vector3.new(6, 6, 6), CFrame.new(sideX, GATE_TOP + 7.5, GATE_Z), decor(theme.barrelBand, Enum.Material.Neon, {
+		Shape = Enum.PartType.Ball,
+		Transparency = 0.35,
+		CastShadow = false,
+	})) }
+	for _, puff in puffs do
+		MapKit.light(puff, theme.barrelBand, 16)
 	end
 
 	-- Zones: where players walk (the lanes and the plazas joining them) and

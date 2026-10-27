@@ -5,9 +5,20 @@
 --     times S), with the floors and pads still flat
 --   * it is symmetric: every part has a mirror image across z = 0
 --   * three lanes: each divider wall has at least two gaps joining them
+--   * cover in two heights: low cover (the plaza and alley walls, the
+--     crates) grows across with the map but stays about an avatar's height,
+--     standing on the ground, low enough to jump onto; the rest (the
+--     throne, the bean cans, the Gutter's toilet) is the layout's times S
+--     and still towers over everyone (MapKit.scale's KeepHeight, checked
+--     on its own too)
 --   * each team's spawn pads are on its own half, and no straight line from
---     anywhere in the lanes or the enemy half (standing, or up on cover)
---     reaches a pad through the walls
+--     anywhere in the lanes or the enemy half (standing, up on low cover,
+--     or on the enemy half up on anything) reaches a pad through the walls
+--   * each lane's name is on a gate across its entrance on both halves,
+--     reading both ways and lit, in sight of where that team comes out of
+--     its spawn corridor; the gates are decor up above the dividers (no
+--     collisions, no hits, nothing to get stuck in) and the spawn check
+--     doesn't count on them; a few dozen parts
 --   * gas barrels (plain models; the server makes them explosive) sit in
 --     the contested middle, well away from both spawns
 --   * reloading swaps the map cleanly and spawn lookups follow the new one
@@ -49,6 +60,18 @@ for _, item in map:GetDescendants() do
 	end
 end
 check(#parts > 60, "there's a real layout to check")
+
+-- A part's box in world space (the kit only turns parts by quarter turns).
+local function bounds(part: BasePart): (Vector3, Vector3)
+	local _, _, _, r00, r01, r02, r10, r11, r12, r20, r21, r22 = part.CFrame:GetComponents()
+	local s = part.Size / 2
+	local half = Vector3.new(
+		math.abs(r00) * s.X + math.abs(r01) * s.Y + math.abs(r02) * s.Z,
+		math.abs(r10) * s.X + math.abs(r11) * s.Y + math.abs(r12) * s.Z,
+		math.abs(r20) * s.X + math.abs(r21) * s.Y + math.abs(r22) * s.Z
+	)
+	return part.Position - half, part.Position + half
+end
 
 -- Symmetry: an independent reflection across z = 0.
 local function reflected(frame: CFrame): { number }
@@ -98,6 +121,66 @@ end
 for _, lane in { "LaneLeft", "LaneCenter", "LaneRight" } do
 	check(map.Zones:FindFirstChild(lane), `{lane} is marked`)
 end
+
+-- Cover heights. MapKit.scale on its own first: a KeepHeight part grows
+-- across and stays where it stands, a plain one grows every way, and a
+-- light reaches further, up to Roblox's limit.
+do
+	local MapKit = require(ServerStorage.Maps.MapKit) :: any
+	local model = Instance.new("Model")
+	local low = MapKit.part(model, "Low", Vector3.new(4, 5, 2), CFrame.new(10, 2.5, -6), { KeepHeight = true })
+	local tall = MapKit.part(model, "Tall", Vector3.new(4, 5, 2), CFrame.new(10, 2.5, 6))
+	local near, far = MapKit.light(tall, Color3.new(1, 1, 1), 15), MapKit.light(low, Color3.new(1, 1, 1), 30)
+	MapKit.scale(model, 3)
+	check((low.Size - Vector3.new(12, 5, 6)).Magnitude < 1e-3 and (low.Position - Vector3.new(30, 2.5, -18)).Magnitude < 1e-3, "KeepHeight: grows across, keeps its height, stays on the ground")
+	check((tall.Size - Vector3.new(12, 15, 6)).Magnitude < 1e-3 and (tall.Position - Vector3.new(30, 7.5, 18)).Magnitude < 1e-3, "anything else grows every way")
+	check(near.Range == 45 and far.Range == MapKit.MAX_LIGHT_RANGE, "lights reach further, up to the limit")
+	model:Destroy()
+end
+-- On the map: low cover (laid out at avatar height to duck behind, shoot
+-- past and lob over) grows across but not up; every other piece of cover
+-- is the layout's size times S.
+local AVATAR_HEIGHT = 5 -- a standard avatar, near enough
+local JUMP_HEIGHT = 7.2 -- Humanoid.JumpHeight's default
+local LOW_COVER = { PlazaWall = true, AlleyWall = true, Crate = true }
+local layoutEntry = table.clone(entry)
+layoutEntry.scale = 1
+local layout = (require(ServerStorage.Maps.BrainrotBattlefield) :: any).build(layoutEntry)
+local function laidOut(part: BasePart): BasePart?
+	for _, candidate in layout.Cover:GetChildren() do
+		local at = candidate.Position * S
+		if candidate.Name == part.Name and math.abs(at.X - part.Position.X) < 1e-3 and math.abs(at.Z - part.Position.Z) < 1e-3 then
+			return candidate
+		end
+	end
+	return nil
+end
+local lowTop, lowFound = 0, {}
+for _, part in map.Cover:GetChildren() do
+	local original = laidOut(part)
+	check(original, `{part:GetFullName()} at {part.Position} is in the layout`)
+	local low = LOW_COVER[part.Name] == true
+	check((part:GetAttribute("KeepHeight") == true) == low, `{part.Name} is {if low then "" else "not "}marked as low cover`)
+	if low and original then
+		lowFound[part.Name] = true
+		local height = part.Size.Y
+		check(height == original.Size.Y and math.abs(part.Size.X - original.Size.X * S) < 1e-3 and math.abs(part.Size.Z - original.Size.Z * S) < 1e-3, `{part.Name} grows across with the map, not up ({part.Size})`)
+		check(math.abs(part.Position.Y - height / 2) < 1e-3, `{part.Name} stands on the ground`)
+		check(height >= 4 and height <= AVATAR_HEIGHT + 1 and height < JUMP_HEIGHT, `{part.Name} is about an avatar's height, low enough to jump onto ({height})`)
+		lowTop = math.max(lowTop, height)
+	elseif original then
+		check((part.Size - original.Size * S).Magnitude < 1e-3 and (part.Position - original.Position * S).Magnitude < 1e-3, `{part.Name} at {part.Position} is the layout's times {S}`)
+	end
+end
+for name in LOW_COVER do
+	check(lowFound[name], `there's low cover: {name}`)
+end
+for _, name in { "ThroneTank", "BeanCan", "GutterTank" } do
+	local part = map.Cover:FindFirstChild(name) :: BasePart
+	local _, top = bounds(part)
+	check(top.Y > AVATAR_HEIGHT + JUMP_HEIGHT, `{name} still towers over everyone ({top.Y} studs)`)
+end
+layout:Destroy()
 
 -- Spawns.
 local pads = { Stinkers = MapService.spawns("Stinkers"), Sharters = MapService.spawns("Sharters") }
@@ -170,6 +253,9 @@ local function inside(point: Vector3): boolean
 	return false
 end
 local looked = 0
+-- Eyes: standing; up on low cover (anyone can jump onto it, so check it
+-- everywhere); and on the enemy half, up on anything.
+local onLowCover = lowTop + 4.5
 for team, sign in { Stinkers = 1, Sharters = -1 } do
 	for _, pad in pads[team] do
 		local target = pad.Position + Vector3.new(0, 3, 0)
@@ -179,7 +265,7 @@ for team, sign in { Stinkers = 1, Sharters = -1 } do
 				local z = depth * sign
 				local spot = Vector3.new(x, 0, z)
 				if not inside(spot) then
-					for _, eye in { 4.5, if depth >= 0 then 20 else nil } do
+					for _, eye in { 4.5, onLowCover, if depth >= 0 then 20 else nil } do
 						local from = Vector3.new(x, eye, z)
 						looked += 1
 						check(blocked(from, target), `{team} pad {pad.Name} is visible from {from}`)
@@ -190,6 +276,86 @@ for team, sign in { Stinkers = 1, Sharters = -1 } do
 	end
 end
 check(looked > 5000, "plenty of lines checked")
+
+-- Landmarks: the lane gates. All decor up above the dividers: never in a
+-- player's way or line of fire, nothing to get stuck in, and not one of
+-- the spawn check's blockers (Walls and Cover only), so the spawns would
+-- be just as hidden without them.
+local landmarks = map:FindFirstChild("Landmarks")
+check(landmarks, "the lanes have their landmarks")
+local dividerTop = 0
+for _, part in map.Walls:GetChildren() do
+	if part.Name == "Divider" then
+		dividerTop = math.max(dividerTop, part.Position.Y + part.Size.Y / 2)
+	end
+end
+check(dividerTop > 0, "dividers to measure against")
+local decorParts, lights = 0, 0
+for _, item in landmarks:GetDescendants() do
+	if item:IsA("BasePart") then
+		decorParts += 1
+		local lo = bounds(item)
+		check(not item.CanCollide and not item.CanQuery and not item.CanTouch, `{item:GetFullName()} is decor: walked and shot through, never hit`)
+		check(lo.Y >= dividerTop - 1e-3, `{item:GetFullName()} is up above the dividers, out of reach (from {lo.Y})`)
+	elseif item:IsA("Light") then
+		lights += 1
+		local light = item :: any
+		check(not light.Shadows and light.Range <= 60, `{item:GetFullName()}: an accent light, no shadows`)
+	end
+end
+check(decorParts >= 20 and decorParts <= 48, `a few dozen parts, not hundreds ({decorParts})`)
+check(lights >= 6 and lights <= 12, `the signs are lit ({lights} lights)`)
+-- Each lane's sign, on both halves, reads both ways, sits over its lane,
+-- and is in plain sight (no wall or cover in the way, cylinders counted by
+-- their boxes) from where that team comes out of its spawn corridor:
+-- the side lanes' from the corridor's ends, the plaza's from the side
+-- lanes beside the gaps into it. Spots are the layout's (times S).
+local LANE_SIGNS = {
+	["BEAN ALLEY"] = { zone = "LaneLeft", from = { Vector3.new(-30, 0, -78) } },
+	["PORCELAIN PLAZA"] = { zone = "LaneCenter", from = { Vector3.new(-30, 0, -50), Vector3.new(30, 0, -50) } },
+	["GAS GUTTER"] = { zone = "LaneRight", from = { Vector3.new(30, 0, -78) } },
+}
+local opaque = {}
+for _, folderName in { "Walls", "Cover" } do
+	for _, part in map[folderName]:GetChildren() do
+		local lo, hi = bounds(part)
+		table.insert(opaque, { lo = lo, hi = hi })
+	end
+end
+local signsFound = {}
+for _, item in landmarks:GetChildren() do
+	local faces, text = {}, nil
+	for _, gui in item:GetChildren() do
+		local label = gui:IsA("SurfaceGui") and gui:FindFirstChildWhichIsA("TextLabel")
+		if label then
+			faces[gui.Face] = true
+			check(text == nil or text == label.Text, `{item:GetFullName()} says one thing`)
+			text = label.Text
+		end
+	end
+	local lane = text and LANE_SIGNS[text]
+	if text then
+		check(lane, `{item:GetFullName()} names a lane: {text}`)
+		check(faces[Enum.NormalId.Front] and faces[Enum.NormalId.Back], `{text} reads both ways`)
+		local side = if item.Position.Z < 0 then 1 else -1
+		signsFound[`{text} {side}`] = true
+		local zone = map.Zones:FindFirstChild(lane.zone) :: BasePart
+		check(math.abs(item.Position.X - zone.Position.X) < zone.Size.X / 2, `{text} hangs over its lane`)
+		for _, spot in lane.from do
+			local from = Vector3.new(spot.X * S, 4.5, spot.Z * S * side)
+			local seen = true
+			for _, box in opaque do
+				if hits(from, item.Position, box) then
+					seen = false
+				end
+			end
+			check(seen, `{text} on the {if side == 1 then "Stinkers'" else "Sharters'"} half is in sight from {from}`)
+		end
+	end
+end
+for text in LANE_SIGNS do
+	check(signsFound[`{text} 1`] and signsFound[`{text} -1`], `{text} has a sign on each half`)
+end
 
 local barrels = 0
 for _, gasBarrel in map.Barrels:GetChildren() do
