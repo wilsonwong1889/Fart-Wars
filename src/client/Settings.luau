@@ -18,6 +18,10 @@ return {
 	teamSymbols = true,
 	-- Contextual tips (the "tips" experiment can start them off).
 	tips = true,
+	-- In third person, keep the mouse locked to the crosshair (on), or free
+	-- like a cursor (off). First person always locks it; the unlock key and
+	-- open screens free it either way (MouseLock).
+	lockMouse = true,
 	-- Players whose emotes are hidden (the Players screen), by user ID.
 	hiddenEmotes = {} :: { [number]: boolean },
 	-- The ones the player has changed themselves.

@@ -85,6 +85,8 @@ local UIConfig = {
 		slots = table.freeze({ Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four }),
 		fire = Enum.UserInputType.MouseButton1,
 		camera = Enum.KeyCode.V,
+		-- Frees the mouse from the crosshair (and locks it again).
+		unlockMouse = Enum.KeyCode.LeftAlt,
 		menu = Enum.KeyCode.M,
 		scoreboard = Enum.KeyCode.Tab,
 		-- Kept free for later mechanics.
@@ -109,6 +111,10 @@ local UIConfig = {
 
 	-- Third-person camera distance after switching back from first person.
 	thirdPersonDistance = 12,
+	-- Over the shoulder: how far the third-person camera sits to the right
+	-- of and above the avatar (studs, in the camera's own axes), so the
+	-- crosshair has a clear view past the avatar instead of onto its head.
+	shoulderOffset = Vector3.new(2.25, 1.5, 0),
 	-- The home screen's live view holds each fixed camera point this long.
 	spectatorShotSeconds = 8,
 }
