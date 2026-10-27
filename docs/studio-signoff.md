@@ -1,7 +1,7 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 35 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 36 specs, including a 20-player, 20-minute soak).
 Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6;
 sections 8 and 9 are the Blender art (the weapons, the map).
 What's left needs real Roblox: physics, rendering, sound, the real network
@@ -83,9 +83,13 @@ the Output window help).
 - [ ] Fart Dash never goes through a wall (try dashing into the spawn
       room's front wall from outside).
 - [ ] Weapons (`/fw weapon spritzer`, `thunderclapper`, `stinklobber`):
-      the Spritzer stops at 180 studs; the Thunderclapper walks slower;
-      stink bombs arc (aim higher to throw farther) and the cloud is easy
-      to see and gasses whoever stands in it.
+      the Spritzer stops at 90 studs and does less past 45; a Gas Blaster
+      body hit adds 20% close up and about 10% from 250 studs down a side
+      lane; the Thunderclapper walks slower and reaches 420 studs, not end
+      to end; stink bombs arc (higher throws go farther up to about 45
+      degrees, 150 studs at most; a steep one clears the throne and lands
+      behind it, never bursting in the air) and the cloud is easy to see
+      and gasses whoever stands in it.
 - [ ] Q (`/fw ability recoveryburst`, then `gaspulse`): the other client
       sees the vent puff and the pulse ring; the HUD counts the cooldown.
 - [ ] Equip a different weapon mid-fight: "you'll have it when you
