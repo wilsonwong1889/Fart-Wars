@@ -76,6 +76,26 @@ local UIConfig = {
 	menuSections = table.freeze({ "Weapons", "Abilities", "Progression", "Store", "Settings" }),
 	-- Entries that arrive in later phases.
 	comingSoon = table.freeze({ "Leaderboard" }),
+	-- How each locker page looks on its buttons, tabs and header.
+	pages = table.freeze({
+		Weapons = table.freeze({ label = "SHOP", icon = "🛒", color = Color3.fromRGB(92, 205, 50) }),
+		Abilities = table.freeze({ label = "ABILITIES", icon = "⚡", color = Color3.fromRGB(45, 155, 245) }),
+		Progression = table.freeze({ label = "LEVELS", icon = "⭐", color = Color3.fromRGB(155, 95, 235) }),
+		Store = table.freeze({ label = "STORE", icon = "💎", color = Color3.fromRGB(255, 170, 30) }),
+		Settings = table.freeze({ label = "SETTINGS", icon = "⚙️", color = Color3.fromRGB(115, 120, 140) }),
+	}),
+	-- The home screen: the locker's pages down the left, everything else as
+	-- tiles down the right (Season only while one is on).
+	lobbyPages = table.freeze({ "Weapons", "Abilities", "Progression", "Store" }),
+	lobbyTiles = table.freeze({
+		table.freeze({ id = "Rewards", label = "DAILY", icon = "🎁", color = Color3.fromRGB(255, 185, 35) }),
+		table.freeze({ id = "Spin", label = "SPIN", icon = "🎡", color = Color3.fromRGB(165, 90, 235) }),
+		table.freeze({ id = "Season", label = "SEASON", icon = "🏆", color = Color3.fromRGB(240, 120, 40) }),
+		table.freeze({ id = "Players", label = "PLAYERS", icon = "👥", color = Color3.fromRGB(45, 155, 245) }),
+		table.freeze({ id = "Leaderboard", label = "TOP", icon = "📊", color = Color3.fromRGB(30, 185, 160) }),
+		table.freeze({ id = "Settings", label = "SETTINGS", icon = "⚙️", color = Color3.fromRGB(115, 120, 140) }),
+	}),
+	gold = Color3.fromRGB(255, 205, 50),
 
 	keys = table.freeze({
 		dash = Enum.KeyCode.LeftShift,

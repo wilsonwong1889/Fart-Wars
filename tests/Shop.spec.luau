@@ -226,11 +226,11 @@ check(p.content.Thunderclapper.Action.Text == "EQUIPPED", "the Thunderclapper: E
 local stats = {}
 for _, child in spritzer:GetChildren() do
 	if child.Name == "Stat" then
-		table.insert(stats, child.Text)
+		table.insert(stats, `{child.Label.Text} {child.Value.Text}`)
 	end
 end
 local statText = table.concat(stats, " | ")
-check(string.find(statText, "Gas 7% (head 9%)", 1, true) and string.find(statText, `Range {require(game.ReplicatedStorage.Shared.Config.WeaponConfig).weapons.Spritzer.range}`, 1, true) and string.find(statText, "Fire rate 10.0/s", 1, true) and string.find(statText, "Handling", 1, true), "its stats: " .. statText)
+check(string.find(statText, "GAS 7% (head 9%)", 1, true) and string.find(statText, `RANGE {require(game.ReplicatedStorage.Shared.Config.WeaponConfig).weapons.Spritzer.range}`, 1, true) and string.find(statText, "RATE 10.0/s", 1, true) and string.find(spritzer.Details.Text, "Handling", 1, true), "its stats: " .. statText)
 check(p.content.StinkLobber.Action.Text == "LEVEL 25", "the Stink Lobber: level 25 first")
 xpTo(25)
 task.wait(0.1)
@@ -239,6 +239,8 @@ coins(2500)
 task.wait(0.1)
 local buy = p.content.StinkLobber.Action
 check(buy.Text == "BUY 2500", "now: BUY 2500")
+local shopButton = Home.parts.pageButtons.Weapons
+check(Locker.buyable() == 1 and shopButton.Badge.Visible and shopButton.Badge.Count.Text == "1", "the home screen's SHOP badge: one to buy")
 -- A tip says so too (once), between fights.
 local Progress = require(Controllers.ProgressController)
 local function tipShown(fragment: string): boolean
@@ -253,12 +255,20 @@ task.wait(2.2)
 check(tipShown("You can buy the Stink Lobber now"), "a tip: the Stink Lobber is affordable")
 latency = 0.5
 click(buy)
+check(p.confirm.Visible and not Locker.busy, "BUY asks first, spending nothing yet")
+check(p.confirmPrice.Text == "💰 2,500" and p.confirmLeft.Text == "You'll have 0 coins left.", "with the price and what's left")
+click(p.confirmNo)
+check(not p.confirm.Visible and not Locker.busy and not table.find(data().OwnedWeapons, "StinkLobber"), "NO: nothing bought")
+click(buy)
+click(p.confirmYes)
+check(not p.confirm.Visible, "YES closes the question")
 check(Locker.busy and string.find(p.status.Text, "Buying", 1, true), "while it saves: Buying...")
 check(p.content.Spritzer.Action:GetAttribute("Enabled") == false, "and the other buttons wait")
 task.wait(1)
 latency = 0
 check(not Locker.busy and p.status.Text == "Bought! It's yours.", "then the answer")
 check(table.find(data().OwnedWeapons, "StinkLobber") and p.content.StinkLobber.Action.Text == "EQUIP", "it's yours: EQUIP")
+check(Locker.buyable() == 0 and not shopButton.Badge.Visible, "and the badge goes")
 task.wait(0.3)
 click(p.content.StinkLobber.Action)
 task.wait(0.1)

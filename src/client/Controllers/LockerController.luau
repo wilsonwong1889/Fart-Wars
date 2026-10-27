@@ -1,10 +1,15 @@
 -- The locker: the menu's Weapons, Abilities, Progression and Settings
--- screens, from the home screen or the M menu.
---   Weapons      every weapon with its preview colour, how it plays, gas
---                per hit, range, fire rate, handling, mastery, price and
---                level; BUY, EQUIP or what's missing
---   Abilities    Fart Dash (everyone's) and the Q abilities: what they do,
---                the cooldown, EQUIP or the level that unlocks them
+-- screens, from the home screen or the M menu. One big window: the page's
+-- name and your coins on a header in its colour, chunky tabs, a red X; the
+-- cards lift under the pointer.
+--   Weapons      a card per weapon in its colour: the model turning in a
+--                window (locked until your level reaches it), gas, range
+--                and fire rate as bars against the shop's best, mastery,
+--                and BUY (after "Buy it?"), EQUIP or what's missing; a
+--                stamp on the card when it's bought or equipped
+--   Abilities    Fart Dash (everyone's) and the Q abilities: icon, key,
+--                what they do, the cooldown, EQUIP or the level that
+--                unlocks them
 --   Progression  level, XP, coins, the next goal and the unlock track,
 --                lifetime stats, badges, and every cosmetic (tracers,
 --                Fart Dash trails, emotes): equip it, or how to get it
@@ -14,7 +19,8 @@
 -- Every button only asks (ShopRequest); while a request is out the buttons
 -- wait and the status line says so, and the answer (or the refusal) is
 -- shown. What the player owns comes from the server (ProfileUpdate); coins
--- and level from their attributes.
+-- and level from their attributes. buyable() and newAbilities() are what
+-- the Shop and Abilities buttons' badges count.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -41,6 +47,12 @@ local ProgressController = require(script.Parent.ProgressController)
 
 local C = UIConfig.colors
 local ABILITY_ORDER = { "FartDash", "RecoveryBurst", "GasPulse" }
+-- Each ability's icon and card colour.
+local ABILITY_LOOK = {
+	FartDash = { icon = "💨", color = Color3.fromRGB(120, 200, 60) },
+	RecoveryBurst = { icon = "🫧", color = Color3.fromRGB(40, 170, 220) },
+	GasPulse = { icon = "🌀", color = Color3.fromRGB(165, 90, 235) },
+}
 
 local LockerController = {}
 
@@ -66,9 +78,14 @@ LockerController.busy = false
 LockerController.ProfileChanged = Signal.new()
 -- (answer, action, kind, id?): the server answered a request.
 LockerController.Answered = Signal.new()
+-- What the badges count may have changed (buyable(), newAbilities()).
+LockerController.BadgesChanged = Signal.new()
 
 local player = Players.LocalPlayer
 local started = false
+-- Abilities the player has seen on the Abilities page (or had already
+-- when the first profile arrived); nil until then.
+local seenAbilities: { [string]: boolean }? = nil
 
 local function number(name: string, default: number): number
 	local value = player:GetAttribute(name)
@@ -77,6 +94,46 @@ end
 
 local function owns(list: any, id: string): boolean
 	return type(list) == "table" and table.find(list, id) ~= nil
+end
+
+-- The weapons this player could buy right now (the Shop button's badge).
+function LockerController.buyable(): number
+	local profile = LockerController.profile
+	if not profile or profile.saving == false then
+		return 0
+	end
+	local level, coins, count = number("Level", 1), number("Coins", 0), 0
+	for _, id in WeaponConfig.order do
+		if not owns(profile.ownedWeapons, id) and level >= WeaponConfig.weapons[id].level and coins >= LockerController.priceOf(id) then
+			count += 1
+		end
+	end
+	return count
+end
+
+-- Abilities unlocked since the player last looked at the Abilities page.
+function LockerController.newAbilities(): number
+	local profile = LockerController.profile
+	if not profile or not seenAbilities or type(profile.unlockedAbilities) ~= "table" then
+		return 0
+	end
+	local count = 0
+	for _, id in profile.unlockedAbilities do
+		if not seenAbilities[id] then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function seeAbilities()
+	local profile = LockerController.profile
+	seenAbilities = seenAbilities or {}
+	if profile and type(profile.unlockedAbilities) == "table" then
+		for _, id in profile.unlockedAbilities do
+			(seenAbilities :: any)[id] = true
+		end
+	end
 end
 
 function LockerController.handling(weapon: WeaponConfig.Weapon): string
@@ -90,6 +147,7 @@ local function setStatus(text: string, color: Color3?)
 end
 
 local render: () -> ()
+local stamp: (id: string, text: string) -> ()
 
 -- Sends one request; the buttons wait for the answer.
 function LockerController.request(action: string, kind: string, id: string?)
@@ -115,18 +173,67 @@ function LockerController.request(action: string, kind: string, id: string?)
 			setStatus(answer.message, C.warning)
 		end
 		render()
+		if answer.ok and id and LockerController.isOpen then
+			stamp(id, if action == "buy" then "PURCHASED!" else "EQUIPPED!")
+		end
+		LockerController.BadgesChanged:Fire()
 		LockerController.Answered:Fire(answer, action, kind, id)
 	end)
 end
 
-local function card(parent: Instance, name: string, order: number, height: number): Frame
-	return UI.new("Frame", {
-		Name = name,
+-- A shop card: a chunky box in `color` (darkened, so white text reads on
+-- it) that lifts a little under the pointer.
+local function card(parent: Instance, name: string, order: number, height: number, color: Color3?): Frame
+	local h, s, v = (color or C.panelLight):ToHSV()
+	local box = UI.box(name, Color3.fromHSV(h, math.min(s, 0.75), math.min(v, 0.62)), UDim2.new(0, 190, 0, height), {
 		LayoutOrder = order,
-		Size = UDim2.new(0, 172, 0, height),
-		BackgroundColor3 = C.panelLight,
 		Parent = parent,
-	}, { UI.corner(10), UI.stroke(C.stroke, 2), UI.padding(8), UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Center) })
+	})
+	UI.padding(8).Parent = box
+	UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Center).Parent = box
+	UI.springy(box, 1.03)
+	return box
+end
+
+-- A stat: its name and value, and a bar for `fraction` of the shop's best.
+local function statBar(parent: Instance, label: string, value: string, fraction: number, order: number, color: Color3)
+	local row = UI.new("Frame", {
+		Name = "Stat",
+		LayoutOrder = order,
+		Size = UDim2.new(1, 0, 0, 28),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+	UI.label(label, 12, {
+		Name = "Label",
+		Size = UDim2.new(0.4, 0, 0, 14),
+		Font = UIConfig.bodyFont,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = row,
+	})
+	UI.label(value, 12, {
+		Name = "Value",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.new(0.6, 0, 0, 14),
+		Font = UIConfig.bodyFont,
+		TextColor3 = color,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = row,
+	})
+	local track = UI.new("Frame", {
+		Name = "Track",
+		Position = UDim2.new(0, 0, 0, 17),
+		Size = UDim2.new(1, 0, 0, 10),
+		BackgroundColor3 = Color3.fromRGB(16, 14, 24),
+		Parent = row,
+	}, { UI.corner(5) })
+	UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(math.clamp(fraction, 0.06, 1), 0, 1, 0),
+		BackgroundColor3 = color,
+		Parent = track,
+	}, { UI.corner(5) })
 end
 
 local function text(parent: Instance, value: string, size: number, order: number, props: { [string]: any }?): TextLabel
@@ -146,12 +253,14 @@ local function text(parent: Instance, value: string, size: number, order: number
 	return label
 end
 
-local function actionButton(parent: Instance, label: string, enabled: boolean, onClick: (() -> ())?): TextButton
-	local button = UI.button(label, if enabled then C.play else C.disabled, {
+local EQUIP_BLUE = Color3.fromRGB(45, 155, 245)
+
+local function actionButton(parent: Instance, label: string, enabled: boolean, onClick: (() -> ())?, color: Color3?): TextButton
+	local button = UI.chunky(label, if enabled then color or C.play else C.disabled, nil, {
 		Name = "Action",
 		LayoutOrder = 100,
-		Size = UDim2.new(1, 0, 0, 38),
-		TextSize = 18,
+		Size = UDim2.new(1, 0, 0, 42),
+		TextSize = 20,
 		Parent = parent,
 	})
 	UI.setEnabled(button, enabled and not LockerController.busy)
@@ -161,6 +270,53 @@ local function actionButton(parent: Instance, label: string, enabled: boolean, o
 	return button
 end
 
+-- "Buy it?" before coins are spent: the weapon, its price and what's left.
+function LockerController.confirmBuy(id: string)
+	local p = LockerController.parts
+	local weapon = WeaponConfig.weapons[id]
+	local price = LockerController.priceOf(id)
+	p.confirmId = id
+	p.confirmTitle.Text = `BUY THE {string.upper(weapon.displayName)}?`
+	p.confirmPrice.Text = `💰 {UI.commas(price)}`
+	p.confirmLeft.Text = `You'll have {UI.commas(number("Coins", 0) - price)} coins left.`
+	for _, child in p.confirmPreview:GetChildren() do
+		child:Destroy()
+	end
+	WeaponView.new(id, { Name = "Preview", Size = UDim2.new(1, 0, 1, 0), Parent = p.confirmPreview })
+	p.confirm.Visible = true
+	UI.pop(p.confirmCard, 0.8)
+end
+
+function LockerController.closeConfirm()
+	local p = LockerController.parts
+	p.confirm.Visible = false
+	p.confirmId = nil
+end
+
+-- A "PURCHASED!" stamp on a card, then gone.
+stamp = function(id: string, text: string)
+	local box = LockerController.parts.content:FindFirstChild(id)
+	local window = box and box:FindFirstChild("Window")
+	if not box or not window then
+		return
+	end
+	UI.pop(box :: GuiObject, 1.12)
+	local label = UI.label(text, 30, {
+		Name = "Stamp",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(1, 20, 0, 40),
+		Rotation = -12,
+		TextColor3 = UIConfig.gold,
+		ZIndex = 6,
+		Parent = window,
+	})
+	UI.pop(label, 1.8)
+	task.delay(1.6, function()
+		label:Destroy()
+	end)
+end
+
 -- The weapon previews on screen now (the Weapons tab), and their turn.
 local previews: { ViewportFrame } = {}
 local turn = 0
@@ -168,27 +324,63 @@ local turn = 0
 local function weaponsTab(content: Frame)
 	local profile = LockerController.profile or {}
 	local level, coins = number("Level", 1), number("Coins", 0)
-	UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center).Parent = content
+	UI.list(Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center).Parent = content
+	-- Each stat's bar is a share of the best in the shop.
+	local best = { gas = 0, range = 0, rate = 0 }
+	for _, id in WeaponConfig.order do
+		local weapon = WeaponConfig.weapons[id]
+		best.gas = math.max(best.gas, weapon.gasPerHit)
+		best.range = math.max(best.range, weapon.range)
+		best.rate = math.max(best.rate, 1 / weapon.fireInterval)
+	end
 	for i, id in WeaponConfig.order do
 		local weapon = WeaponConfig.weapons[id]
-		local box = card(content, id, i, 330)
-		text(box, weapon.displayName, 20, 1, { TextColor3 = weapon.tracerColor })
-		-- The weapon itself, turning slowly (still with reduce motion).
+		local owned = owns(profile.ownedWeapons, id)
+		local box = card(content, id, i, 386, weapon.tracerColor)
+		text(box, weapon.displayName, 22, 1, { Name = "WeaponName" })
+		-- The weapon itself in a window, turning slowly (still with reduce
+		-- motion); a lock over it until the player's level reaches it.
+		local window = UI.new("Frame", {
+			Name = "Window",
+			LayoutOrder = 2,
+			Size = UDim2.new(1, 0, 0, 92),
+			BackgroundColor3 = Color3.fromRGB(14, 12, 22),
+			BackgroundTransparency = 0.35,
+			Parent = box,
+		}, { UI.corner(10) })
 		local preview = WeaponView.new(id, {
 			Name = "Preview",
-			LayoutOrder = 2,
-			Size = UDim2.new(1, 0, 0, 62),
-			Parent = box,
+			Size = UDim2.new(1, 0, 1, 0),
+			Parent = window,
 		})
 		table.insert(previews, preview)
-		text(box, weapon.description, 13, 3, { Size = UDim2.new(1, 0, 0, 52), TextColor3 = C.muted, TextYAlignment = Enum.TextYAlignment.Top })
+		if level < weapon.level then
+			UI.new("Frame", {
+				Name = "Locked",
+				Size = UDim2.new(1, 0, 1, 0),
+				BackgroundColor3 = Color3.new(0, 0, 0),
+				BackgroundTransparency = 0.45,
+				ZIndex = 2,
+				Parent = window,
+			}, {
+				UI.corner(10),
+				UI.label(`🔒 LEVEL {weapon.level}`, 20, { Size = UDim2.new(1, 0, 1, 0), ZIndex = 2 }),
+			})
+		elseif owned then
+			UI.label(if profile.equippedWeapon == id then "✅" else "✔", 18, {
+				Name = "Owned",
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.new(1, -4, 0, 2),
+				Size = UDim2.new(0, 26, 0, 24),
+				Parent = window,
+			})
+		end
+		text(box, weapon.description, 13, 3, { Size = UDim2.new(1, 0, 0, 52), TextColor3 = C.text, TextYAlignment = Enum.TextYAlignment.Top })
+		local bar = Color3.fromRGB(255, 225, 90)
 		local projectile = if weapon.projectile == "lob" then "lobbed" else "instant"
-		local lines = {
-			`Gas {weapon.gasPerHit}% (head {weapon.headshotGas}%)`,
-			`Range {weapon.range} · {projectile}`,
-			`Fire rate {string.format("%.1f", 1 / weapon.fireInterval)}/s`,
-			`Handling {LockerController.handling(weapon)}`,
-		}
+		statBar(box, "GAS", `{weapon.gasPerHit}% (head {weapon.headshotGas}%)`, weapon.gasPerHit / best.gas, 4, bar)
+		statBar(box, "RANGE", `{weapon.range} · {projectile}`, weapon.range / best.range, 5, bar)
+		statBar(box, "RATE", `{string.format("%.1f", 1 / weapon.fireInterval)}/s`, (1 / weapon.fireInterval) / best.rate, 6, bar)
 		local mastery = profile.mastery and profile.mastery[id]
 		local kills = if type(mastery) == "table" then tonumber(mastery.eliminations) or 0 else 0
 		local nextMilestone = nil
@@ -198,24 +390,21 @@ local function weaponsTab(content: Frame)
 				break
 			end
 		end
-		table.insert(lines, if nextMilestone then `Mastery {kills}/{nextMilestone.eliminations}` else `Mastery {kills} (all badges)`)
-		for j, line in lines do
-			text(box, line, 14, 3 + j, { Name = "Stat" })
-		end
-		local owned = owns(profile.ownedWeapons, id)
+		text(box, `Handling: {LockerController.handling(weapon)}`, 12, 7, { Name = "Details" })
+		text(box, if nextMilestone then `🏅 Mastery {kills}/{nextMilestone.eliminations}` else `🏅 Mastery {kills} (all badges)`, 12, 8, { Name = "Mastery" })
 		if owned and profile.equippedWeapon == id then
 			actionButton(box, "EQUIPPED", false)
 		elseif owned then
 			actionButton(box, "EQUIP", true, function()
 				LockerController.request("equip", "weapon", id)
-			end)
+			end, EQUIP_BLUE)
 		elseif level < weapon.level then
 			actionButton(box, `LEVEL {weapon.level}`, false)
 		elseif coins < LockerController.priceOf(id) then
 			actionButton(box, `{LockerController.priceOf(id)} COINS`, false)
 		else
 			actionButton(box, `BUY {LockerController.priceOf(id)}`, profile.saving ~= false, function()
-				LockerController.request("buy", "weapon", id)
+				LockerController.confirmBuy(id)
 			end)
 		end
 	end
@@ -223,14 +412,25 @@ end
 
 local function abilitiesTab(content: Frame)
 	local profile = LockerController.profile or {}
-	UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center).Parent = content
+	UI.list(Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center).Parent = content
 	for i, id in ABILITY_ORDER do
 		local ability = AbilityConfig[id]
-		local box = card(content, id, i, 300)
-		text(box, ability.displayName, 20, 1, { TextColor3 = C.accent })
-		text(box, if ability.input == Enum.KeyCode.Q then "Q" else "SHIFT", 15, 2)
-		text(box, ability.description, 13, 3, { Size = UDim2.new(1, 0, 0, 96), TextColor3 = C.muted, TextYAlignment = Enum.TextYAlignment.Top })
-		text(box, `Cooldown {ability.cooldownSeconds}s`, 14, 4, { Name = "Stat" })
+		local look = ABILITY_LOOK[id] or { icon = "✨", color = UIConfig.pages.Abilities.color }
+		local box = card(content, id, i, 330, look.color)
+		box.Size = UDim2.new(0, 230, 0, 330)
+		text(box, ability.displayName, 22, 1, { Name = "AbilityName" })
+		UI.label(look.icon, 52, { Name = "Icon", LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 64), Parent = box })
+		local key = UI.new("Frame", {
+			Name = "Key",
+			LayoutOrder = 3,
+			Size = UDim2.new(0, 90, 0, 28),
+			BackgroundColor3 = Color3.fromRGB(14, 12, 22),
+			BackgroundTransparency = 0.3,
+			Parent = box,
+		}, { UI.corner(8), UI.stroke(C.text, 2) })
+		UI.label(if ability.input == Enum.KeyCode.Q then "Q" else "SHIFT", 16, { Size = UDim2.new(1, 0, 1, 0), Parent = key })
+		text(box, ability.description, 13, 4, { Size = UDim2.new(1, 0, 0, 84), TextYAlignment = Enum.TextYAlignment.Top })
+		text(box, `⏳ Cooldown {ability.cooldownSeconds}s`, 14, 5, { Name = "Stat" })
 		if ability.ownership == "everyone" then
 			actionButton(box, "EVERYONE HAS IT", false)
 		elseif owns(profile.unlockedAbilities, id) and profile.equippedAbility == id then
@@ -238,11 +438,13 @@ local function abilitiesTab(content: Frame)
 		elseif owns(profile.unlockedAbilities, id) then
 			actionButton(box, "EQUIP", true, function()
 				LockerController.request("equip", "ability", id)
-			end)
+			end, EQUIP_BLUE)
 		else
 			actionButton(box, `LEVEL {ability.level}`, false)
 		end
 	end
+	seeAbilities()
+	LockerController.BadgesChanged:Fire()
 end
 
 local function progressionTab(content: Frame)
@@ -414,11 +616,11 @@ local function storeTab(content: Frame)
 		end
 		local owned = type(profile.passes) == "table" and table.find(profile.passes, pass.key) ~= nil
 		local label = if owned then "OWNED" elseif pass.id == 0 then "UNAVAILABLE" else price(Enum.InfoType.GamePass, pass.id)
-		local button = UI.button(label, C.play, {
+		local button = UI.chunky(label, C.play, nil, {
 			Name = "Action",
 			AnchorPoint = Vector2.new(1, 0.5),
 			Position = UDim2.new(1, -18, 0.5, 0),
-			Size = UDim2.new(0, 200, 0, 56),
+			Size = UDim2.new(0, 200, 0, 60),
 			TextSize = 24,
 			Parent = card,
 		})
@@ -439,7 +641,7 @@ local function storeTab(content: Frame)
 		card.Parent = packs
 		UI.label("💰", 40, { Name = "Icon", Position = UDim2.new(0, 0, 0, 6), Size = UDim2.new(1, 0, 0, 46), Parent = card })
 		UI.label(string.upper(product.name), 22, { Name = "Name", Position = UDim2.new(0, 0, 0, 54), Size = UDim2.new(1, 0, 0, 28), Parent = card })
-		local button = UI.button(if product.id == 0 then "UNAVAILABLE" else price(Enum.InfoType.Product, product.id), C.play, {
+		local button = UI.chunky(if product.id == 0 then "UNAVAILABLE" else price(Enum.InfoType.Product, product.id), C.play, nil, {
 			Name = "Action",
 			AnchorPoint = Vector2.new(0.5, 1),
 			Position = UDim2.new(0.5, 0, 1, -10),
@@ -504,7 +706,7 @@ local function settingsTab(content: Frame)
 	-- A row with - and + around a value.
 	local function stepper(name: string, order: number, label: string, onStep: (number) -> (), help: string)
 		local holder = row(name, order)
-		local down = UI.button("-", C.panelLight, { Name = name .. "Down", Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+		local down = UI.chunky("-", C.panelLight, nil, { Name = name .. "Down", Size = UDim2.new(0, 44, 0, 38), TextSize = 26, Parent = holder })
 		UI.onClick(down, function()
 			onStep(-1)
 		end)
@@ -514,7 +716,7 @@ local function settingsTab(content: Frame)
 			Size = UDim2.new(0, 200, 1, 0),
 			Parent = holder,
 		})
-		local up = UI.button("+", C.panelLight, { Name = name .. "Up", Position = UDim2.new(0, 256, 0, 0), Size = UDim2.new(0, 44, 0, 38), Parent = holder })
+		local up = UI.chunky("+", C.panelLight, nil, { Name = name .. "Up", Position = UDim2.new(0, 256, 0, 0), Size = UDim2.new(0, 44, 0, 38), TextSize = 26, Parent = holder })
 		UI.onClick(up, function()
 			onStep(1)
 		end)
@@ -523,7 +725,8 @@ local function settingsTab(content: Frame)
 	for i, toggle in toggles do
 		local holder = row(toggle.name, i)
 		local on = (Settings :: any)[toggle.key]
-		local button = UI.button(`{toggle.label}: {if on then "ON" else "OFF"}`, C.panelLight, {
+		-- Green when on, grey when off.
+		local button = UI.chunky(`{toggle.label}: {if on then "ON" else "OFF"}`, if on then C.play else C.panelLight, nil, {
 			Name = toggle.name,
 			Size = UDim2.new(0, 300, 0, 38),
 			TextSize = 17,
@@ -566,7 +769,7 @@ local function settingsTab(content: Frame)
 		ClearTextOnFocus = false,
 		Parent = codeRow,
 	}, { UI.corner(10), UI.stroke(C.stroke, 3) })
-	local redeem = UI.button("REDEEM", C.play, {
+	local redeem = UI.chunky("REDEEM", C.play, nil, {
 		Name = "Redeem",
 		Position = UDim2.new(0, 206, 0, 0),
 		Size = UDim2.new(0, 94, 0, 38),
@@ -609,9 +812,16 @@ render = function()
 	if not LockerController.isOpen then
 		return
 	end
+	-- The open page's tab is lit; the header takes its colour and name.
 	for name, button in p.tabs do
-		button.Border.Color = if name == LockerController.tab then C.text else C.stroke
+		local selected = name == LockerController.tab
+		button.Border.Color = if selected then C.text else C.stroke
+		button.Border.Thickness = if selected then 4 else 3
 	end
+	local page = UIConfig.pages[LockerController.tab]
+	UI.paint(p.header, page.color)
+	p.title.Text = `{page.icon} {page.label}`
+	p.wallet.Text = `💰 {UI.commas(number("Coins", 0))}`
 	for _, child in p.content:GetChildren() do
 		child:Destroy()
 	end
@@ -628,27 +838,72 @@ local function build()
 	local screen = UI.screen("Locker", 15)
 	screen.Enabled = false
 	p.screen = screen
+	UI.new("Frame", {
+		Name = "Dim",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.5,
+		Parent = screen,
+	})
 	local panel = UI.new("Frame", {
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0, 760, 0, 470),
+		Size = UDim2.new(0, 840, 0, 600),
 		BackgroundColor3 = C.panel,
 		Parent = screen,
-	}, { UI.corner(16), UI.stroke(C.stroke, 4), UI.padding(14) })
-	local tabs = UI.new("Frame", {
-		Name = "Tabs",
-		Size = UDim2.new(1, -110, 0, 42),
+	}, { UI.corner(22), UI.stroke(C.stroke, 5) })
+	p.panel = panel
+	-- The header: the page's name on its colour, and your coins.
+	-- (UI.paint recolours its Fill.)
+	p.header = UI.new("Frame", {
+		Name = "Header",
+		Position = UDim2.new(0, 12, 0, 12),
+		Size = UDim2.new(1, -24, 0, 62),
 		BackgroundTransparency = 1,
 		Parent = panel,
-	}, { UI.list(Enum.FillDirection.Horizontal, 6) })
+	}, {
+		UI.corner(16),
+		UI.stroke(C.stroke, 3),
+		UI.new("Frame", {
+			Name = "Fill",
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundColor3 = Color3.new(1, 1, 1),
+		}, { UI.corner(16), UI.new("UIGradient", { Name = "Gloss", Rotation = 90 }) }),
+	})
+	p.title = UI.label("", 40, {
+		Name = "Title",
+		Position = UDim2.new(0, 18, 0, 0),
+		Size = UDim2.new(0.6, 0, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 2,
+		Parent = p.header,
+	})
+	p.wallet = UI.label("", 28, {
+		Name = "Wallet",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -64, 0, 0),
+		Size = UDim2.new(0.4, 0, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = UIConfig.gold,
+		ZIndex = 2,
+		Parent = p.header,
+	})
+	local tabs = UI.new("Frame", {
+		Name = "Tabs",
+		Position = UDim2.new(0, 12, 0, 84),
+		Size = UDim2.new(1, -24, 0, 48),
+		BackgroundTransparency = 1,
+		Parent = panel,
+	}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center) })
 	p.tabs = {}
 	for i, name in UIConfig.menuSections do
-		local button = UI.button(string.upper(name), C.panelLight, {
+		local page = UIConfig.pages[name]
+		local button = UI.chunky(page.label, page.color, page.icon, {
 			Name = name,
 			LayoutOrder = i,
-			Size = UDim2.new(0, 118, 0, 42),
-			TextSize = 18,
+			Size = UDim2.new(0, 152, 0, 46),
+			TextSize = 20,
 			Parent = tabs,
 		})
 		p.tabs[name] = button
@@ -656,34 +911,87 @@ local function build()
 			LockerController.open(name)
 		end)
 	end
-	-- Modal frees the mouse from first person while the locker is up.
-	local close = UI.button("CLOSE", C.panelLight, {
+	-- The red X on the corner. Modal frees the mouse from first person
+	-- while the locker is up.
+	local close = UI.chunky("X", Color3.fromRGB(235, 55, 60), nil, {
 		Name = "Close",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 0, 0, 0),
-		Size = UDim2.new(0, 100, 0, 42),
-		TextSize = 18,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -14, 0, 14),
+		Size = UDim2.new(0, 56, 0, 56),
+		TextSize = 32,
 		Modal = true,
 		Parent = panel,
 	})
 	UI.onClick(close, LockerController.close)
 	p.content = UI.new("Frame", {
 		Name = "Content",
-		Position = UDim2.new(0, 0, 0, 54),
-		Size = UDim2.new(1, 0, 1, -84),
+		Position = UDim2.new(0, 16, 0, 146),
+		Size = UDim2.new(1, -32, 1, -184),
 		BackgroundTransparency = 1,
 		Parent = panel,
 	})
 	p.status = UI.label("", 15, {
 		Name = "Status",
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 0, 1, 0),
-		Size = UDim2.new(1, 0, 0, 22),
+		Position = UDim2.new(0, 18, 1, -8),
+		Size = UDim2.new(1, -36, 0, 22),
 		Font = UIConfig.bodyFont,
 		TextColor3 = C.muted,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
 	})
+
+	-- "Buy it?": over the shop until YES or NO.
+	p.confirm = UI.new("Frame", {
+		Name = "Confirm",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.4,
+		Visible = false,
+		ZIndex = 10,
+		Parent = screen,
+	})
+	p.confirmCard = UI.box("Card", UIConfig.pages.Weapons.color, UDim2.new(0, 420, 0, 330), {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Parent = p.confirm,
+	})
+	p.confirmTitle = UI.label("", 30, { Name = "Title", Position = UDim2.new(0, 0, 0, 14), Size = UDim2.new(1, 0, 0, 36), Parent = p.confirmCard })
+	p.confirmPreview = UI.new("Frame", {
+		Name = "Preview",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 56),
+		Size = UDim2.new(0, 300, 0, 110),
+		BackgroundColor3 = Color3.fromRGB(14, 12, 22),
+		BackgroundTransparency = 0.35,
+		Parent = p.confirmCard,
+	}, { UI.corner(12) })
+	p.confirmPrice = UI.label("", 34, { Name = "Price", Position = UDim2.new(0, 0, 0, 172), Size = UDim2.new(1, 0, 0, 38), TextColor3 = UIConfig.gold, Parent = p.confirmCard })
+	p.confirmLeft = UI.label("", 16, { Name = "Left", Position = UDim2.new(0, 0, 0, 210), Size = UDim2.new(1, 0, 0, 22), Font = UIConfig.bodyFont, Parent = p.confirmCard })
+	p.confirmYes = UI.chunky("YES, BUY!", C.play, "✅", {
+		Name = "Yes",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, -95, 1, -18),
+		Size = UDim2.new(0, 180, 0, 56),
+		TextSize = 24,
+		Parent = p.confirmCard,
+	})
+	UI.onClick(p.confirmYes, function()
+		local id = p.confirmId
+		LockerController.closeConfirm()
+		if id then
+			LockerController.request("buy", "weapon", id)
+		end
+	end)
+	p.confirmNo = UI.chunky("NO", Color3.fromRGB(235, 55, 60), "✖️", {
+		Name = "No",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 95, 1, -18),
+		Size = UDim2.new(0, 160, 0, 56),
+		TextSize = 24,
+		Parent = p.confirmCard,
+	})
+	UI.onClick(p.confirmNo, LockerController.closeConfirm)
 end
 
 function LockerController.open(tab: string?)
@@ -696,6 +1004,9 @@ function LockerController.open(tab: string?)
 			then "Progress isn't saving this session: the shop is closed."
 			else "")
 	end
+	if not LockerController.isOpen then
+		UI.pop(p.panel, 0.85)
+	end
 	LockerController.isOpen = true
 	p.screen.Enabled = true
 	render()
@@ -703,6 +1014,7 @@ end
 
 function LockerController.close()
 	LockerController.isOpen = false
+	LockerController.closeConfirm()
 	LockerController.parts.screen.Enabled = false
 end
 
@@ -723,12 +1035,20 @@ function LockerController.start()
 			end
 		end
 	end)
+	local function arrived(view: { [string]: any })
+		LockerController.profile = view
+		-- What the player already has when they join isn't news.
+		if not seenAbilities then
+			seeAbilities()
+		end
+		render()
+		LockerController.ProfileChanged:Fire(view)
+		LockerController.BadgesChanged:Fire()
+	end
 	local remote = ClientState.remote("ProfileUpdate") :: RemoteEvent
 	remote.OnClientEvent:Connect(function(view)
 		if type(view) == "table" then
-			LockerController.profile = view
-			render()
-			LockerController.ProfileChanged:Fire(view)
+			arrived(view)
 		end
 	end)
 	-- The first look (a push can arrive before this script listens).
@@ -736,13 +1056,14 @@ function LockerController.start()
 		local shopRequest = ClientState.remote("ShopRequest") :: RemoteFunction
 		local ok, answer = pcall(shopRequest.InvokeServer, shopRequest, "profile", "all")
 		if ok and type(answer) == "table" and type(answer.profile) == "table" and not LockerController.profile then
-			LockerController.profile = answer.profile
-			render()
-			LockerController.ProfileChanged:Fire(answer.profile)
+			arrived(answer.profile)
 		end
 	end)
 	for _, name in { "Coins", "Level", "XP" } do
-		player:GetAttributeChangedSignal(name):Connect(render)
+		player:GetAttributeChangedSignal(name):Connect(function()
+			render()
+			LockerController.BadgesChanged:Fire()
+		end)
 	end
 	-- Pressing PLAY, spectating or going AFK closes it.
 	ClientState.StateChanged:Connect(LockerController.close)

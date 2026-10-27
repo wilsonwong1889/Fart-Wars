@@ -1,9 +1,12 @@
 -- The home screen and the M menu.
 --   HomeScreen  shown whenever the player isn't on a team (just joined,
---               spectating, AFK), over the live battlefield: PLAY, the
---               round status, the locker's sections (Weapons, Abilities,
---               Progression, Settings) and the later-phase ones marked
---               Coming Soon
+--               spectating, AFK), over the live battlefield, laid out like
+--               a game lobby: big buttons for the locker's pages down the
+--               left (Shop, Abilities, Levels, Store; a red badge counts
+--               what's waiting), level and coins bottom left, tiles down
+--               the right (Daily, Spin, Season, Players, Top, Settings),
+--               and the title, PLAY and the round's status bottom middle;
+--               the later-phase screens say Coming Soon
 --   TeamSelect  after PLAY: "CHOOSE A TEAM", each team's card with its
 --               count (locked when joining it would make the teams
 --               unfair), and AUTO; picking one joins the match
@@ -30,7 +33,9 @@ local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
 local RewardsController = require(script.Parent.RewardsController)
 local PlayersController = require(script.Parent.PlayersController)
+local SeasonController = require(script.Parent.SeasonController)
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
+local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 
 local C = UIConfig.colors
 local Phase = States.Phase
@@ -60,127 +65,181 @@ local function openComingSoon(section: string)
 	p.comingSoon.Enabled = true
 end
 
+-- What a home-screen tile opens.
+local function openTile(id: string)
+	if id == "Rewards" then
+		RewardsController.openDaily()
+	elseif id == "Spin" then
+		RewardsController.openSpin()
+	elseif id == "Season" then
+		SeasonController.open()
+	elseif id == "Players" then
+		PlayersController.open()
+	elseif UIConfig.pages[id] then
+		LockerController.open(id)
+	else
+		openComingSoon(id)
+	end
+end
+
+-- The M menu's list: the locker's pages, then Players, Rewards and what's
+-- coming, each a chunky button with its icon.
 local function sectionButtons(parent: Instance, width: number)
-	for i, section in UIConfig.menuSections do
-		local button = UI.button(string.upper(section), C.panelLight, {
-			Name = section,
-			LayoutOrder = 10 + i,
-			Size = UDim2.new(0, width, 0, 40),
-			TextSize = 18,
+	local function add(name: string, label: string, icon: string, color: Color3, order: number, onClick: () -> ())
+		local button = UI.chunky(label, color, icon, {
+			Name = name,
+			LayoutOrder = order,
+			Size = UDim2.new(0, width, 0, 44),
+			TextSize = 20,
 			Parent = parent,
 		})
-		UI.onClick(button, function()
+		UI.onClick(button, onClick)
+	end
+	for i, section in UIConfig.menuSections do
+		local page = UIConfig.pages[section]
+		add(section, page.label, page.icon, page.color, 10 + i, function()
 			LockerController.open(section)
 		end)
 	end
-	local rewards = UI.button("REWARDS", Color3.fromRGB(230, 170, 30), {
-		Name = "Rewards",
-		LayoutOrder = 19,
-		Size = UDim2.new(0, width, 0, 40),
-		TextSize = 18,
-		Parent = parent,
-	})
-	UI.onClick(rewards, RewardsController.openDaily)
-	local playersButton = UI.button("PLAYERS", C.panelLight, {
-		Name = "Players",
-		LayoutOrder = 18,
-		Size = UDim2.new(0, width, 0, 40),
-		TextSize = 18,
-		Parent = parent,
-	})
-	UI.onClick(playersButton, PlayersController.open)
-	for i, section in UIConfig.comingSoon do
-		local button = UI.button(string.upper(section), C.panelLight, {
-			Name = section,
-			LayoutOrder = 20 + i,
-			Size = UDim2.new(0, width, 0, 40),
-			TextSize = 18,
-			TextColor3 = C.muted,
-			Parent = parent,
-		})
-		UI.onClick(button, function()
-			openComingSoon(section)
-		end)
+	for i, tile in UIConfig.lobbyTiles do
+		if tile.id == "Players" or tile.id == "Rewards" or table.find(UIConfig.comingSoon, tile.id) then
+			add(tile.id, string.upper(tile.id), tile.icon, tile.color, 20 + i, function()
+				openTile(tile.id)
+			end)
+		end
 	end
+end
+
+local function versionText(): string
+	return `v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`
+end
+
+-- Season is a tile only while one is on; the rest close up around it.
+local function layoutTiles()
+	local p = HomeController.parts
+	local y = 0
+	for _, entry in UIConfig.lobbyTiles do
+		local tile = p.tiles[entry.id]
+		tile.Visible = entry.id ~= "Season" or workspace:GetAttribute("SeasonActive") == true
+		if tile.Visible then
+			tile.Position = UDim2.new(0.5, 0, 0, y + 38)
+			y += 86
+		end
+	end
+	p.tileColumn.Size = UDim2.new(0, 86, 0, y)
 end
 
 local function build()
 	local p = HomeController.parts
 
-	-- Home screen
+	-- Home screen: over the live battlefield, a game lobby. The locker's
+	-- pages down the left, coins and level bottom left, the other screens
+	-- as tiles down the right, and the title, PLAY and the round's status
+	-- at the bottom in the middle.
 	local home = UI.screen("HomeScreen", 10)
 	p.home = home
-	local side = UI.new("Frame", {
-		Name = "Side",
-		Size = UDim2.new(0, 440, 1, 0),
-		BackgroundColor3 = C.panel,
-		BackgroundTransparency = 0.15,
-		Parent = home,
-	}, {
-		UI.new("UIGradient", {
-			Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0),
-				NumberSequenceKeypoint.new(0.8, 0.2),
-				NumberSequenceKeypoint.new(1, 1),
-			}),
-		}),
-		UI.padding(28),
-	})
-	UI.label(UIConfig.title, 64, {
-		Name = "Title",
-		Position = UDim2.new(0, 0, 0, 60),
-		Size = UDim2.new(1, 0, 0, 70),
-		TextColor3 = C.accent,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = side,
-	})
-	UI.label(UIConfig.tagline, 18, {
-		Name = "Tagline",
-		Position = UDim2.new(0, 0, 0, 134),
-		TextColor3 = C.muted,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = side,
-	})
-	p.status = UI.label("", 18, {
-		Name = "Status",
-		Position = UDim2.new(0, 0, 0, 176),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextWrapped = true,
-		Size = UDim2.new(1, 0, 0, 48),
-		Parent = side,
-	})
-	p.afkNotice = UI.label("You were moved to spectators for being AFK.", 18, {
-		Name = "AFKNotice",
-		Position = UDim2.new(0, 0, 0, 228),
-		TextColor3 = C.warning,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Visible = false,
-		Parent = side,
-	})
 
-	local play = UI.button("PLAY", C.play, {
-		Name = "Play",
-		Position = UDim2.new(0, 0, 0, 280),
-		Size = UDim2.new(1, 0, 0, 84),
-		TextSize = 48,
-		Parent = side,
+	local pages = UI.new("Frame", {
+		Name = "Pages",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 24, 0.55, 0),
+		Size = UDim2.new(0, 240, 0, #UIConfig.lobbyPages * 80),
+		BackgroundTransparency = 1,
+		Parent = home,
 	})
-	p.play = play
-	UI.onClick(play, HomeController.play)
-	-- The beta is for PC: say so on a touch screen with no keyboard (in case
-	-- the place's device settings let one in).
-	p.deviceNotice = UI.label("Fart Wars is a PC beta for now: it needs a mouse and keyboard.", 16, {
-		Name = "DeviceNotice",
-		Position = UDim2.new(0, 0, 0, 372),
-		Size = UDim2.new(1, 0, 0, 40),
-		TextWrapped = true,
+	p.pageButtons = {}
+	for i, id in UIConfig.lobbyPages do
+		local page = UIConfig.pages[id]
+		local button = UI.chunky(page.label, page.color, page.icon, {
+			Name = id,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, 0, 0, 34 + (i - 1) * 80),
+			Size = UDim2.new(0, 228, 0, 66),
+			TextSize = 30,
+			Parent = pages,
+		})
+		p.pageButtons[id] = button
+		UI.onClick(button, function()
+			LockerController.open(id)
+		end)
+	end
+
+	p.tileColumn = UI.new("Frame", {
+		Name = "Tiles",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -20, 0.47, 0),
+		Size = UDim2.new(0, 86, 0, 0),
+		BackgroundTransparency = 1,
+		Parent = home,
+	})
+	p.tiles = {}
+	for _, entry in UIConfig.lobbyTiles do
+		local tile = UI.tile(entry.icon, entry.label, entry.color, {
+			Name = entry.id,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.new(0, 76, 0, 76),
+			Parent = p.tileColumn,
+		})
+		p.tiles[entry.id] = tile
+		UI.onClick(tile, function()
+			openTile(entry.id)
+		end)
+	end
+	layoutTiles()
+	workspace:GetAttributeChangedSignal("SeasonActive"):Connect(layoutTiles)
+
+	-- Level and coins, bottom left; + opens the store.
+	local wallet = UI.new("Frame", {
+		Name = "Wallet",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 24, 1, -10),
+		Size = UDim2.new(0, 360, 0, 136),
+		BackgroundTransparency = 1,
+		Parent = home,
+	})
+	UI.label("⭐", 34, { Name = "Star", Size = UDim2.new(0, 48, 0, 44), Parent = wallet })
+	p.level = UI.label("LEVEL 1", 28, {
+		Name = "Level",
+		Position = UDim2.new(0, 56, 0, 0),
+		Size = UDim2.new(0, 260, 0, 30),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = C.warning,
-		Visible = UserInputService.TouchEnabled == true and UserInputService.KeyboardEnabled ~= true,
-		Parent = side,
+		Parent = wallet,
 	})
+	local xpBar = UI.new("Frame", {
+		Name = "XPBar",
+		Position = UDim2.new(0, 58, 0, 32),
+		Size = UDim2.new(0, 210, 0, 12),
+		BackgroundColor3 = Color3.fromRGB(20, 18, 30),
+		Parent = wallet,
+	}, { UI.corner(6), UI.stroke(C.stroke, 2) })
+	p.xpFill = UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = UIConfig.pages.Progression.color,
+		Parent = xpBar,
+	}, { UI.corner(6) })
+	UI.label("💰", 48, { Name = "CoinIcon", Position = UDim2.new(0, 0, 0, 48), Size = UDim2.new(0, 56, 0, 58), Parent = wallet })
+	p.coins = UI.label("0", 54, {
+		Name = "Coins",
+		Position = UDim2.new(0, 66, 0, 48),
+		Size = UDim2.new(0, 290, 0, 58),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = UIConfig.gold,
+		Parent = wallet,
+	})
+	local plus = UI.chunky("+", C.play, nil, {
+		Name = "Plus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, 50, 0, 98),
+		Size = UDim2.new(0, 30, 0, 30),
+		TextSize = 24,
+		Parent = wallet,
+	})
+	UI.onClick(plus, function()
+		LockerController.open("Store")
+	end)
 	-- The build, so a screenshot or report says which one it was.
-	p.version = UI.label(`v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`, 13, {
+	p.version = UI.label(versionText(), 13, {
 		Name = "Version",
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 0, 1, 0),
@@ -188,21 +247,101 @@ local function build()
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = C.muted,
 		Font = UIConfig.bodyFont,
-		Parent = side,
+		Parent = wallet,
 	})
 	workspace:GetAttributeChangedSignal("ReleaseChannel"):Connect(function()
-		p.version.Text = `v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`
+		p.version.Text = versionText()
 	end)
 
-	local sections = UI.new("Frame", {
-		Name = "Sections",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -28, 0.5, 0),
-		Size = UDim2.new(0, 200, 0, (#UIConfig.menuSections + #UIConfig.comingSoon + 2) * 48),
+	-- The title, PLAY and the round's status, bottom middle.
+	local center = UI.new("Frame", {
+		Name = "Center",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -18),
+		Size = UDim2.new(0, 560, 0, 320),
 		BackgroundTransparency = 1,
 		Parent = home,
-	}, { UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Right) })
-	sectionButtons(sections, 200)
+	}, {
+		UI.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Vertical,
+			Padding = UDim.new(0, 4),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			VerticalAlignment = Enum.VerticalAlignment.Bottom,
+		}),
+	})
+	p.afkNotice = UI.label("You were moved to spectators for being AFK.", 18, {
+		Name = "AFKNotice",
+		LayoutOrder = 1,
+		TextColor3 = C.warning,
+		Visible = false,
+		Parent = center,
+	})
+	UI.label(UIConfig.title, 78, {
+		Name = "Title",
+		LayoutOrder = 2,
+		Size = UDim2.new(1, 0, 0, 80),
+		Rotation = -2,
+		TextColor3 = C.accent,
+		Parent = center,
+	})
+	UI.label(UIConfig.tagline, 20, {
+		Name = "Tagline",
+		LayoutOrder = 3,
+		Parent = center,
+	})
+	-- PLAY sits in its own slot so it springs from its middle.
+	local slot = UI.new("Frame", {
+		Name = "PlaySlot",
+		LayoutOrder = 4,
+		Size = UDim2.new(0, 380, 0, 104),
+		BackgroundTransparency = 1,
+		Parent = center,
+	})
+	local play = UI.chunky("PLAY", C.play, nil, {
+		Name = "Play",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 340, 0, 92),
+		TextSize = 60,
+		Parent = slot,
+	})
+	p.play = play
+	UI.onClick(play, HomeController.play)
+	-- The beta is for PC: say so on a touch screen with no keyboard (in case
+	-- the place's device settings let one in).
+	p.deviceNotice = UI.label("Fart Wars is a PC beta for now: it needs a mouse and keyboard.", 16, {
+		Name = "DeviceNotice",
+		LayoutOrder = 5,
+		Size = UDim2.new(1, 0, 0, 40),
+		TextWrapped = true,
+		TextColor3 = C.warning,
+		Visible = UserInputService.TouchEnabled == true and UserInputService.KeyboardEnabled ~= true,
+		Parent = center,
+	})
+	local chip = UI.new("Frame", {
+		Name = "StatusChip",
+		LayoutOrder = 6,
+		Size = UDim2.new(0, 520, 0, 40),
+		BackgroundColor3 = C.panel,
+		BackgroundTransparency = 0.2,
+		Parent = center,
+	}, { UI.corner(12), UI.stroke(C.stroke, 3) })
+	UI.label("⏱️", 22, {
+		Name = "Clock",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 8, 0.5, 0),
+		Size = UDim2.new(0, 30, 0, 30),
+		Parent = chip,
+	})
+	p.status = UI.label("", 18, {
+		Name = "Status",
+		Position = UDim2.new(0, 42, 0, 0),
+		Size = UDim2.new(1, -50, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = chip,
+	})
 
 	-- Choose a Team
 	local teamScreen = UI.screen("TeamSelect", 13)
@@ -224,14 +363,20 @@ local function build()
 		Parent = teamScreen,
 	}, { UI.corner(16), UI.stroke(Color3.fromRGB(70, 66, 84), 4) })
 	UI.label("CHOOSE A TEAM", 54, { Size = UDim2.new(1, 0, 1, 0), Parent = title })
-	local close = UI.button("X", C.panelLight, {
-		Name = "Close",
+	local closeSlot = UI.new("Frame", {
+		Name = "CloseSlot",
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -24, 0, 70),
-		Size = UDim2.new(0, 56, 0, 56),
-		TextSize = 30,
-		Modal = true,
+		Size = UDim2.new(0, 60, 0, 60),
+		BackgroundTransparency = 1,
 		Parent = teamScreen,
+	})
+	local close = UI.chunky("X", Color3.fromRGB(235, 55, 60), nil, {
+		Name = "Close",
+		Size = UDim2.new(1, 0, 1, 0),
+		TextSize = 32,
+		Modal = true,
+		Parent = closeSlot,
 	})
 	UI.onClick(close, function()
 		teamScreen.Enabled = false
@@ -280,13 +425,19 @@ local function build()
 		Rotation = -6,
 		Parent = teamScreen,
 	})
-	local auto = UI.button("AUTO: WHERE I'M NEEDED", C.panelLight, {
-		Name = "Auto",
+	local autoSlot = UI.new("Frame", {
+		Name = "AutoSlot",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.5, 168),
-		Size = UDim2.new(0, 380, 0, 52),
-		TextSize = 22,
+		Size = UDim2.new(0, 400, 0, 56),
+		BackgroundTransparency = 1,
 		Parent = teamScreen,
+	})
+	local auto = UI.chunky("AUTO: WHERE I'M NEEDED", Color3.fromRGB(45, 155, 245), "🎲", {
+		Name = "Auto",
+		Size = UDim2.new(1, 0, 1, 0),
+		TextSize = 22,
+		Parent = autoSlot,
 	})
 	p.teamButtons.Auto = auto
 	UI.onClick(auto, function()
@@ -310,27 +461,27 @@ local function build()
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0, 300, 0, 620),
+		Size = UDim2.new(0, 320, 0, 680),
 		BackgroundColor3 = C.panel,
 		Parent = menu,
-	}, { UI.corner(16), UI.stroke(C.stroke, 4), UI.padding(16), UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center) })
-	UI.label("MENU", 30, { Name = "Title", LayoutOrder = 0, Parent = panel })
+	}, { UI.corner(20), UI.stroke(C.stroke, 4), UI.padding(16), UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center) })
+	UI.label("MENU", 34, { Name = "Title", LayoutOrder = 0, TextColor3 = C.accent, Parent = panel })
 	-- Modal frees the mouse from first person while the menu is up.
-	local resume = UI.button("RESUME", C.play, { Name = "Resume", LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 46), Modal = true, Parent = panel })
+	local resume = UI.chunky("RESUME", C.play, "▶️", { Name = "Resume", LayoutOrder = 1, Size = UDim2.new(0, 288, 0, 50), TextSize = 24, Modal = true, Parent = panel })
 	p.resume = resume
 	UI.onClick(resume, function()
 		HomeController.setMenu(false)
 	end)
-	local switch = UI.button("SWITCH TEAM", C.panelLight, { Name = "Switch", LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 46), Parent = panel })
+	local switch = UI.chunky("SWITCH TEAM", Color3.fromRGB(240, 120, 40), "🔁", { Name = "Switch", LayoutOrder = 2, Size = UDim2.new(0, 288, 0, 46), TextSize = 20, Parent = panel })
 	p.switch = switch
 	UI.onClick(switch, HomeController.switchTeam)
-	local spectate = UI.button("SPECTATE", C.panelLight, { Name = "Spectate", LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 46), Parent = panel })
+	local spectate = UI.chunky("SPECTATE", C.panelLight, "👀", { Name = "Spectate", LayoutOrder = 3, Size = UDim2.new(0, 288, 0, 46), TextSize = 20, Parent = panel })
 	p.spectate = spectate
 	UI.onClick(spectate, function()
 		HomeController.setMenu(false)
 		ClientState.send("RequestSpectate")
 	end)
-	sectionButtons(panel, 268)
+	sectionButtons(panel, 288)
 
 	-- Coming Soon card
 	local soon = UI.screen("ComingSoon", 20)
@@ -340,17 +491,17 @@ local function build()
 		Name = "Card",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.5, 0),
-		Size = UDim2.new(0, 360, 0, 200),
+		Size = UDim2.new(0, 380, 0, 220),
 		BackgroundColor3 = C.panel,
 		Parent = soon,
-	}, { UI.corner(16), UI.stroke(C.accent, 4), UI.padding(16) })
-	p.soonTitle = UI.label("", 30, { Name = "Title", Parent = card })
-	UI.label("COMING SOON", 24, { Name = "Soon", Position = UDim2.new(0, 0, 0, 50), TextColor3 = C.accent, Parent = card })
-	local ok = UI.button("OK", C.panelLight, {
+	}, { UI.corner(20), UI.stroke(C.accent, 4), UI.padding(16) })
+	p.soonTitle = UI.label("", 34, { Name = "Title", Parent = card })
+	UI.label("🚧 COMING SOON 🚧", 26, { Name = "Soon", Position = UDim2.new(0, 0, 0, 56), TextColor3 = C.accent, Parent = card })
+	local ok = UI.chunky("OK", C.play, nil, {
 		Name = "Close",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, 0),
-		Size = UDim2.new(0, 140, 0, 44),
+		Position = UDim2.new(0.5, 0, 1, -4),
+		Size = UDim2.new(0, 150, 0, 50),
 		Modal = true,
 		Parent = card,
 	})
@@ -419,6 +570,30 @@ local function renderPicker()
 	end
 	p.teamHint.Text = "Locked teams would make the match unfair. AUTO puts you where you're needed (with friends when it's fair)."
 end
+
+-- Coins, level, the XP bar and the badges.
+local function renderWallet()
+	local p = HomeController.parts
+	local player = Players.LocalPlayer
+	local function number(name: string, default: number): number
+		local value = player:GetAttribute(name)
+		return if type(value) == "number" then value else default
+	end
+	local coins = UI.commas(number("Coins", 0))
+	if p.coins.Text ~= coins and p.coins.Text ~= "0" then
+		UI.pop(p.coins, 1.12)
+	end
+	p.coins.Text = coins
+	local level = number("Level", 1)
+	p.level.Text = `LEVEL {level}`
+	local toNext = number("XPToNext", ProgressionConfig.xpToNext(level))
+	p.xpFill.Size = UDim2.new(if toNext > 0 then math.clamp(number("XP", 0) / toNext, 0, 1) else 1, 0, 1, 0)
+	UI.setBadge(p.pageButtons.Weapons, LockerController.buyable())
+	UI.setBadge(p.pageButtons.Abilities, LockerController.newAbilities())
+	UI.setBadge(p.tiles.Rewards, if player:GetAttribute("DailyReady") == true then "!" else nil)
+	UI.setBadge(p.tiles.Spin, number("Spins", 0))
+end
+HomeController.renderWallet = renderWallet
 
 local function render()
 	local p = HomeController.parts
@@ -515,6 +690,11 @@ function HomeController.start()
 	started = true
 	build()
 	render()
+	renderWallet()
+	for _, name in { "Coins", "Level", "XP", "XPToNext", "Spins", "DailyReady" } do
+		Players.LocalPlayer:GetAttributeChangedSignal(name):Connect(renderWallet)
+	end
+	LockerController.BadgesChanged:Connect(renderWallet)
 	ClientState.StateChanged:Connect(render)
 	ClientState.TeamChanged:Connect(render)
 	ClientState.TeamsChanged:Connect(render)

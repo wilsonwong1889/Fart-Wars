@@ -1,6 +1,7 @@
 -- Small helpers for building the screens in code, in one style.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local UIConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.UIConfig)
 local TeamConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.TeamConfig)
@@ -182,6 +183,195 @@ function UI.button(text: string, color: Color3, props: { [string]: any }?): Text
 	return button
 end
 
+-- 12345 -> "12,345".
+function UI.commas(n: number): string
+	local text = tostring(math.floor(n))
+	local formatted = string.reverse((string.gsub(string.reverse(text), "(%d%d%d)", "%1,")))
+	formatted = string.gsub(formatted, "^(%-?),", "%1")
+	return formatted
+end
+
+-- A glossy fill: light across the top half, a crisp line, darker below.
+local function gloss(color: Color3): ColorSequence
+	local h, s, v = color:ToHSV()
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromHSV(h, s * 0.7, math.min(1, v * 1.2))),
+		ColorSequenceKeypoint.new(0.46, Color3.fromHSV(h, s * 0.85, math.min(1, v * 1.08))),
+		ColorSequenceKeypoint.new(0.54, color),
+		ColorSequenceKeypoint.new(1, Color3.fromHSV(h, math.min(1, s * 1.1), v * 0.68)),
+	})
+end
+
+-- Grows a little under the pointer and squashes when pressed, then settles
+-- back (a click usually opens something over it, and the pointer's leaving
+-- isn't reported then).
+function UI.springy(item: GuiObject, hover: number?)
+	local press = UI.new("UIScale", { Name = "Press", Parent = item })
+	local over = hover or 1.06
+	local info = TweenInfo.new(0.12, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local function to(scale: number)
+		TweenService:Create(press, info, { Scale = scale }):Play()
+	end
+	item.MouseEnter:Connect(function()
+		to(over)
+	end)
+	item.MouseLeave:Connect(function()
+		to(1)
+	end)
+	if item:IsA("GuiButton") then
+		item.MouseButton1Down:Connect(function()
+			to(0.92)
+		end)
+		item.MouseButton1Up:Connect(function()
+			to(1)
+		end)
+	end
+end
+
+-- A quick bounce, to say "this changed".
+function UI.pop(item: GuiObject, size: number?)
+	local press = item:FindFirstChild("Press") :: UIScale? or UI.new("UIScale", { Name = "Press", Parent = item })
+	press.Scale = size or 1.18
+	TweenService:Create(press, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+end
+
+-- Dresses a transparent button as a chunky game button: a glossy fill in
+-- `color`, a thick outline ("Border", on the button so it can be lit) and
+-- the springy feel. The button keeps its own Text for reading; "Label"
+-- shows it, outlined, above the fill.
+local function skin(button: TextButton, color: Color3, radius: number)
+	button.BackgroundTransparency = 1
+	button.AutoButtonColor = false
+	button.TextTransparency = 1
+	button:SetAttribute("Color", color)
+	UI.corner(radius).Parent = button
+	UI.stroke(C.stroke, 3).Parent = button
+	UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Parent = button,
+	}, { UI.corner(radius), UI.new("UIGradient", { Name = "Gloss", Color = gloss(color), Rotation = 90 }) })
+	UI.springy(button)
+end
+
+-- Repaints a chunky button or tile.
+function UI.paint(button: GuiButton, color: Color3)
+	local fill = button:FindFirstChild("Fill")
+	if fill then
+		(fill :: any).Gloss.Color = gloss(color)
+	else
+		button.BackgroundColor3 = color
+	end
+end
+
+-- A big game button: `icon` (an emoji) on the left, the words beside it.
+function UI.chunky(text: string, color: Color3, icon: string?, props: { [string]: any }?): TextButton
+	local button = UI.new("TextButton", {
+		Text = text,
+		Font = UIConfig.font,
+		TextSize = 26,
+		Size = UDim2.new(0, 220, 0, 64),
+	})
+	skin(button, color, 14)
+	local label = UI.label(text, 26, {
+		Name = "Label",
+		Size = UDim2.new(1, if icon then -60 else -16, 1, 0),
+		Position = UDim2.new(0, if icon then 52 else 8, 0, 0),
+		ZIndex = 2,
+		Parent = button,
+	})
+	if icon then
+		UI.label(icon, 32, {
+			Name = "Icon",
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 10, 0.5, 0),
+			Size = UDim2.new(0, 40, 0, 40),
+			ZIndex = 2,
+			Parent = button,
+		})
+	end
+	-- The label follows the button's own text, size and colour.
+	button:GetPropertyChangedSignal("Text"):Connect(function()
+		label.Text = button.Text
+	end)
+	button:GetPropertyChangedSignal("TextSize"):Connect(function()
+		label.TextSize = button.TextSize
+	end)
+	button:GetPropertyChangedSignal("TextColor3"):Connect(function()
+		label.TextColor3 = button.TextColor3
+	end)
+	if props then
+		for key, value in props do
+			(button :: any)[key] = value
+		end
+	end
+	return button
+end
+
+-- A square icon button: the emoji big, a short word under it.
+function UI.tile(icon: string, caption: string, color: Color3, props: { [string]: any }?): TextButton
+	local button = UI.new("TextButton", {
+		Text = caption,
+		Font = UIConfig.font,
+		TextSize = 14,
+		Size = UDim2.new(0, 72, 0, 72),
+	})
+	skin(button, color, 16)
+	UI.label(icon, 34, {
+		Name = "Icon",
+		Position = UDim2.new(0, 0, 0, 6),
+		Size = UDim2.new(1, 0, 0, 40),
+		ZIndex = 2,
+		Parent = button,
+	})
+	local label = UI.label(caption, 14, {
+		Name = "Label",
+		AnchorPoint = Vector2.new(0, 1),
+		Position = UDim2.new(0, 3, 1, -5),
+		Size = UDim2.new(1, -6, 0, 16),
+		TextScaled = true,
+		ZIndex = 2,
+		Parent = button,
+	})
+	if props then
+		for key, value in props do
+			(button :: any)[key] = value
+		end
+	end
+	button:GetPropertyChangedSignal("Text"):Connect(function()
+		label.Text = button.Text
+	end)
+	return button
+end
+
+-- The red bubble on a button's corner: a count, "!", or nothing (hidden).
+function UI.setBadge(button: GuiObject, value: (number | string)?)
+	local badge = button:FindFirstChild("Badge") :: Frame?
+	if not badge then
+		badge = UI.new("Frame", {
+			Name = "Badge",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(1, -6, 0, 6),
+			Size = UDim2.new(0, 30, 0, 30),
+			BackgroundColor3 = Color3.fromRGB(235, 40, 50),
+			ZIndex = 5,
+			Parent = button,
+		}, {
+			UI.corner(15),
+			UI.stroke(Color3.new(1, 1, 1), 2.5),
+			UI.label("", 18, { Name = "Count", Size = UDim2.new(1, 0, 1, 0), ZIndex = 5 }),
+		})
+	end
+	local frame = badge :: Frame
+	local text = if type(value) == "number" then (if value > 99 then "99+" elseif value > 0 then tostring(value) else "") else value or ""
+	if text ~= "" and (frame :: any).Count.Text ~= text then
+		UI.pop(frame, 1.4)
+	end
+	(frame :: any).Count.Text = text
+	frame.Visible = text ~= ""
+end
+
 -- Greys a button out (and back) without losing its own colour. A greyed
 -- button ignores clicks made through UI.onClick.
 function UI.setEnabled(button: GuiButton, enabled: boolean)
@@ -189,6 +379,10 @@ function UI.setEnabled(button: GuiButton, enabled: boolean)
 		button:SetAttribute("Color", button.BackgroundColor3)
 	end
 	button:SetAttribute("Enabled", enabled)
+	if button:FindFirstChild("Fill") then
+		UI.paint(button, if enabled then button:GetAttribute("Color") :: Color3 else C.disabled)
+		return
+	end
 	button.AutoButtonColor = enabled
 	button.BackgroundColor3 = if enabled then button:GetAttribute("Color") :: Color3 else C.disabled
 end
