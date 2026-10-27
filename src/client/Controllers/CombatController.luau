@@ -2,7 +2,9 @@
 --   * a crosshair that follows the mouse (centred in first person)
 --   * left click fires the Gas Blaster toward the crosshair at its fire
 --     interval, numbering each shot, with an instant local tracer; the
---     server's verdict comes back as a hit marker (bigger for a headshot)
+--     server's verdict comes back as a hit marker that pops at the
+--     crosshair (bigger, gold and higher-pitched for a headshot; bigger
+--     still, orange and with a ring for the hit that sets them off)
 --   * your gas meter and its stage, the countdown when you're about to
 --     blow, and your current streak
 --   * other players' shots as tracers, a red marker pointing at whoever
@@ -18,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AbilityConfig = require(Shared.Config.AbilityConfig)
@@ -269,6 +272,116 @@ local function showCard(text: string, color: Color3)
 	flash(card, 2.5)
 end
 
+-- The hit marker, on the server's verdict only (never this screen's guess):
+-- it pops in at the crosshair and fades. A headshot's is bigger and gold,
+-- and the hit sound plays higher and louder; the hit that fills a target's
+-- gas (they're going off) is bigger still, orange, and throws a ring out;
+-- one that did nothing (protected, or already going off) is small, grey
+-- and silent. REDUCE MOTION just shows and hides it (no pop or fade, a
+-- still ring); REDUCED EFFECTS (or low detail) keeps the pop but drops the
+-- fade and the ring.
+local HIT = UIConfig.hitMarker
+local hitTweens: { [Instance]: Tween } = {}
+
+local function stopHitTween(item: Instance)
+	local tween = hitTweens[item]
+	if tween then
+		tween:Cancel()
+		hitTweens[item] = nil
+	end
+end
+
+local function tweenHit(item: Instance, seconds: number, goals: { [string]: any })
+	stopHitTween(item)
+	local tween = TweenService:Create(item, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goals)
+	hitTweens[item] = tween
+	tween:Play()
+end
+
+-- The marker's pop (a UIScale on it) and the ring behind it.
+local function dressHitMarker()
+	local p = CombatController.parts
+	p.hitMarker.ZIndex = 2
+	p.hitPop = UI.new("UIScale", { Name = "Pop", Parent = p.hitMarker })
+	p.hitRing = UI.new("Frame", {
+		Name = "HitRing",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, HIT.ringSize, 0, HIT.ringSize),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = p.crosshair,
+	}, {
+		UI.new("UICorner", { CornerRadius = UDim.new(0.5, 0) }),
+		UI.new("UIStroke", { Color = HIT.looks.kaboom.color, Thickness = 3 }),
+	})
+end
+
+-- Which marker a verdict gets, first match wins: "blocked", "kaboom" (this
+-- hit filled their gas), "headshot", "body".
+function CombatController.hitKind(event: { [string]: any }): string
+	if event.blocked then
+		return "blocked"
+	elseif (tonumber(event.gas) or 0) >= 100 then
+		return "kaboom"
+	end
+	return if event.headshot then "headshot" else "body"
+end
+
+local function showHit(event: { [string]: any })
+	local p = CombatController.parts
+	local kind = CombatController.hitKind(event)
+	local look = HIT.looks[kind]
+	local calm = Settings.reduceMotion
+	local plain = Settings.reducedEffects or Settings.lowDetail
+	local marker: TextLabel = p.hitMarker
+	local stroke = marker:FindFirstChildOfClass("UIStroke")
+	stopHitTween(marker)
+	stopHitTween(p.hitPop)
+	marker.TextColor3 = look.color
+	marker.TextSize = look.size
+	marker.TextTransparency = 0
+	if stroke then
+		stopHitTween(stroke)
+		stroke.Thickness = math.max(2, look.size // 14)
+		stroke.Transparency = 0
+	end
+	p.hitPop.Scale = if calm then 1 else look.pop
+	if not calm and look.pop ~= 1 then
+		tweenHit(p.hitPop, HIT.popSeconds, { Scale = 1 })
+	end
+	flash(marker, look.seconds)
+	-- It fades over the end of its time, unless another hit comes first.
+	local token = marker:GetAttribute("Flash")
+	if not (calm or plain) then
+		task.delay(math.max(0, look.seconds - HIT.fadeSeconds), function()
+			if marker:GetAttribute("Flash") == token then
+				tweenHit(marker, HIT.fadeSeconds, { TextTransparency = 1 })
+				if stroke then
+					tweenHit(stroke, HIT.fadeSeconds, { Transparency = 1 })
+				end
+			end
+		end)
+	end
+	if kind == "kaboom" and not plain then
+		local ring: Frame = p.hitRing
+		local ringStroke = ring:FindFirstChildOfClass("UIStroke") :: UIStroke
+		local full = UDim2.new(0, HIT.ringSize, 0, HIT.ringSize)
+		stopHitTween(ring)
+		stopHitTween(ringStroke)
+		ringStroke.Transparency = 0
+		ring.Size = if calm then full else UDim2.new(0, look.size, 0, look.size)
+		if not calm then
+			tweenHit(ring, look.seconds, { Size = full })
+			tweenHit(ringStroke, look.seconds, { Transparency = 1 })
+		end
+		flash(ring, look.seconds)
+	end
+	if kind ~= "blocked" then
+		Audio.play("hit", if event.headshot then { pitch = HIT.headshotPitch, volume = HIT.headshotVolume } else nil)
+	end
+end
+
 -- Shot tracers: the bolts WeaponFxController draws (ShotFx), from a pool
 -- of GameConfig.BUDGET.MAX_TRACERS, so a server full of Spritzers costs a
 -- fixed number of parts.
@@ -445,12 +558,7 @@ local function onCombatEvent(event: { [string]: any })
 			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
 		end
 	elseif event.kind == "hit" then
-		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text
-		p.hitMarker.TextSize = if event.headshot then 36 else 26
-		flash(p.hitMarker, 0.15)
-		if not event.blocked then
-			Audio.play("hit")
-		end
+		showHit(event)
 	elseif event.kind == "damaged" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root and typeof(event.from) == "Vector3" then
@@ -580,6 +688,7 @@ function CombatController.start()
 	end
 	started = true
 	build()
+	dressHitMarker()
 	InputController.FireHeld:Connect(function(held)
 		if held then
 			startFiring()

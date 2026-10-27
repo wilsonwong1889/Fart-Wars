@@ -14,6 +14,28 @@ local UIConfig = {
 	font = Enum.Font.FredokaOne,
 	bodyFont = Enum.Font.GothamBold,
 
+	-- The hit marker at the crosshair, by the server's verdict: a body hit,
+	-- a headshot, the hit that fills the target's gas ("kaboom": they're
+	-- going off) and one that did nothing ("blocked": protected, or already
+	-- going off). Each pops in at `pop` times its size and settles in
+	-- popSeconds, shows for `seconds` and fades over the last fadeSeconds;
+	-- the kaboom one also throws a ring out to ringSize pixels across. A
+	-- headshot plays the hit sound at headshotPitch (playback speed) and
+	-- headshotVolume (times the usual).
+	hitMarker = table.freeze({
+		looks = table.freeze({
+			body = table.freeze({ size = 30, color = Color3.fromRGB(245, 242, 250), pop = 1.5, seconds = 0.2 }),
+			headshot = table.freeze({ size = 42, color = Color3.fromRGB(255, 205, 50), pop = 1.7, seconds = 0.3 }),
+			kaboom = table.freeze({ size = 50, color = Color3.fromRGB(255, 120, 60), pop = 1.9, seconds = 0.45 }),
+			blocked = table.freeze({ size = 24, color = Color3.fromRGB(170, 162, 190), pop = 1, seconds = 0.15 }),
+		}),
+		popSeconds = 0.12,
+		fadeSeconds = 0.1,
+		ringSize = 90,
+		headshotPitch = 1.35,
+		headshotVolume = 1.4,
+	}),
+
 	title = "FART WARS",
 	tagline = "Skibidi Stinkers vs Sigma Sharters",
 

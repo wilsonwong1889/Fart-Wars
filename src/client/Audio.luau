@@ -11,7 +11,10 @@ local Audio = {}
 
 local sounds: { [string]: Sound } = {}
 
-function Audio.play(name: string)
+-- `options` can pitch a sound (pitch: playback speed, 1 as recorded) and
+-- make it louder or quieter (volume: times the usual), as the headshot cue
+-- does with the hit sound.
+function Audio.play(name: string, options: { pitch: number?, volume: number? }?)
 	if not Settings.sound or Settings.volume <= 0 then
 		return
 	end
@@ -27,7 +30,8 @@ function Audio.play(name: string)
 		sound.Parent = SoundService
 		sounds[name] = sound
 	end
-	sound.Volume = 0.5 * Settings.volume
+	sound.Volume = 0.5 * Settings.volume * (options and options.volume or 1)
+	sound.PlaybackSpeed = options and options.pitch or 1
 	sound.TimePosition = 0
 	sound:Play()
 end
