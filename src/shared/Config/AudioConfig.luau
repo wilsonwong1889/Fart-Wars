@@ -3,6 +3,20 @@
 -- Effects (PSE), chosen and approved 2026-10-26; preview any of them at
 -- https://create.roblox.com/store/asset/<id>. Clients play them only at
 -- Roblox's volume setting, so muting Roblox mutes the game.
+-- After the IDs (in capitals): how loud each one plays and how far sounds
+-- in the world carry (Audio).
+export type Mix = {
+	-- 0 to 1, before Settings.volume.
+	volume: number,
+	-- The playback speed (and so the pitch), picked at random in this range
+	-- each time, so a sound heard over and over doesn't repeat exactly.
+	pitch: NumberRange?,
+	-- How far it carries when it happens somewhere in the world (a RANGES
+	-- kind); sounds without one are only ever played flat.
+	range: string?,
+}
+export type Range = { min: number, max: number }
+
 return table.freeze({
 	blaster = "rbxassetid://9114372425", -- the Gas Blaster firing (Farts Airy 8, PSE)
 	hit = "rbxassetid://9113263649", -- your shot landed (Balloon Pop 3, PSE)
@@ -22,4 +36,60 @@ return table.freeze({
 	emote = "rbxassetid://9117021487", -- an emote, E (Mouth Vocals Raspberry 1, PSE)
 	coins = "rbxassetid://127645268874265", -- you earned coins (CoinTransfer_01, Roblox)
 	levelUp = "rbxassetid://12222253", -- you reached a new level (victory.wav, Roblox)
+
+	-- Each sound's mix. The IDs come from different libraries, so these even
+	-- them out. They are set from the kind of sound, not by ear (nobody has
+	-- listened to them side by side yet): tune them in Studio. The old flat
+	-- level for everything was 0.5. Repeated sounds (shots, dash, splat,
+	-- hits, coins) wobble in pitch; signals (warnings, fanfares) don't.
+	MIX = table.freeze({
+		-- Shots: the fast Spritzer quietest (ten a second), the slow, heavy
+		-- Thunderclapper loudest.
+		blaster = table.freeze({ volume = 0.5, pitch = NumberRange.new(0.94, 1.06), range = "shot" }),
+		spritzer = table.freeze({ volume = 0.3, pitch = NumberRange.new(0.92, 1.08), range = "shot" }),
+		thunderclapper = table.freeze({ volume = 0.65, pitch = NumberRange.new(0.95, 1.05), range = "shot" }),
+		lobber = table.freeze({ volume = 0.45, pitch = NumberRange.new(0.93, 1.07), range = "shot" }),
+		-- A sharp pop heard on every hit: a little under the shots.
+		hit = table.freeze({ volume = 0.4, pitch = NumberRange.new(0.95, 1.08) }),
+		-- Blasts: the low, wet fart burst needs more level to be heard than
+		-- the punchy cannon.
+		explosion = table.freeze({ volume = 0.8, pitch = NumberRange.new(0.92, 1.06), range = "blast" }),
+		barrel = table.freeze({ volume = 0.6, pitch = NumberRange.new(0.94, 1.04), range = "blast" }),
+		splat = table.freeze({ volume = 0.6, pitch = NumberRange.new(0.9, 1.1), range = "area" }),
+		vent = table.freeze({ volume = 0.45, pitch = NumberRange.new(0.95, 1.05), range = "area" }),
+		pulse = table.freeze({ volume = 0.55, range = "area" }),
+		dash = table.freeze({ volume = 0.45, pitch = NumberRange.new(0.9, 1.1), range = "near" }),
+		emote = table.freeze({ volume = 0.5, pitch = NumberRange.new(0.95, 1.08), range = "near" }),
+		-- Your own warnings: piercing on purpose, so not too loud.
+		inflate = table.freeze({ volume = 0.4 }),
+		critical = table.freeze({ volume = 0.55 }),
+		alpha = table.freeze({ volume = 0.6 }),
+		-- The screens.
+		purchase = table.freeze({ volume = 0.5 }),
+		coins = table.freeze({ volume = 0.4, pitch = NumberRange.new(0.97, 1.04) }),
+		levelUp = table.freeze({ volume = 0.55 }),
+	}),
+
+	-- How far sounds in the world carry, in studs (the map is 480 across):
+	-- full volume within min (the third-person camera sits 12 behind you),
+	-- fading to silence at max. Roblox hears from the camera.
+	RANGES = table.freeze({
+		-- Shots and throws: a fight across a good part of the map.
+		shot = table.freeze({ min = 12, max = 250 }),
+		-- Explosions and barrels: the loudest things, heard nearly map-wide.
+		blast = table.freeze({ min = 30, max = 400 }),
+		-- A stink bomb landing, Recovery Burst, Gas Pulse: gas nearby.
+		area = table.freeze({ min = 14, max = 220 }),
+		-- Fart Dash puffs and emotes: close by.
+		near = table.freeze({ min = 12, max = 140 }),
+	}),
+	-- Inverse near the sound, tapering to nothing at max (no sudden cut).
+	ROLL_OFF = Enum.RollOffMode.InverseTapered,
+	-- Sounds in the world play from a pool of at most VOICES (in the spirit
+	-- of GameConfig.BUDGET), no more than PER_SOUND of one name at once; a
+	-- voice counts as free once its sound ends, or after VOICE_SECONDS if
+	-- Roblox never says it ended.
+	VOICES = 16,
+	PER_SOUND = 4,
+	VOICE_SECONDS = 4,
 })

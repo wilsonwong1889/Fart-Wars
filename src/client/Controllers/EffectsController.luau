@@ -224,7 +224,7 @@ function EffectsController.explosion(position: Vector3, color: Color3?, radius: 
 end
 
 function EffectsController.dashPuff(from: Vector3, direction: Vector3, color: Color3?)
-	Audio.play("dash")
+	Audio.play("dash", from)
 	if EffectsController.reduced() then
 		return
 	end
@@ -242,8 +242,11 @@ function EffectsController.dashPuff(from: Vector3, direction: Vector3, color: Co
 end
 
 -- A stink bomb's flight along `path`, then its splash where it lands.
-function EffectsController.lob(path: { Vector3 }, flight: number, color: Color3?)
-	Audio.play("lobber")
+-- The throw is heard from the thrower (your own played as you threw).
+function EffectsController.lob(path: { Vector3 }, flight: number, color: Color3?, shooter: number?)
+	if shooter ~= player.UserId then
+		Audio.play("lobber", path[1])
+	end
 	for i = 1, #path - 1 do
 		local a, b = path[i], path[i + 1]
 		local length = (b - a).Magnitude
@@ -260,7 +263,7 @@ function EffectsController.lob(path: { Vector3 }, flight: number, color: Color3?
 	end
 	local landing = path[#path]
 	task.delay(flight, function()
-		Audio.play("splat")
+		Audio.play("splat", landing)
 		EffectsController.explosion(landing, color or GAS_GREEN, 8)
 	end)
 end
@@ -302,7 +305,7 @@ function EffectsController.emote(userId: number, id: string): BillboardGui?
 	UI.label(`{cosmetic.emoji} {cosmetic.text}`, 30, { Size = UDim2.new(1, 0, 1, 0), Parent = board })
 	board.Parent = head
 	Debris:AddItem(board, 2.5)
-	Audio.play("emote")
+	Audio.play("emote", if userId == player.UserId then nil else head.Position)
 	if not EffectsController.reduced() then
 		EffectsController.ability("RecoveryBurst", head.Position - Vector3.new(0, 2, 0))
 	end
@@ -312,7 +315,7 @@ end
 -- Someone used their Q ability: a vent puff or a pulse ring.
 function EffectsController.ability(id: string, position: Vector3)
 	if id == "RecoveryBurst" then
-		Audio.play("vent")
+		Audio.play("vent", position)
 		for i = 0, (if EffectsController.reduced() then 0 else 3) do
 			local puff = transient("VentPuff")
 			puff.Material = Enum.Material.SmoothPlastic
@@ -325,7 +328,7 @@ function EffectsController.ability(id: string, position: Vector3)
 			Debris:AddItem(puff, 0.9)
 		end
 	elseif id == "GasPulse" then
-		Audio.play("pulse")
+		Audio.play("pulse", position)
 		local radius = AbilityConfig.GasPulse.radius :: number
 		local windup = AbilityConfig.GasPulse.durationSeconds
 		local ring = transient("PulseRing")
@@ -533,13 +536,13 @@ function EffectsController.start()
 			return
 		end
 		if event.kind == "explosion" and typeof(event.position) == "Vector3" then
-			Audio.play("explosion")
+			Audio.play("explosion", event.position)
 			-- In the killer's boom colour, if they have one equipped.
 			local killer = type(event.killer) == "number" and Players:GetPlayerByUserId(event.killer)
 			local boom = killer and ProgressionConfig.cosmetics[killer:GetAttribute("Boom") :: any]
 			EffectsController.explosion(event.position, if boom then boom.boomColor else nil)
 		elseif event.kind == "barrel" and typeof(event.position) == "Vector3" then
-			Audio.play("barrel")
+			Audio.play("barrel", event.position)
 			EffectsController.explosion(event.position, BARREL_ORANGE, if type(event.radius) == "number" then event.radius else GameConfig.BARREL.RADIUS)
 		elseif event.kind == "dash" and event.player ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.direction) == "Vector3" then
 			local dasher = Players:GetPlayerByUserId(event.player)
@@ -555,7 +558,7 @@ function EffectsController.start()
 				end
 			end
 			if #path >= 2 then
-				EffectsController.lob(path, math.clamp(event.flight, 0, 3))
+				EffectsController.lob(path, math.clamp(event.flight, 0, 3), nil, event.shooter)
 			end
 		elseif event.kind == "cloud" and typeof(event.position) == "Vector3" and type(event.radius) == "number" and type(event.endsAt) == "number" then
 			EffectsController.cloud(event.position, event.radius, event.endsAt)

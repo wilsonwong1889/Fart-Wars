@@ -443,6 +443,10 @@ local function onCombatEvent(event: { [string]: any })
 		if event.shooter ~= player.UserId and typeof(event.from) == "Vector3" and typeof(event.to) == "Vector3" then
 			local _, color = nameOf(event.shooter)
 			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(Players:GetPlayerByUserId(event.shooter), color))
+			-- Their gun's sound, from where they fired.
+			local shooter = Players:GetPlayerByUserId(event.shooter)
+			local gun = WeaponConfig.weapons[(shooter and shooter:GetAttribute("Weapon")) :: any] or WeaponConfig.weapons[WeaponConfig.default]
+			Audio.play(gun.fireSound, event.from)
 		end
 	elseif event.kind == "hit" then
 		p.hitMarker.TextColor3 = if event.blocked then C.muted elseif (event.gas or 0) >= 100 then C.warning else C.text
