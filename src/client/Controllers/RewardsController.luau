@@ -7,6 +7,7 @@
 --                 short roll that lands on what the server drew, and how
 --                 long until the next free spin (active play only).
 -- The server decides everything (RewardsRequest); these only ask and show.
+-- Each frees the mouse while it's open (MouseLock, under its own name).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,7 @@ local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local MouseLock = require(Client.MouseLock)
 local Audio = require(Client.Audio)
 local HealthController = require(script.Parent.HealthController)
 
@@ -268,20 +270,24 @@ end
 function RewardsController.openDaily()
 	refreshStatus()
 	RewardsController.parts.daily.Enabled = true
+	MouseLock.setFree("DailyRewards", true)
 	renderDaily()
 end
 
 function RewardsController.closeDaily()
 	RewardsController.parts.daily.Enabled = false
+	MouseLock.setFree("DailyRewards", false)
 end
 
 function RewardsController.openSpin()
 	RewardsController.parts.wheel.Enabled = true
+	MouseLock.setFree("SpinWheel", true)
 	renderSpin()
 end
 
 function RewardsController.closeSpin()
 	RewardsController.parts.wheel.Enabled = false
+	MouseLock.setFree("SpinWheel", false)
 end
 
 function RewardsController.claim()

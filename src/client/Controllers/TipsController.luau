@@ -5,6 +5,8 @@
 -- carrying a lot of gas), and all of them can be turned off in Settings.
 --   * a minute of play without a dash: SHIFT
 --   * two minutes in: gas barrels
+--   * half a minute in without having freed the mouse: ALT (the top right
+--     buttons need a free mouse; screens with buttons free it themselves)
 --   * a weapon you can now afford and haven't bought
 --   * an ability you've unlocked but haven't equipped
 -- Whether tips start on is the "tips" experiment's (on, unless the player
@@ -25,6 +27,9 @@ local ProgressController = require(script.Parent.ProgressController)
 local LockerController = require(script.Parent.LockerController)
 
 local TIP_COLOR = Color3.fromRGB(140, 210, 255)
+-- The unlock key's tip (UIConfig.keys.unlockMouse; here until UIConfig.tips
+-- takes it).
+local UNLOCK_TIP = "Tip: ALT frees the mouse to click buttons. ALT again locks it to the crosshair."
 -- No tips this soon after a shot.
 local QUIET_SECONDS = 3
 
@@ -36,6 +41,7 @@ TipsController.shown = {} :: { [string]: boolean }
 local player = Players.LocalPlayer
 local activeSeconds = 0
 local dashed = false
+local unlocked = false
 local lastFireAt = -math.huge
 local started = false
 
@@ -74,6 +80,9 @@ function TipsController.check()
 		return
 	end
 	if activeSeconds >= 120 and TipsController.show("barrels", tips.barrels) then
+		return
+	end
+	if activeSeconds >= 30 and not unlocked and TipsController.show("unlockMouse", UNLOCK_TIP) then
 		return
 	end
 	local profile = LockerController.profile
@@ -116,6 +125,9 @@ function TipsController.start()
 	player:GetAttributeChangedSignal("Exp_tips"):Connect(applyExperiment)
 	InputController.DashPressed:Connect(function()
 		dashed = true
+	end)
+	InputController.MouseUnlockPressed:Connect(function()
+		unlocked = true
 	end)
 	InputController.FireHeld:Connect(function()
 		lastFireAt = os.clock()

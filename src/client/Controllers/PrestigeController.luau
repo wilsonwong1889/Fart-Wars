@@ -1,7 +1,8 @@
 -- The Prestige screen (FeatureFlags.PRESTIGE; PrestigeConfig): the
 -- server's exact preview of what resets and what stays, then two presses
 -- to confirm (the second says it can't be undone). The server does the
--- reset and saves it before answering.
+-- reset and saves it before answering. The mouse is free while it's open
+-- (MouseLock "Prestige").
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -11,6 +12,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local MouseLock = require(Client.MouseLock)
 local HealthController = require(script.Parent.HealthController)
 
 local C = UIConfig.colors
@@ -108,6 +110,7 @@ end
 function PrestigeController.open()
 	local p = PrestigeController.parts
 	p.screen.Enabled = true
+	MouseLock.setFree("Prestige", true)
 	PrestigeController.stage = 0
 	PrestigeController.preview = nil
 	setNote("Checking...")
@@ -125,6 +128,7 @@ end
 
 function PrestigeController.close()
 	PrestigeController.parts.screen.Enabled = false
+	MouseLock.setFree("Prestige", false)
 	PrestigeController.stage = 0
 	token = nil
 end
