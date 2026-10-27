@@ -588,7 +588,7 @@ local target = Instance.new("Part")
 target.Name = "TestWall"
 target.Anchored = true
 target.Size = Vector3.new(30, 30, 2)
-target.CFrame = CFrame.new(0, 5, -41)
+target.CFrame = CFrame.new(Vector3.new(0, 5, -41) + UP) -- above the map, clear of it
 target.Parent = workspace
 Fx.fired(ada.UserId)
 local blasterFlash = (adaTool:FindFirstChild("Handle") :: BasePart):FindFirstChild("Muzzle"):FindFirstChild("Flash") :: PointLight
@@ -606,7 +606,7 @@ check((ring :: BasePart).Size.X > ringSize and (ring :: BasePart).Transparency >
 frames(SHOT.RING_SECONDS)
 check((ring :: BasePart).Transparency == 1, "then gone")
 local trailed = ShotFx.trailed
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -40) })
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
 task.wait()
 local lit = false
 for _, part in ShotFx.tracers do

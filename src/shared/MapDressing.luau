@@ -9,14 +9,23 @@
 -- way round) leaves its parts as they are. The meshes go in the map's
 -- Dressing folder, except inside a model (a GasBarrel), where they stay
 -- with their part so the model comes and goes as one.
+--
+-- Without imports, each client dresses the map itself (dressRuntime) from
+-- the packed meshes MeshBuilder builds from MeshData/Props: the same
+-- pieces in the same places, on that client only, since a mesh built on
+-- the server wouldn't replicate.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MapArt = require(Shared.Config.MapArt)
 local PropArt = require(Shared.Config.PropArt)
 local WeaponModel = require(Shared.WeaponModel)
+local MeshBuilder = require(Shared.MeshBuilder)
 
 local MapDressing = {}
+
+-- The MeshData set the map's packed meshes are in.
+MapDressing.SET = "Props"
 
 -- The imported mesh for `prop` (a MeshPart named after it in
 -- Assets.Props, or the Model the importer made with one inside), or nil
@@ -94,17 +103,63 @@ function MapDressing.pieces(part: BasePart, rule: MapArt.Rule, scale: number?): 
 	return pieces
 end
 
+-- The parts of `map` MapArt names that nothing has dressed yet, with
+-- their rules.
+local function undressed(map: Instance): { { part: BasePart, rule: MapArt.Rule } }
+	local found = {}
+	for _, part in map:GetDescendants() do
+		local rule = part:IsA("BasePart") and MapArt.parts[part.Name]
+		if rule and not part:GetAttribute("Dressed") and not part:GetAttribute("Dresses") then
+			table.insert(found, { part = part :: BasePart, rule = rule })
+		end
+	end
+	return found
+end
+
+-- Draws fresh copies of a mesh (from `make`) over `hitbox`, one a piece,
+-- coloured like it and never in the way. Returns them.
+local function drawOver(map: Instance, hitbox: BasePart, rule: MapArt.Rule, make: () -> MeshPart?): { MeshPart }
+	local scale = map:GetAttribute("Scale")
+	local parent = hitbox.Parent
+	local folder = if parent and parent:IsA("Model") and parent ~= map then parent else map:FindFirstChild("Dressing")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Dressing"
+		folder.Parent = map
+	end
+	local arts = {}
+	for _, piece in MapDressing.pieces(hitbox, rule, if type(scale) == "number" then scale else nil) do
+		local art = make()
+		if not art then
+			break
+		end
+		art.Name = `{hitbox.Name}Art`
+		art.Size = piece.size
+		art.CFrame = piece.cframe
+		art.Color = hitbox.Color
+		art.Material = hitbox.Material
+		art.Reflectance = hitbox.Reflectance
+		art.Transparency = hitbox.Transparency
+		art.CastShadow = hitbox.CastShadow
+		art.Anchored = true
+		art.CanCollide = false
+		art.CanQuery = false
+		art.CanTouch = false
+		art:SetAttribute("Dresses", hitbox.Name)
+		art:SetAttribute("Prop", rule.mesh)
+		art.Parent = folder
+		table.insert(arts, art)
+	end
+	return arts
+end
+
 -- Dresses every undressed part of `map` that MapArt names and whose prop
 -- is imported. Returns how many parts it dressed.
 function MapDressing.dress(map: Instance): number
-	local scale = map:GetAttribute("Scale")
 	local meshes: { [string]: MeshPart | false } = {}
 	local dressed = 0
-	for _, part in map:GetDescendants() do
-		local rule = part:IsA("BasePart") and MapArt.parts[part.Name]
-		if not rule or part:GetAttribute("Dressed") or part:GetAttribute("Dresses") then
-			continue
-		end
+	for _, found in undressed(map) do
+		local hitbox, rule = found.part, found.rule
 		if meshes[rule.mesh] == nil then
 			meshes[rule.mesh] = MapDressing.imported(rule.mesh) or false
 		end
@@ -112,35 +167,44 @@ function MapDressing.dress(map: Instance): number
 		if not mesh then
 			continue
 		end
-		local hitbox = part :: BasePart
-		local parent = hitbox.Parent
-		local folder = if parent and parent:IsA("Model") and parent ~= map then parent else map:FindFirstChild("Dressing")
-		if not folder then
-			folder = Instance.new("Folder")
-			folder.Name = "Dressing"
-			folder.Parent = map
-		end
-		for _, piece in MapDressing.pieces(hitbox, rule, if type(scale) == "number" then scale else nil) do
-			local art = mesh:Clone()
-			art.Name = `{hitbox.Name}Art`
-			art.Size = piece.size
-			art.CFrame = piece.cframe
-			art.Color = hitbox.Color
-			art.Material = hitbox.Material
-			art.Reflectance = hitbox.Reflectance
-			art.Transparency = hitbox.Transparency
-			art.CastShadow = hitbox.CastShadow
-			art.Anchored = true
-			art.CanCollide = false
-			art.CanQuery = false
-			art.CanTouch = false
-			art:SetAttribute("Dresses", hitbox.Name)
-			art:SetAttribute("Prop", rule.mesh)
-			art.Parent = folder
-		end
+		drawOver(map, hitbox, rule, function()
+			return (mesh :: MeshPart):Clone()
+		end)
 		hitbox.Transparency = 1
 		hitbox.CastShadow = false
 		hitbox:SetAttribute("Dressed", rule.mesh)
+		dressed += 1
+	end
+	return dressed
+end
+
+-- Dresses `map` on this client only, from the meshes MeshBuilder built
+-- from MeshData/Props, wherever the server couldn't (no imports). The part
+-- is hidden here only, by LocalTransparencyModifier, which the server's
+-- updates never overwrite; its art follows the part's own Transparency, so
+-- a barrel's art goes and comes back with the barrel. Returns how many
+-- parts it dressed: none until the meshes are built.
+function MapDressing.dressRuntime(map: Instance): number
+	if not MeshBuilder.ready(MapDressing.SET) then
+		return 0
+	end
+	local dressed = 0
+	for _, found in undressed(map) do
+		local hitbox, rule = found.part, found.rule
+		local arts = drawOver(map, hitbox, rule, function()
+			return MeshBuilder.copy(MapDressing.SET, rule.mesh)
+		end)
+		if #arts == 0 then
+			continue
+		end
+		hitbox.LocalTransparencyModifier = 1
+		hitbox.CastShadow = false
+		hitbox:SetAttribute("Dressed", rule.mesh)
+		hitbox:GetPropertyChangedSignal("Transparency"):Connect(function()
+			for _, art in arts do
+				art.Transparency = hitbox.Transparency
+			end
+		end)
 		dressed += 1
 	end
 	return dressed

@@ -49,7 +49,7 @@ local WeaponModel = require(Shared.WeaponModel)
 local MeshBuilder = require(Shared.MeshBuilder)
 local PropArt = require(Shared.Config.PropArt)
 local ShotArt = require(Shared.Config.ShotArt)
-local MapDressing = require(script.Parent.MapDressing)
+local MapDressing = require(Shared.MapDressing)
 local Messages = require(script.Parent.Messages)
 local Health = require(script.Parent.Health)
 local Profiler = require(script.Parent.Profiler)
@@ -417,9 +417,11 @@ function TestControls.selftest(player: Player?): (boolean, string)
 			table.insert(propProblems, reason)
 		end
 	end
-	expect(props == propTotal and #propProblems == 0, "Map props", `all {propTotal} imported`,
-		if #propProblems > 0 then table.concat(propProblems, "; ")
-			else `{props} of {propTotal} imported into ReplicatedStorage.Assets.Props; the map's plain parts stand in (art/README.md)`, "WARN")
+	-- Props that aren't imported are built on each client from MeshData
+	-- instead (MapArtController), so only a broken import is a problem.
+	expect(#propProblems == 0, "Map props",
+		if props == propTotal then `all {propTotal} imported` else `{props} of {propTotal} imported; each client builds the rest from MeshData/Props (needs Allow Mesh / Image APIs)`,
+		table.concat(propProblems, "; "), "WARN")
 	expect(images == total, "Art images", `all {total} uploaded`, `{images} of {total} icons and effect textures uploaded; Roblox's own textures stand in (art/README.md)`, "WARN")
 	local running = {}
 	for _, experiment in ExperimentConfig.experiments do

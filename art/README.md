@@ -98,10 +98,17 @@ shows.
 The map's props dress the parts the map is built from (`MapDressing`,
 `Config/MapArt.luau` says which prop goes on which part):
 
-- **Before you import anything**, the map is its plain blocks and
-  cylinders, as before.
-- **Once a prop is imported**, every part it dresses gets the mesh drawn
-  exactly over it, in the part's own colour and material. The part stays
+- **Without importing anything**, each player's game builds the props
+  from the packed copies in `src/shared/MeshData/Props.luau` (written by
+  `build_props.py`, like the guns') and dresses the map itself
+  (`MapArtController`, `MapDressing.dressRuntime`): the same pieces in the
+  same places, on that player's screen only, with the parts hidden there
+  and a barrel's art following the barrel. It needs Allow Mesh / Image
+  APIs on, like the guns; without it the map is its plain blocks and
+  cylinders.
+- **Once a prop is imported**, the server dresses every part with it
+  instead, drawing the mesh exactly over it, in the part's own colour and
+  material. The part stays
   where it is, invisible, as the hitbox: it's still what players bump
   into, what shots hit and what stops a blast, and the mesh can't be hit,
   touched or collided with. So cover, sightlines and barrels play exactly

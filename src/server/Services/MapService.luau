@@ -13,7 +13,7 @@ local MapConfig = require(Shared.Config.MapConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local Signal = require(Shared.Signal)
-local MapDressing = require(script.Parent.Parent.MapDressing)
+local MapDressing = require(Shared.MapDressing)
 
 local MapService = {}
 

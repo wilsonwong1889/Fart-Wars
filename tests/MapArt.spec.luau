@@ -21,6 +21,10 @@
 --   * a mesh imported on its side, or a Model with no MeshPart, is left
 --     out and says why; dressing twice adds nothing
 --   * Bean Rain's beans use the bean mesh; selftest reports on the props
+--   * with nothing imported, each client builds the packed props
+--     (MeshData/Props) and dresses the map itself: the same pieces in the
+--     same places, the part hidden on that client only, a barrel's art
+--     following the barrel; MapArtController dresses each map that arrives
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local checks = 0
@@ -44,7 +48,7 @@ local MapConfig = require(Shared.Config.MapConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local GameConfig = require(Shared.Config.GameConfig)
 local EventConfig = require(Shared.Config.EventConfig)
-local MapDressing = require(server.MapDressing)
+local MapDressing = require(Shared.MapDressing)
 local Map = require(server.Services.MapService)
 local Barrels = require(server.Services.BarrelService)
 local Events = require(server.Services.EventService)
@@ -352,5 +356,103 @@ for _, text in lines do
 	end
 end
 check(string.find(line, "WARN", 1, true) and string.find(line, "TankLid is the wrong way round", 1, true) and string.find(line, "no MeshPart in Bean", 1, true), "selftest reports on the props: " .. line)
+
+-- Nothing imported: each client builds the packed props and dresses the
+-- map itself (EditableMesh; here a stand-in that keeps what it's given).
+local MeshBuilder = require(Shared.MeshBuilder)
+local MeshData = require(Shared.MeshData.Props) :: { [string]: any }
+for prop in PropArt do
+	check(MeshData[prop] and MeshData[prop].size:FuzzyEq(PropArt[prop].size, 2e-3), `{prop} is packed, at its modelled size`)
+end
+for _, child in assets.Props:GetChildren() do
+	child:Destroy()
+end
+map = Map.load("BrainrotBattlefield")
+check(map:FindFirstChild("Dressing") == nil, "with nothing imported the server leaves the map plain")
+MeshBuilder.reset()
+check(MapDressing.dressRuntime(map) == 0, "a client can't dress it before the meshes are built")
+local fakeAssets = {}
+function fakeAssets.CreateEditableMesh(_self)
+	local mesh = { vertices = {}, faces = {} }
+	function mesh.AddVertex(self, p: Vector3)
+		table.insert(self.vertices, p)
+		return #self.vertices
+	end
+	function mesh.AddNormal(_self, _n: Vector3)
+		return 1
+	end
+	function mesh.AddTriangle(self, a, b, c)
+		table.insert(self.faces, { a, b, c })
+		return #self.faces
+	end
+	function mesh.SetFaceNormals() end
+	function mesh.Destroy() end
+	return mesh
+end
+function fakeAssets.CreateMeshPartAsync(_self, mesh, _options)
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, point in mesh.vertices do
+		lo = lo:Min(point)
+		hi = hi:Max(point)
+	end
+	local part = Instance.new("MeshPart")
+	part.MeshSize = hi - lo
+	part.MeshContent = mesh
+	return part
+end
+MeshBuilder.service = fakeAssets
+MeshBuilder.content = function(object)
+	return object
+end
+check(MeshBuilder.prepare(MapDressing.SET), "the props' meshes build")
+local runtimeWanted, runtimeParts = 0, 0
+for name, rule in MapArt.parts do
+	for _, part in partsNamed(map, name) do
+		runtimeParts += 1
+		runtimeWanted += #MapDressing.pieces(part, rule, scale)
+	end
+end
+check(MapDressing.dressRuntime(map) == runtimeParts, `every named part dressed on this client ({runtimeParts})`)
+local runtimeArts, outOfPlace = 0, 0
+for name, rule in MapArt.parts do
+	for _, part in partsNamed(map, name) do
+		check(part.LocalTransparencyModifier == 1 and part.Transparency < 1 and part:GetAttribute("Dressed") == rule.mesh, `{part:GetFullName()} hidden here only; the server's part is untouched`)
+	end
+end
+local places = {}
+for name, rule in MapArt.parts do
+	for _, part in partsNamed(map, name) do
+		for _, piece in MapDressing.pieces(part, rule, scale) do
+			places[key(name, piece.cframe.Position)] = piece
+		end
+	end
+end
+for _, item in map:GetDescendants() do
+	if item:IsA("MeshPart") and item:GetAttribute("Dresses") then
+		runtimeArts += 1
+		local piece = places[key(item:GetAttribute("Dresses"), item.Position)]
+		if not (piece and near(item.Size, piece.size)) then
+			outOfPlace += 1
+		end
+		check(item.Anchored and not item.CanCollide and not item.CanQuery and not item.CanTouch, `{item:GetFullName()} is never in the way`)
+	end
+end
+check(runtimeArts == runtimeWanted and outOfPlace == 0, `the same pieces in the same places as an import ({runtimeArts} meshes, {outOfPlace} out of place)`)
+local barrelPart = map.Barrels:FindFirstChildWhichIsA("Model").Barrel :: BasePart
+local barrelArt = barrelPart.Parent:FindFirstChild("BarrelArt") :: BasePart
+check(barrelArt and barrelArt.Parent == barrelPart.Parent, "a barrel's art stays in its barrel")
+barrelPart.Transparency = 1
+check(barrelArt.Transparency == 1, "a barrel that's gone takes its art with it")
+barrelPart.Transparency = 0
+check(barrelArt.Transparency == 0 and barrelPart.LocalTransparencyModifier == 1, "and brings it back, the part still hidden here")
+check(MapDressing.dressRuntime(map) == 0, "dressing again adds nothing")
+-- MapArtController dresses each map as it arrives.
+local MapArtController = require(game.StarterPlayer.StarterPlayerScripts.Client.Controllers.MapArtController)
+MapArtController.start()
+map = Map.load("BrainrotBattlefield")
+task.wait(0.1)
+check(map:FindFirstChild("Dressing") and map.Walls:FindFirstChild("SideWall"):GetAttribute("Dressed") == "TallWall", "a newly loaded map is dressed here as it arrives")
+MeshBuilder.service = nil
+MeshBuilder.reset()
 
 return { status = "PASS", checks = checks }
