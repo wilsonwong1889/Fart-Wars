@@ -9,7 +9,11 @@ export type ScoreEvent = {
 	source: string, -- "elimination", "zone", or "test" from the test-only controls
 	killer: Player?,
 	victim: Player?,
-	-- Teams when it happened; a mode uses these over the current ones.
+	-- A bot on either side, by its (negative) id, in place of a player.
+	killerBot: number?,
+	victimBot: number?,
+	-- Teams when it happened; a mode uses these over the current ones (a
+	-- bot's are always given).
 	killerTeam: string?,
 	victimTeam: string?,
 }

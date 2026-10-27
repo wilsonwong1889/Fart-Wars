@@ -8,10 +8,13 @@
 -- spawn protection. Too-accurate shooting and impossible movement between
 -- shots are logged for review, not punished. Lobbed weapons (the Stink
 -- Lobber) pass the same checks, then hand the throw to ProjectileService.
+-- A shot that hits a bot gasses it through BotService instead. Bots fire
+-- the Gas Blaster through fireAsBot: the same cast, range, gas and
+-- headshots, one shot per fire interval, only while a round is on.
 --   CombatEvent { kind = "shot", shooter, from, to }                 all clients
 --   CombatEvent { kind = "hit", victim, gas, headshot, blocked }     the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
--- (player values are user IDs, positions Vector3s).
+-- (player values are user IDs, a bot's its negative ID; positions Vector3s).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -26,9 +29,11 @@ local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Profiler = require(Server.Profiler)
 local Cadence = require(Server.Cadence)
+local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
+local BotService = require(script.Parent.BotService)
 
 local CombatService = {}
 
@@ -51,6 +56,8 @@ type Shooter = {
 	movementFlagged: boolean,
 }
 local shooters: { [Player]: Shooter } = {}
+-- When each bot last fired.
+local botShotAt: { [BotService.Bot]: number } = setmetatable({}, { __mode = "k" }) :: any
 local started = false
 
 local function now(): number
@@ -225,15 +232,14 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	CombatService.PartHit:Fire(player, result.Instance, weapon, from)
 	local model = result.Instance:FindFirstAncestorOfClass("Model")
 	local victim = model and Players:GetPlayerFromCharacter(model)
-	if not victim then
+	local bot = if victim then nil else BotService.fromInstance(result.Instance)
+	if not (victim or bot) then
 		return
 	end
 	local headshot = result.Instance.Name == "Head"
-	local landed = GasService.add(victim, CombatService.gasAt(weapon, (result.Position - from).Magnitude, headshot), {
-		attacker = player,
-		cause = "shot",
-		weapon = weapon.id,
-	})
+	local amount = CombatService.gasAt(weapon, (result.Position - from).Magnitude, headshot)
+	local source: GasService.Source = { attacker = player, cause = "shot", weapon = weapon.id }
+	local landed = if victim then GasService.add(victim, amount, source) else BotService.addGas(bot :: BotService.Bot, amount, source)
 	if landed then
 		table.insert(entry.hits, at)
 		Telemetry.first(player, "hit")
@@ -242,16 +248,75 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		if headshot then
 			Telemetry.count("Combat.headshots")
 		end
-		combatEvent():FireClient(victim, { kind = "damaged", attacker = player.UserId, from = from })
+		if victim then
+			combatEvent():FireClient(victim, { kind = "damaged", attacker = player.UserId, from = from })
+		end
 	end
 	checkAccuracy(player, entry, at)
 	combatEvent():FireClient(player, {
 		kind = "hit",
-		victim = victim.UserId,
-		gas = GasService.gasOf(victim),
+		victim = if victim then victim.UserId else (bot :: BotService.Bot).id,
+		gas = if victim then GasService.gasOf(victim) else BotService.gasOf(bot :: BotService.Bot),
 		headshot = headshot,
 		blocked = not landed,
 	})
+end
+
+-- One Gas Blaster shot from `bot` toward `direction`, server-side: cast from
+-- its head like a player's, the same range, gas (with its fall-off) and
+-- headshots, gas through GasService (a player) or BotService (a bot), at
+-- most one shot per fire interval. Only from a live bot that isn't
+-- exploding, and only while a round is on (scores are open exactly then).
+-- Firing ends its spawn protection. Returns whether a shot went out.
+function CombatService.fireAsBot(bot: BotService.Bot, direction: Vector3): boolean
+	if not FeatureFlags.GAS_COMBAT or typeof(direction) ~= "Vector3" or not (direction.Magnitude > 1e-3) then
+		return false
+	end
+	if not MatchScoreService.isOpen() or not BotService.isAlive(bot) or BotService.isExploding(bot) then
+		return false
+	end
+	local character = bot.character :: Model
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not (head and head:IsA("BasePart")) then
+		return false
+	end
+	local weapon = WeaponConfig.weapons.GasBlaster
+	local at = now()
+	local last = botShotAt[bot]
+	if last and at - last < weapon.fireInterval then
+		return false
+	end
+	botShotAt[bot] = at
+	BotService.endProtection(bot)
+	Telemetry.count("Combat.botShots")
+
+	local from = head.Position
+	local unit = direction.Unit
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	local result = workspace:Raycast(from, unit * weapon.range, params)
+	local to = if result then result.Position else from + unit * weapon.range
+	combatEvent():FireAllClients({ kind = "shot", shooter = bot.id, from = from, to = to })
+	if not result then
+		return true
+	end
+	local headshot = result.Instance.Name == "Head"
+	local amount = CombatService.gasAt(weapon, (result.Position - from).Magnitude, headshot)
+	local source: GasService.Source = { team = bot.team, bot = bot.id, cause = "shot", weapon = weapon.id }
+	local model = result.Instance:FindFirstAncestorOfClass("Model")
+	local victim = model and Players:GetPlayerFromCharacter(model)
+	if victim then
+		if GasService.add(victim, amount, source) then
+			combatEvent():FireClient(victim, { kind = "damaged", attacker = bot.id, from = from })
+		end
+		return true
+	end
+	local target = BotService.fromInstance(result.Instance)
+	if target then
+		BotService.addGas(target, amount, source)
+	end
+	return true
 end
 
 -- The player's network ping in seconds (nil if Roblox can't say).

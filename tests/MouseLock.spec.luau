@@ -56,6 +56,8 @@ local function run(scriptInstance: Instance)
 	fn()
 end
 run(server.Bootstrap)
+-- No bots: these checks pick a team freely (bots count toward the lock).
+require(server.Services.BotDirector).testSetEnabled(false)
 
 local me = Instance.new("Player")
 me.Name = "Me"

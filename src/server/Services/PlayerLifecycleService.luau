@@ -104,9 +104,9 @@ local function removeCharacter(player: Player)
 	end
 end
 
--- Spawn protection.
+-- Spawn protection (bots get the same: BotService).
 
-local function protect(character: Model)
+function PlayerLifecycleService.protect(character: Model)
 	if not FeatureFlags.SPAWN_PROTECTION then
 		return
 	end
@@ -140,7 +140,15 @@ function PlayerLifecycleService.endProtection(player: Player)
 	end
 end
 
-local function enemyPositions(teamId: string): { Vector3 }
+-- Where the live enemy bots of `teamId` stand. BotService fills this in
+-- (it loads after this service).
+PlayerLifecycleService.enemyBotPositions = function(_teamId: string): { Vector3 }
+	return {}
+end
+
+-- Where everyone against `teamId` stands, players and bots, so a spawn
+-- isn't picked on top of them.
+function PlayerLifecycleService.enemyPositions(teamId: string): { Vector3 }
 	local positions = {}
 	for _, other in Players:GetPlayers() do
 		local otherTeam = TeamService.teamOf(other)
@@ -148,6 +156,9 @@ local function enemyPositions(teamId: string): { Vector3 }
 		if otherTeam and otherTeam ~= teamId and root and root:IsA("BasePart") then
 			table.insert(positions, root.Position)
 		end
+	end
+	for _, position in PlayerLifecycleService.enemyBotPositions(teamId) do
+		table.insert(positions, position)
 	end
 	return positions
 end
@@ -166,7 +177,7 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	if previous then
 		PlayerLifecycleService.Replacing:Fire(player, previous)
 	end
-	player.RespawnLocation = MapService.safeSpawn(teamId, enemyPositions(teamId)) :: any
+	player.RespawnLocation = MapService.safeSpawn(teamId, PlayerLifecycleService.enemyPositions(teamId)) :: any
 	local ok, err = pcall(player.LoadCharacterAsync, player)
 	if not ok then
 		warn(`[Lifecycle] couldn't spawn {player.Name}: {err}`)
@@ -180,7 +191,7 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	local character = player.Character
 	if character and runtimes[player] == runtime then
 		runtime.lastSpawnAt = now()
-		protect(character)
+		PlayerLifecycleService.protect(character)
 		Telemetry.log("Lifecycle", "spawned", { player = player, team = teamId })
 		PlayerLifecycleService.Spawned:Fire(player, character)
 	end

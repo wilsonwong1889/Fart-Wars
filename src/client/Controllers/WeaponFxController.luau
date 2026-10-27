@@ -1,4 +1,5 @@
--- The weapons in motion, for every player's gun on this screen (WeaponFx):
+-- The weapons in motion, for every gun on this screen, players' and bots'
+-- (WeaponFx):
 --   * the look: each gun is dressed in the Blender meshes as soon as this
 --     client has built them (WeaponSkin)
 --   * equip: a new gun swings up from below, and a light one twirls
@@ -14,7 +15,7 @@
 --     colour, sparks, a flash of light, a shock ring, and for your own
 --     shots a camera kick
 --   * impacts: a puff, sparks, a flash of light, a splat and a ring where
---     a shot hits something; a player your shot hits flashes white
+--     a shot hits something; a player (or bot) your shot hits flashes white
 --   * the shots themselves (ShotFx): the bolt from the muzzle to where the
 --     shot stopped, the muzzle's burst, and a splat where it hit
 -- It all happens on each client from the shots the server announces (and
@@ -35,6 +36,7 @@ local ArtAssets = require(Shared.Config.ArtAssets)
 local MeshBuilder = require(Shared.MeshBuilder)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
+local Combatants = require(Client.Combatants)
 local Settings = require(Client.Settings)
 local ShotFx = require(Client.ShotFx)
 local WeaponSkin = require(Client.WeaponSkin)
@@ -263,9 +265,9 @@ function WeaponFxController.track(tool: Tool): State?
 	return state
 end
 
+-- The gun in a player's or a bot's hands.
 local function heldBy(userId: number): Tool?
-	local shooter = Players:GetPlayerByUserId(userId)
-	local character = shooter and shooter.Character
+	local character = Combatants.character(userId)
 	local tool = character and character:FindFirstChild("HeldWeapon")
 	return if tool and tool:IsA("Tool") then tool else nil
 end
@@ -365,10 +367,9 @@ function WeaponFxController.impact(position: Vector3, color: Color3, direction: 
 	end
 end
 
--- A player your shot hit flashes white for a moment.
+-- A player (or bot) your shot hit flashes white for a moment.
 function WeaponFxController.hit(userId: number)
-	local victim = Players:GetPlayerByUserId(userId)
-	local character = victim and victim.Character
+	local character = Combatants.character(userId)
 	if not character or reducedEffects() then
 		return
 	end
@@ -589,21 +590,16 @@ function WeaponFxController.cameraKick(): number
 	return cameraKick
 end
 
-local function watch(other: Player)
-	local function onCharacter(character: Model)
-		local function onChild(child: Instance)
-			if child:IsA("Tool") and child.Name == "HeldWeapon" then
-				WeaponFxController.track(child)
-			end
-		end
-		character.ChildAdded:Connect(onChild)
-		for _, child in character:GetChildren() do
-			onChild(child)
+-- Every avatar's gun, players' and bots', as it comes into their hands.
+local function watch(character: Model)
+	local function onChild(child: Instance)
+		if child:IsA("Tool") and child.Name == "HeldWeapon" then
+			WeaponFxController.track(child)
 		end
 	end
-	other.CharacterAdded:Connect(onCharacter)
-	if other.Character then
-		onCharacter(other.Character)
+	character.ChildAdded:Connect(onChild)
+	for _, child in character:GetChildren() do
+		onChild(child)
 	end
 end
 
@@ -655,10 +651,7 @@ function WeaponFxController.start()
 	end
 	-- Build the shot meshes now, so the first shots already have them.
 	MeshBuilder.request("Shots")
-	for _, other in Players:GetPlayers() do
-		watch(other)
-	end
-	Players.PlayerAdded:Connect(watch)
+	Combatants.watch(watch)
 	-- Guns already held when a weapon's meshes are built get dressed.
 	MeshBuilder.built:Connect(function(set: string)
 		for tool, state in WeaponFxController.states do

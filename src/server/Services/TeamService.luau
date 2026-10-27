@@ -1,7 +1,10 @@
 -- Who holds an active slot on which team. Only ACTIVE players have a team;
 -- spectators are neutral. Every join, leave, spectate and switch goes
 -- through here and is checked against TeamBalance, and the counts go to
--- every client (TeamUpdate) whenever they change.
+-- every client (TeamUpdate) whenever they change. Bots hold slots too
+-- (BotService keeps their number per team here), so the counts, the
+-- balance rules and the round's start include them; humanCounts() is the
+-- players alone.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
@@ -27,6 +30,7 @@ end
 
 local teamInstances: { [string]: Team } = {}
 local teamOf: { [Player]: string } = {}
+local botCounts: { [string]: number } = {}
 local friendsOf: { [Player]: { [Player]: boolean } } = {}
 local started = false
 
@@ -34,7 +38,8 @@ local function teamUpdate(): RemoteEvent
 	return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TeamUpdate") :: RemoteEvent
 end
 
-function TeamService.counts(): { [string]: number }
+-- Players on each team, not counting bots.
+function TeamService.humanCounts(): { [string]: number }
 	local counts = {}
 	for _, team in TeamConfig.order do
 		counts[team] = 0
@@ -45,12 +50,31 @@ function TeamService.counts(): { [string]: number }
 	return counts
 end
 
+-- Everyone holding a slot on each team: players and bots.
+function TeamService.counts(): { [string]: number }
+	local counts = TeamService.humanCounts()
+	for team, n in botCounts do
+		counts[team] = (counts[team] or 0) + n
+	end
+	return counts
+end
+
 function TeamService.activeCount(): number
 	local total = 0
-	for _ in teamOf do
-		total += 1
+	for _, n in TeamService.counts() do
+		total += n
 	end
 	return total
+end
+
+-- BotService only: how many bots are on `team` now.
+function TeamService.setBotCount(team: string, n: number)
+	local count = math.max(0, math.floor(n))
+	if (botCounts[team] or 0) == count then
+		return
+	end
+	botCounts[team] = if count > 0 then count else nil
+	TeamService.Changed:Fire()
 end
 
 function TeamService.teamOf(player: Player): string?

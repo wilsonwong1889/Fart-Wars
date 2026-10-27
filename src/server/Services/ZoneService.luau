@@ -1,9 +1,9 @@
 -- Gas Control's zone (Phase 6). While a round of a zone mode is on, every
--- ZONE.TICK_SECONDS it counts each team's players standing in the map's
--- control zone (ACTIVE, alive, not mid-explosion). A team alone in it
--- scores ZONE.POINTS; two teams there contest it and nobody scores. Each
--- player holding it earns a little (ZONE.COINS and XP every
--- REWARD_SECONDS, a few times a round).
+-- ZONE.TICK_SECONDS it counts each team's players and bots standing in the
+-- map's control zone (ACTIVE, alive, not mid-explosion). A team alone in
+-- it scores ZONE.POINTS; two teams there contest it and nobody scores.
+-- Each player holding it earns a little (ZONE.COINS and XP every
+-- REWARD_SECONDS, a few times a round); bots earn nothing.
 -- What clients see: Workspace's ZoneActive, ZoneOwner (team ID or nil),
 -- ZoneContested and Zone_<team> (players in it) attributes, and the floor
 -- ring in the holder's colour (white when contested, grey when empty).
@@ -24,6 +24,7 @@ local TeamService = require(script.Parent.TeamService)
 local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local GasService = require(script.Parent.GasService)
+local BotService = require(script.Parent.BotService)
 local EconomyService = require(script.Parent.EconomyService)
 local RoundService = require(script.Parent.RoundService)
 
@@ -116,6 +117,12 @@ function ZoneService.tick(dt: number)
 		if team and standing(player, zone :: BasePart) then
 			counts[team] = (counts[team] or 0) + 1
 			table.insert(inZone, player)
+		end
+	end
+	for _, bot in BotService.all() do
+		local root = BotService.rootOf(bot)
+		if root and not BotService.isExploding(bot) and ZoneService.inside(root.Position, zone :: BasePart) then
+			counts[bot.team] = (counts[bot.team] or 0) + 1
 		end
 	end
 	local present = {}

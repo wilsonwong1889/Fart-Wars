@@ -8,7 +8,9 @@
 -- leaves, is moved off their team, or is respawned (a team switch, a new
 -- round) mid-countdown explodes on the spot, and one who dies some other
 -- way while gassed (Reset, a fall) is credited to their recent attacker,
--- so nobody can dodge giving the killer the point.
+-- so nobody can dodge giving the killer the point. The attacker may be a
+-- bot (Source.bot): it's credited the same way, and its team scores.
+-- Bots' own meters live in BotService, on these same rules.
 -- Clients see it on the character: "Gas" (0-100), "GasStage" (0-4) and
 -- "ExplodesAt" (server time).
 local Players = game:GetService("Players")
@@ -30,11 +32,15 @@ local GAS = GameConfig.GAS
 
 local GasService = {}
 
--- (victim, position, killer?, chainDepth): someone exploded.
+-- (victim, position, killer?, chainDepth, killerTeam?, killerBot?): someone
+-- exploded.
 GasService.Exploded = Signal.new()
 
 export type Source = {
 	attacker: Player?,
+	-- The bot behind it (its negative id), instead of an attacker; `team` is
+	-- then required. Callers check the bot is still in the game and on it.
+	bot: number?,
 	-- The attacker's team when the gas was sent (explosions keep it).
 	team: string?,
 	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "test"
@@ -50,7 +56,10 @@ type Meter = {
 	lastHitAt: number,
 	firstHitAt: number?,
 	contributors: { [Player]: number },
+	botContributors: { [number]: number },
+	-- The last to add gas: a player or a bot, never both.
 	lastAttacker: Player?,
+	lastAttackerBot: number?,
 	lastAttackerTeam: string?,
 	victimTeam: string?,
 	exploding: boolean,
@@ -96,7 +105,9 @@ local function meter(player: Player): Meter?
 		lastHitAt = -math.huge,
 		firstHitAt = nil,
 		contributors = {},
+		botContributors = {},
 		lastAttacker = nil,
+		lastAttackerBot = nil,
 		lastAttackerTeam = nil,
 		victimTeam = TeamService.teamOf(player),
 		exploding = false,
@@ -126,8 +137,43 @@ end
 local function forget(m: Meter)
 	m.firstHitAt = nil
 	m.lastAttacker = nil
+	m.lastAttackerBot = nil
 	m.lastAttackerTeam = nil
 	table.clear(m.contributors)
+	table.clear(m.botContributors)
+end
+
+-- Who gets the credit at `at`: the last attacker (a player or a bot), if
+-- they're still here and added gas in the last ASSIST_WINDOW seconds, and
+-- the other recent attackers as assists.
+local function credit(m: Meter, at: number): (Player?, number?, { Player }, { number })
+	local window = GAS.ASSIST_WINDOW_SECONDS
+	local killer = m.lastAttacker
+	if killer and (killer.Parent ~= Players or at - (m.contributors[killer] or -math.huge) > window) then
+		killer = nil
+	end
+	local killerBot = m.lastAttackerBot
+	if killerBot and at - (m.botContributors[killerBot] or -math.huge) > window then
+		killerBot = nil
+	end
+	local assists, assistBots = {}, {}
+	for helper, when in m.contributors do
+		if helper ~= killer and at - when <= window then
+			table.insert(assists, helper)
+		end
+	end
+	for id, when in m.botContributors do
+		if id ~= killerBot and at - when <= window then
+			table.insert(assistBots, id)
+		end
+	end
+	table.sort(assists, function(a, b)
+		return a.UserId < b.UserId
+	end)
+	table.sort(assistBots, function(a, b)
+		return a > b
+	end)
+	return killer, killerBot, assists, assistBots
 end
 
 function GasService.gasOf(player: Player): number
@@ -150,27 +196,17 @@ function GasService.explode(victim: Player)
 	local root = m.character:FindFirstChild("HumanoidRootPart")
 	local position = if root and root:IsA("BasePart") then root.Position else m.character:GetPivot().Position
 	local at = now()
-	local killer = m.lastAttacker
-	if killer and (killer.Parent ~= Players or at - (m.contributors[killer] or -math.huge) > GAS.ASSIST_WINDOW_SECONDS) then
-		killer = nil
-	end
-	local assists = {}
-	for helper, when in m.contributors do
-		if helper ~= killer and at - when <= GAS.ASSIST_WINDOW_SECONDS then
-			table.insert(assists, helper)
-		end
-	end
-	table.sort(assists, function(a, b)
-		return a.UserId < b.UserId
-	end)
+	local killer, killerBot, assists, assistBots = credit(m, at)
 	if m.firstHitAt then
 		Telemetry.time("timeToExplosion", at - m.firstHitAt)
 	end
 	EliminationService.eliminate(victim, m.character, {
 		killer = killer,
+		killerBot = killerBot,
 		killerTeam = m.lastAttackerTeam,
 		victimTeam = m.victimTeam,
 		assists = assists,
+		assistBots = assistBots,
 		cause = m.cause,
 		weapon = m.weapon,
 	})
@@ -180,9 +216,10 @@ function GasService.explode(victim: Player)
 		kind = "explosion",
 		victim = victim.UserId,
 		position = position,
-		killer = if killer then killer.UserId else nil,
+		killer = if killer then killer.UserId else killerBot,
 	})
-	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, if killer then m.lastAttackerTeam else m.finishTeam)
+	local credited = killer ~= nil or killerBot ~= nil
+	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, if credited then m.lastAttackerTeam else m.finishTeam, killerBot)
 end
 
 local function beginExplosion(victim: Player, m: Meter, source: Source)
@@ -213,6 +250,9 @@ function GasService.add(victim: Player, amount: number, source: Source): boolean
 	if not victimTeam or attacker == victim or (attackerTeam ~= nil and attackerTeam == victimTeam) then
 		return false -- friendly fire is off
 	end
+	if source.bot and not attackerTeam then
+		return false -- a bot's gas always says whose side it's on
+	end
 	-- An attacker who has since joined the victim's team (a bomb, a fuse
 	-- or a chain still on its way) doesn't gas their new teammates.
 	if attacker and TeamService.teamOf(attacker) == victimTeam then
@@ -233,7 +273,11 @@ function GasService.add(victim: Player, amount: number, source: Source): boolean
 	m.victimTeam = victimTeam
 	if attacker then
 		m.contributors[attacker] = at
-		m.lastAttacker = attacker
+		m.lastAttacker, m.lastAttackerBot = attacker, nil
+		m.lastAttackerTeam = attackerTeam
+	elseif source.bot then
+		m.botContributors[source.bot] = at
+		m.lastAttacker, m.lastAttackerBot = nil, source.bot
 		m.lastAttackerTeam = attackerTeam
 	end
 	publish(m)
@@ -241,6 +285,14 @@ function GasService.add(victim: Player, amount: number, source: Source): boolean
 		beginExplosion(victim, m, source)
 	end
 	return true
+end
+
+-- A bot has left the game: like a player who leaves, it can't be credited
+-- with anything any more.
+function GasService.forgetBot(id: number)
+	for _, m in meters do
+		m.botContributors[id] = nil
+	end
 end
 
 -- Recovery: everyone who hasn't taken gas for a while drains.
@@ -336,21 +388,16 @@ function GasService.start()
 			GasService.explode(player)
 			return
 		end
-		local killer = m.lastAttacker
-		local at = now()
-		if killer and killer.Parent == Players and m.gas > 0 and at - (m.contributors[killer] or -math.huge) <= GAS.ASSIST_WINDOW_SECONDS then
+		local killer, killerBot, assists, assistBots = credit(m, now())
+		if (killer or killerBot) and m.gas > 0 then
 			m.exploded = true
-			local assists = {}
-			for helper, when in m.contributors do
-				if helper ~= killer and at - when <= GAS.ASSIST_WINDOW_SECONDS then
-					table.insert(assists, helper)
-				end
-			end
 			local credited = EliminationService.eliminate(player, character, {
 				killer = killer,
+				killerBot = killerBot,
 				killerTeam = m.lastAttackerTeam,
 				victimTeam = m.victimTeam,
 				assists = assists,
+				assistBots = assistBots,
 				cause = "died",
 			})
 			if credited then

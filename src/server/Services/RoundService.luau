@@ -1,6 +1,6 @@
 -- The match state machine, on server timestamps:
 --   WAITING  until at least MIN_ACTIVE_PLAYERS are active and neither team
---            is empty
+--            is empty (bots count, so one player and the bots start a round)
 --   ACTIVE   for the mode's round length (300 s); scores count
 --   RESULTS  for the intermission (15 s); scores frozen, winner or draw shown
 --   then ACTIVE again, or WAITING if the population has dropped. A round in
@@ -13,7 +13,8 @@
 -- ACTIVE match with no end time starts with the server and scores run on.
 -- With FeatureFlags.MODE_ROTATION each round picks the next mode in
 -- GameConfig.MODE_ROTATION that the map supports, once the server has
--- ROTATION_MIN_PLAYERS on teams; otherwise every round is DEFAULT_MODE.
+-- ROTATION_MIN_PLAYERS (players, not bots) on teams; otherwise every round
+-- is DEFAULT_MODE.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -138,6 +139,14 @@ local function canStart(): boolean
 	return TeamBalance.canStart(TeamService.counts(), TeamConfig.order, GameConfig.MIN_ACTIVE_PLAYERS)
 end
 
+local function humansOnTeams(): number
+	local total = 0
+	for _, n in TeamService.humanCounts() do
+		total += n
+	end
+	return total
+end
+
 -- The mode for the next round.
 function RoundService.nextMode(): GameModeBase.GameMode
 	if nextOverride then
@@ -146,7 +155,7 @@ function RoundService.nextMode(): GameModeBase.GameMode
 		return chosen
 	end
 	local rotating = if rotationOverride ~= nil then rotationOverride else FeatureFlags.MODE_ROTATION
-	if not rotating or TeamService.activeCount() < GameConfig.ROTATION_MIN_PLAYERS then
+	if not rotating or humansOnTeams() < GameConfig.ROTATION_MIN_PLAYERS then
 		return defaultMode
 	end
 	local _, entry = MapService.current()
