@@ -230,7 +230,12 @@ for _, child in spritzer:GetChildren() do
 	end
 end
 local statText = table.concat(stats, " | ")
-check(string.find(statText, "GAS 7% (head 9%)", 1, true) and string.find(statText, `RANGE {require(game.ReplicatedStorage.Shared.Config.WeaponConfig).weapons.Spritzer.range}`, 1, true) and string.find(statText, "RATE 10.0/s", 1, true) and string.find(spritzer.Details.Text, "Handling", 1, true), "its stats: " .. statText)
+check(string.find(statText, "GAS 7% (head 9%)", 1, true) and string.find(statText, "RANGE 90 · instant", 1, true) and string.find(statText, "RATE 10.0/s", 1, true) and string.find(spritzer.Details.Text, "Handling", 1, true), "its stats: " .. statText)
+local blurb = false
+for _, child in spritzer:GetChildren() do
+	blurb = blurb or (child:IsA("TextLabel") and string.find(child.Text, "fizzles out past 90 studs", 1, true) ~= nil)
+end
+check(blurb, "and its description: it fizzles out past 90 studs")
 check(p.content.StinkLobber.Action.Text == "LEVEL 25", "the Stink Lobber: level 25 first")
 xpTo(25)
 task.wait(0.1)

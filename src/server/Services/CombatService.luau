@@ -136,6 +136,20 @@ local function checkMovement(player: Player, entry: Shooter, head: Vector3, at: 
 	entry.lastHead = head
 end
 
+-- The gas a hit does `distance` studs from the shooter's head: full out to
+-- the weapon's effective range, then less in a straight line down to its
+-- minimum share at full range (WeaponConfig). A headshot loses the same
+-- share, so it stays the better hit. Whole percents, never under 1.
+function CombatService.gasAt(weapon: WeaponConfig.Weapon, distance: number, headshot: boolean): number
+	local full = if headshot then weapon.headshotGas else weapon.gasPerHit
+	local effective, minShare = weapon.effectiveRange, weapon.minGasShare
+	if not (effective and minShare) or distance <= effective or weapon.range <= effective then
+		return full
+	end
+	local past = math.min(1, (distance - effective) / (weapon.range - effective))
+	return math.max(1, math.floor(full * (1 - (1 - minShare) * past) + 0.5))
+end
+
 -- One shot from `player` toward `direction`; `shotId` counts up per shot.
 function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	if not FeatureFlags.GAS_COMBAT then
@@ -215,7 +229,7 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		return
 	end
 	local headshot = result.Instance.Name == "Head"
-	local landed = GasService.add(victim, if headshot then weapon.headshotGas else weapon.gasPerHit, {
+	local landed = GasService.add(victim, CombatService.gasAt(weapon, (result.Position - from).Magnitude, headshot), {
 		attacker = player,
 		cause = "shot",
 		weapon = weapon.id,

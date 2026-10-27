@@ -55,8 +55,8 @@ repository holds credentials or API keys, and nothing should.
 | Camera | third person; V toggles first person |
 | Home screen | the live battlefield behind the menu; you spectate until PLAY |
 | Result | most validated eliminations wins; level scores are a draw |
-| Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off |
-| Weapons | Gas Blaster (starter, all-round), Spritzer (level 5, 400 coins: 7% at 10 shots a second, 180-stud range), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, slower walk), Stink Lobber (level 25, 2,500: a lobbed bomb, 15% splash and a 4-second cloud that gasses enemies in it) |
+| Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off. Long shots do less: full gas out to a weapon's effective range, half at its full range (the server measures the distance) |
+| Weapons | Gas Blaster (starter, all-round: full gas to 120 studs, half by its 260-stud range), Spritzer (level 5, 400 coins: 7% at 10 shots a second, full gas to 45 studs, nothing past 90), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, full gas to 240 studs, half by its 420-stud range, slower walk), Stink Lobber (level 25, 2,500: a bomb lobbed over cover up to 150 studs, 15% splash and a 4-second cloud that gasses enemies in it) |
 | Abilities | Shift: Fart Dash (everyone). Q, one equipped: Recovery Burst (level 10: vent 35% gas, 20 s) or Gas Pulse (level 30: after a 0.4 s wind-up, 15% to enemies within 12 studs, 25 s). One cooldown whichever is equipped; a death resets it |
 | Shop and loadouts | prices and levels checked on the server; a purchase is saved before it's confirmed. Weapon and ability changes made mid-fight wait for the next respawn; tracers apply at once |
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
@@ -288,6 +288,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Release` | the version and channel on every screen; health (every loop watched, a stopped loop FAILING and recovering, a tick's error counted and the loop going on, an error burst, saving's check, `/fw health`); client reports (averaged, junk and spam refused); player reports (reasons, not yourself, once each, the session cap, three reporters flag once); the Players screen (block, hide emotes, report and the answer) |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
+| `Balance` | each weapon's role on the full-size map (reach in order, the Thunderclapper short of the arena, who gasses fastest where); fall-off (full gas close, less far away, never under the minimum, headshots still better) on paper and on real shots down a clear lane; every stink bomb landing, one lobbed over the throne; the shop's descriptions matching the numbers |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
@@ -389,10 +390,18 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Playtime is active time** (`TotalPlaytime`, seconds).
 - **Level unlocks:** abilities and cosmetics are granted at their level;
   weapons only go on sale, for coins.
-- **Weapons are playstyles, not a ladder.** Up close the Spritzer wins,
-  at range the Gas Blaster or Thunderclapper, around cover the Stink
-  Lobber. Handling is walking speed (never faster than the default, so the
-  movement checks stay honest).
+- **Weapons are playstyles, not a ladder.** Up close (within 90 studs)
+  the Spritzer, at middle distances the Gas Blaster, down the long
+  sightlines the Thunderclapper (it reaches 420 studs, never the arena's
+  480), around cover the Stink Lobber. The ranges come from the map's
+  sightlines (`WeaponConfig`'s notes). Handling is walking speed (never
+  faster than the default, so the movement checks stay honest).
+- **Long shots do less gas.** An instant weapon does full gas out to its
+  effective range, then less in a straight line to half at its full range,
+  and nothing past it. A headshot loses the same share, so it stays the
+  better hit. The server measures the distance from the shooter's head to
+  what it hit (`CombatService.gasAt`), so no client can claim a closer
+  shot. Barrels and stink bombs don't fall off.
 - **One Q ability, one cooldown.** Equipping a different ability doesn't
   skip the cooldown; both have a visible tell (the vent puff, the pulse's
   wind-up ring), and Recovery Burst is too late once the countdown starts.
