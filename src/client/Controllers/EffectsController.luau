@@ -281,6 +281,22 @@ function EffectsController.cloud(position: Vector3, radius: number, endsAt: numb
 	return cloud
 end
 
+-- The Recovery Burst's puff of gas rising from `position` (one puff with
+-- reduced effects).
+local function ventPuff(position: Vector3)
+	for i = 0, (if EffectsController.reduced() then 0 else 3) do
+		local puff = transient("VentPuff")
+		puff.Material = Enum.Material.SmoothPlastic
+		puff.Color = Color3.fromRGB(200, 230, 120)
+		puff.Size = Vector3.one * (3 - i * 0.4)
+		puff.CFrame = CFrame.new(position + Vector3.new(0, i * 1.5, 0))
+		puff.Transparency = 0.3
+		puff.Parent = workspace
+		TweenService:Create(puff, TweenInfo.new(0.8), { Transparency = 1, Size = puff.Size * 2 }):Play()
+		Debris:AddItem(puff, 0.9)
+	end
+end
+
 -- An emote over someone's head for a moment (and a little puff).
 function EffectsController.emote(userId: number, id: string): BillboardGui?
 	if Settings.hiddenEmotes[userId] then
@@ -305,9 +321,11 @@ function EffectsController.emote(userId: number, id: string): BillboardGui?
 	UI.label(`{cosmetic.emoji} {cosmetic.text}`, 30, { Size = UDim2.new(1, 0, 1, 0), Parent = board })
 	board.Parent = head
 	Debris:AddItem(board, 2.5)
+	-- Its own sound; it borrows the Recovery Burst's puff but not its vent
+	-- sound, which stays the ability's tell.
 	Audio.play("emote", if userId == player.UserId then nil else head.Position)
 	if not EffectsController.reduced() then
-		EffectsController.ability("RecoveryBurst", head.Position - Vector3.new(0, 2, 0))
+		ventPuff(head.Position - Vector3.new(0, 2, 0))
 	end
 	return board
 end
@@ -316,17 +334,7 @@ end
 function EffectsController.ability(id: string, position: Vector3)
 	if id == "RecoveryBurst" then
 		Audio.play("vent", position)
-		for i = 0, (if EffectsController.reduced() then 0 else 3) do
-			local puff = transient("VentPuff")
-			puff.Material = Enum.Material.SmoothPlastic
-			puff.Color = Color3.fromRGB(200, 230, 120)
-			puff.Size = Vector3.one * (3 - i * 0.4)
-			puff.CFrame = CFrame.new(position + Vector3.new(0, i * 1.5, 0))
-			puff.Transparency = 0.3
-			puff.Parent = workspace
-			TweenService:Create(puff, TweenInfo.new(0.8), { Transparency = 1, Size = puff.Size * 2 }):Play()
-			Debris:AddItem(puff, 0.9)
-		end
+		ventPuff(position)
 	elseif id == "GasPulse" then
 		Audio.play("pulse", position)
 		local radius = AbilityConfig.GasPulse.radius :: number
