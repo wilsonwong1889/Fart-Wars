@@ -22,4 +22,5 @@ return table.freeze({
 	emote = "rbxassetid://9117021487", -- an emote, E (Mouth Vocals Raspberry 1, PSE)
 	coins = "rbxassetid://127645268874265", -- you earned coins (CoinTransfer_01, Roblox)
 	levelUp = "rbxassetid://12222253", -- you reached a new level (victory.wav, Roblox)
+	tick = "rbxasset://sounds/volume_slider.ogg", -- the spin wheel passing a segment (built into every Roblox client)
 })

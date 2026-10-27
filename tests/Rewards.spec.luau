@@ -9,7 +9,9 @@
 --   * spins: one per spin, drawn by the published weights (checked over
 --     many draws), paid once each, refused with none left
 --   * the client: the daily screen (ticks, today, CLAIM, the countdown),
---     its auto-open on the home screen, the spin screen with every chance
+--     its auto-open on the home screen, the spin wheel with every chance:
+--     it lands under the pointer on whatever was drawn, shows the win,
+--     settles back after a refusal, and spins briefly with Reduce Motion
 --     shown, the top-right buttons
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -200,6 +202,45 @@ for _, prize in RewardsConfig.spin do
 	end
 end
 check(shown == #RewardsConfig.spin and UI.parts.prizes.coins50.Chance.Text == "40%", "every prize with its chance on the spin screen")
+-- The wheel lands on whatever is drawn: every prize, under the pointer.
+local Client = game.StarterPlayer.StarterPlayerScripts.Client
+local SpinWheel = require(Client.SpinWheel)
+local Settings = require(Client.Settings)
+local wheel = UI.parts.spinner
+for i, prize in RewardsConfig.spin do
+	wheel:spinTo(prize.id)
+	check(wheel:under(wheel.rotation) == i, `the wheel lands on {prize.id}`)
+end
+-- A spin through the screen: the wind-up, the spin, the win.
+Data.update(me, function(d)
+	d.Spins = 2
+end)
+Rewards.publish(me)
+task.wait(0.3) -- past the rate limit
+local spinsBefore = data().Spins
+UI.spin()
+local landed = RewardsConfig.spin[wheel:under(wheel.rotation)]
+check(data().Spins == spinsBefore - 1 and not UI.busy, "SPIN uses one and finishes")
+check(string.find(UI.parts.spinNote.Text, landed.label, 1, true), `the server's prize is the one under the pointer: {landed.label}`)
+check(wheel.banner.Visible and wheel.bannerText.Text ~= "", "the win on a banner: " .. wheel.bannerText.Text)
+check(UI.parts.spin.Text == "SPIN! (1)", "then SPIN is back, with what's left")
+task.wait(1.5)
+check(wheel.holder:FindFirstChild("Confetti") == nil, "the confetti cleans up")
+-- A refused spin winds up and settles back.
+Data.update(me, function(d)
+	d.Spins = 0
+end)
+Rewards.publish(me)
+task.wait(0.3)
+local rest = wheel.rotation
+UI.spin()
+check(math.abs(wheel.rotation - rest) < 0.01 and string.find(UI.parts.spinNote.Text, "No free spins", 1, true), "a refused spin settles back and says why")
+-- Reduce Motion: a short spin, the same landing.
+Settings.reduceMotion = true
+local started = os.clock()
+wheel:spinTo("coins250")
+check(os.clock() - started <= SpinWheel.CALM_SECONDS + 0.1 and RewardsConfig.spin[wheel:under(wheel.rotation)].id == "coins250", "Reduce Motion: a short spin")
+Settings.reduceMotion = false
 UI.closeSpin()
 
 -- A temporary profile can't claim in a live server; in Studio it can.
