@@ -1,10 +1,10 @@
 -- PC controls: WASD and Space are Roblox's own; this adds mouse aim and
 -- left click to fire, Shift for Fart Dash, Q for the equipped ability, 1-4
--- for the hotbar's weapons, V
--- for first/third person, M for the menu and Tab (held) for the
--- scoreboard. R and F stay free for later mechanics. Keys pressed while
--- typing in chat or a text box are ignored. Bindings live in
--- UIConfig.keys, ready for rebinding later.
+-- for the hotbar's weapons, E to emote, V for first/third person, Left Alt
+-- to free the mouse from the crosshair (and lock it again; MouseLock), M
+-- for the menu and Tab (held) for the scoreboard. R and F stay free for
+-- later mechanics. Keys pressed while typing in chat or a text box are
+-- ignored. Bindings live in UIConfig.keys, ready for rebinding later.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
@@ -12,12 +12,15 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UIConfig = require(Shared.Config.UIConfig)
 local Signal = require(Shared.Signal)
+local Client = script.Parent.Parent
+local MouseLock = require(Client.MouseLock)
 
 local keys = UIConfig.keys
 
 local InputController = {}
 
 InputController.CameraToggled = Signal.new()
+InputController.MouseUnlockPressed = Signal.new()
 InputController.MenuToggled = Signal.new()
 InputController.ScoreboardHeld = Signal.new() -- (held)
 InputController.FireHeld = Signal.new() -- (held)
@@ -85,6 +88,9 @@ function InputController.start()
 		local key = input.KeyCode
 		if key == keys.camera then
 			InputController.CameraToggled:Fire()
+		elseif key == keys.unlockMouse then
+			MouseLock.toggleKey()
+			InputController.MouseUnlockPressed:Fire()
 		elseif key == keys.menu then
 			InputController.MenuToggled:Fire()
 		elseif key == keys.scoreboard then

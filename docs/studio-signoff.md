@@ -1,7 +1,7 @@
 # Studio sign-off: Phases 1-6
 
 Everything the automated specs can check is checked (`python3
-scripts/run_specs.py`, 32 specs, including a 20-player, 20-minute soak).
+scripts/run_specs.py`, 33 specs, including a 20-player, 20-minute soak).
 Sections 0-6 are the core game (Phases 1-3); section 7 is Phases 4-6;
 sections 8 and 9 are the Blender art (the weapons, the map).
 What's left needs real Roblox: physics, rendering, sound, the real network
@@ -45,8 +45,20 @@ the Output window help).
       first 3 seconds of a spawn it swaps at once; later it says it waits
       for your respawn and the slot shows NEXT.
 - [ ] V switches first and third person a few times, also while moving.
+- [ ] In a match the mouse is locked to the crosshair in both views:
+      moving it turns the camera with no button held, and no cursor shows.
+      Third person sits over the right shoulder, with a clear view past
+      the avatar to the crosshair.
+- [ ] Left Alt frees the mouse (a cursor, the camera stays still; the top
+      right buttons can be clicked); Alt again locks it. Typing Alt in chat
+      does nothing.
 - [ ] M opens the menu with a free mouse (also in first person); Resume
       closes it. Roblox's Esc menu has no Reset Character button.
+- [ ] Every screen with buttons frees the mouse while it's open and locks
+      it again when it closes, however it closes (its button, M, PLAY,
+      spectating): the M menu, each locker tab (top right buttons), Coming
+      Soon, Players, Daily Rewards, the free spin, Season and Prestige. With
+      two open (the menu, then a locker tab), closing one keeps it free.
 - [ ] Hold Tab: the scoreboard (not Roblox's player list).
 - [ ] Shift: a Fart Dash along the ground; not again for 3 seconds.
 - [ ] Stand still 45 seconds: "BRO FELL ASLEEP MID-FART!"; at 60 you're
@@ -110,6 +122,9 @@ the Output window help).
       Settings → Reduced effects does the same at any quality.
 - [ ] Settings → Sound effects off: silence (once sounds are uploaded).
 - [ ] Settings → Tips off: no more tips.
+- [ ] Settings → 3rd person mouse lock off: a free cursor in third person
+      (right-drag turns the camera); first person still locks it. On again:
+      locked in both.
 
 ## 6. Full server (a published private server with friends)
 

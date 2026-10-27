@@ -3,6 +3,7 @@
 -- it has left (real dates), the tier and the XP to the next one, the next
 -- tiers' rewards, and this week's challenges with their progress. What
 -- it shows comes from the server (ProgressEvent { kind = "season" }).
+-- The mouse is free while it's open (MouseLock "Season").
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -12,6 +13,7 @@ local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
+local MouseLock = require(Client.MouseLock)
 
 local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 200, 60)
@@ -106,11 +108,13 @@ end
 
 function SeasonController.open()
 	SeasonController.parts.screen.Enabled = true
+	MouseLock.setFree("Season", true)
 	SeasonController.render()
 end
 
 function SeasonController.close()
 	SeasonController.parts.screen.Enabled = false
+	MouseLock.setFree("Season", false)
 end
 
 local function build()

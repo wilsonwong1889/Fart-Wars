@@ -10,11 +10,13 @@
 --                Fart Dash trails, emotes): equip it, or how to get it
 --   Store        the Starter Pack and coin packs, contents in full, prices
 --                from Roblox (cosmetics and coins only)
---   Settings     reduced effects, sound effects, tips, and the controls
+--   Settings     reduced effects, sound effects, tips, the mouse lock in
+--                third person, and the controls
 -- Every button only asks (ShopRequest); while a request is out the buttons
 -- wait and the status line says so, and the answer (or the refusal) is
 -- shown. What the player owns comes from the server (ProfileUpdate); coins
--- and level from their attributes.
+-- and level from their attributes. The mouse is free while it's open
+-- (MouseLock "Locker").
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -32,6 +34,7 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local MouseLock = require(Client.MouseLock)
 local Detail = require(Client.Detail)
 local HealthController = require(script.Parent.HealthController)
 local WeaponView = require(Client.WeaponView)
@@ -479,6 +482,7 @@ local function settingsTab(content: Frame)
 		{ key = "teamSymbols", name = "TeamSymbols", label = "TEAM SYMBOLS", note = "▲ and ● next to names and over teammates, not just colour." },
 		{ key = "sound", name = "Sound", label = "SOUND EFFECTS", note = "The game's sounds (Roblox's own volume still applies)." },
 		{ key = "tips", name = "Tips", label = "TIPS", note = "A short hint now and then, never mid-fight." },
+		{ key = "lockMouse", name = "LockMouse", label = "3RD PERSON MOUSE LOCK", note = "Off: a free cursor in third person. Alt frees the mouse any time." },
 	}
 	local function row(name: string, order: number): Frame
 		return UI.new("Frame", {
@@ -663,12 +667,14 @@ function LockerController.open(tab: string?)
 	end
 	LockerController.isOpen = true
 	p.screen.Enabled = true
+	MouseLock.setFree("Locker", true)
 	render()
 end
 
 function LockerController.close()
 	LockerController.isOpen = false
 	LockerController.parts.screen.Enabled = false
+	MouseLock.setFree("Locker", false)
 end
 
 function LockerController.start()
