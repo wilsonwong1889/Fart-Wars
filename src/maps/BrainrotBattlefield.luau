@@ -18,7 +18,7 @@
 -- GasBarrel model (Barrel and Band) that BarrelService makes explosive.
 -- Low cover (the plaza and alley walls, the crates) is laid out at avatar
 -- height and marked KeepHeight, so the scaling spreads it across but
--- leaves it chest-high: something to duck behind, shoot past and lob
+-- leaves it that low: something to duck behind, shoot past and lob
 -- over. The tall cover (the throne, the bean cans, the Gutter's toilet),
 -- the dividers and the walls grow with everything else.
 -- Each lane has a gate across its entrance, up on the walls' tops out of

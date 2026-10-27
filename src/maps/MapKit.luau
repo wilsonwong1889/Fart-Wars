@@ -215,8 +215,8 @@ end
 --     spawn pad, the zone ring), so it stays something you walk on rather
 --     than a step
 --   * one marked KeepHeight (low cover), laid out at avatar height, so a
---     chest-high wall stays chest-high instead of becoming a wall nobody
---     can shoot or lob over
+--     wall an avatar can hide behind stays that low instead of becoming
+--     one nobody can shoot or lob over
 -- Lights reach `factor` times further, up to Roblox's limit, so a lamp
 -- still lights what it lit in the layout. Rotations must be quarter turns
 -- (all the kit makes). The map keeps the factor as its Scale attribute, so

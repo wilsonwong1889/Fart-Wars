@@ -8,7 +8,7 @@ that checks them.
 
 ```
 python3 scripts/analyze_economy.py                          # the working tree
-python3 scripts/analyze_economy.py --ref mouse-lock-merge   # the configs at a git ref (before/after)
+python3 scripts/analyze_economy.py --ref main               # the configs at a git ref (before/after)
 python3 scripts/analyze_economy.py --squad --live-ops       # with the squad bonus, Bean Rain and the season track
 ```
 
@@ -141,7 +141,7 @@ eliminations, they get them on day 6.
 - **No coin sink after the last gun.** Once a player owns all three guns, nothing in the beta
   costs coins, and an average player banks about 2,000 a day.
   `samples.unspentCoins` will climb. A coin sink (coin-priced cosmetics,
-  for example) is a new system and belongs on the roadmap.
+  for example) is a new system, so it's on the [roadmap](roadmap.md).
 - The coin packs in `MonetizationConfig` (500 / 1,200 / 3,000) matched the
   old gun prices. Look at them before selling them.
 - Profiles saved before this change keep their level and XP toward the next.

@@ -52,11 +52,11 @@ repository holds credentials or API keys, and nothing should.
 | Team choice | only when it doesn't make the teams less even |
 | Friends | break a tie between equally fair teams, nothing more |
 | AFK | warning at 45 seconds ("BRO FELL ASLEEP MID-FART!"), spectator at 60, slot freed |
-| Camera | third person; V toggles first person |
+| Camera | third person over the right shoulder; V toggles first person. In a match the mouse is locked to the crosshair; Left Alt frees it |
 | Home screen | the live battlefield behind the menu; you spectate until PLAY |
 | Result | most validated eliminations wins; level scores are a draw |
 | Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off. Long shots do less: full gas out to a weapon's effective range, half at its full range (the server measures the distance) |
-| Weapons | Gas Blaster (starter, all-round: full gas to 120 studs, half by its 260-stud range), Spritzer (level 5, 400 coins: 7% at 10 shots a second, full gas to 45 studs, nothing past 90), Thunderclapper (level 15, 1,200: 40% / 55% to the head, one a second, full gas to 240 studs, half by its 420-stud range, slower walk), Stink Lobber (level 25, 2,500: a bomb lobbed over cover up to 150 studs, 15% splash and a 4-second cloud that gasses enemies in it) |
+| Weapons | Gas Blaster (starter, all-round: full gas to 120 studs, half by its 260-stud range), Spritzer (level 5, 400 coins: 7% at 10 shots a second, full gas to 45 studs, nothing past 90), Thunderclapper (level 15, 3,000: 40% / 55% to the head, one a second, full gas to 240 studs, half by its 420-stud range, slower walk), Stink Lobber (level 25, 7,000: a bomb lobbed over cover up to 150 studs, 15% splash and a 4-second cloud that gasses enemies in it) |
 | Abilities | Shift: Fart Dash (everyone). Q, one equipped: Recovery Burst (level 10: vent 35% gas, 20 s) or Gas Pulse (level 30: after a 0.4 s wind-up, 15% to enemies within 12 studs, 25 s). One cooldown whichever is equipped; a death resets it |
 | Shop and loadouts | prices and levels checked on the server; a purchase is saved before it's confirmed. Weapon and ability changes made mid-fight wait for the next respawn; tracers apply at once |
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
@@ -66,7 +66,7 @@ repository holds credentials or API keys, and nothing should.
 | Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
 | Coins and XP | elimination 10 coins / 20 XP, assist 5 / 10, chain or barrel kill +5 coins, the 5-kill streak 50 / 100, 5 and 10 minutes of play 25 / 50 and 75 / 100 (once a session). Coins are spent in the shop; XP only levels you up |
-| Levels | 1 to 50 on a rising curve (100 XP for level 2). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
+| Levels | 1 to 50: 100 XP a level at first, rising ever faster (730 at level 24, 4,090 at 49; 61,640 in all). Pacing and the model that checks it: [`docs/economy.md`](docs/economy.md). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
 | Mastery | 25 / 75 / 150 / 300 eliminations with a weapon: a badge and 100 / 250 / 500 / 1,000 coins each, once |
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 | Daily rewards | a 7-day track (100 to 500 coins, a free spin on days 3 and 6, the Stink Sparkle tracer on day 7), one claim per UTC day; it loops, and a missed day doesn't reset it |
@@ -296,6 +296,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `WeaponArt` | the Blender art for every weapon, its moving parts, and the packed meshes (each unpacking to its size, facing out); the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); built in the game (a stand-in EditableMesh), every gun dressed in the meshes, the stand-in hidden, the hotbar too; equip, recoil, springs past rest, the twirl, sway and walk bob, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; the pump, the gauge's needle, the Stink Lobber's bomb; muzzle particles, lights and rings, impacts (light, ring), a hit's flash, barrel smoke, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, lighting and trailing smoke, the burst, splats on walls (never players), reduced effects, the imported and built meshes |
 | `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; low cover's walls and crates stretched across its wider footprint but never up or down, their imports still accepted; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
 | `GasControl` | the mode and its HUD, zone points (alone, contested, empty), eliminations not scoring, holders' rewards and their cap, the result; rotation (off, small servers, taking turns); a map missing its zone |
+| `Audio` | every sound's ID and mix (volume, pitch variety, how far it carries); flat sounds at their volume and a pitch in their range, Settings' sound and volume ruling everything; sounds in the world from where they happen, too far away not played, the voice pool (its size, a share per sound, freed when a sound ends or in time, the oldest reused, a lost anchor rebuilt); in the game, others' shots, blasts, throws, splats, abilities, dashes and emotes in the world, your own shots, hits, warnings, emote and throw flat (never echoed), the screens' sounds flat |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `HitFeedback` | the hit marker at the crosshair, only on the server's verdict: body, headshot (bigger, gold, the hit sound pitched up), the hit that sets them off (bigger still, a ring) and one that did nothing (grey, silent); the pop, the fade, back-to-back hits; REDUCE MOTION and REDUCED EFFECTS |
 | `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
@@ -303,11 +304,13 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Balance` | each weapon's role on the full-size map (reach in order, the Thunderclapper short of the arena, who gasses fastest where); fall-off (full gas close, less far away, never under the minimum, headshots still better) on paper and on real shots down a clear lane; every stink bomb landing, one lobbed over the throne; the shop's descriptions matching the numbers |
+| `Admin` | the admin code: a wrong code gives nothing and too many lock the box; the right one (any case) gives every weapon, ability and cosmetic, coins and spins, saved, and turns on the /fw commands for that player; the code never reaches the client; the Settings code box |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes |
 | `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
 | `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
+| `Camera` | the mouse locked to the centre in a match and free on the home screen, freed and locked again by MouseLock; the 3rd person mouse lock setting; the over-the-shoulder offset (eased in, snapped with Reduce motion, none in first person or with a free mouse), pulled in by walls but not by art meshes or things you walk through; the avatar facing where the camera looks without stopping a Fart Dash; spectating |
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
 | `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining): no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
 | `Map` | the MapBase contract, symmetry, lanes, cover heights (low cover at avatar height, the rest scaled; `MapKit.scale`'s KeepHeight on its own), spawn sightlines (standing, up on low cover, up on anything on the enemy half), the lane gates (a sign per lane per half reading both ways, lit, in sight of the spawn exits, decor above the dividers, a few dozen parts), barrel placement, reloading |
@@ -383,8 +386,11 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Fart Dash works while spawn-protected**: it's movement, not an attack.
 - **Shots are numbered** by the client; a repeated or out-of-order number
   is refused as a duplicate packet.
-- **Sounds are empty slots** (`AudioConfig`) until the game's own sounds
-  are uploaded.
+- **Sounds are Roblox library sounds** (`AudioConfig`), each with its own
+  volume and a little pitch variety. Your own shots, hits and warnings
+  are flat; anything that happens somewhere else in the world (other
+  players' shots, blasts, stink bombs, abilities, dashes and emotes)
+  plays from there and fades with distance, from a fixed pool of voices.
 - **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
   puffs), or with Reduced effects on in Settings.
 
@@ -496,8 +502,9 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Clients report a few numbers** (frame rate, render spikes, ping, menu
   latency, errors, graphics quality) about once a minute, and nothing else.
 - **Budgets are fixed numbers** (`GameConfig.BUDGET`): 16 stink clouds on
-  the server, 24 tracers and 120 effect parts on each client; past them
-  the oldest goes first, so a chaotic fight costs the same as a busy one.
+  the server, 24 tracers, 120 effect parts and 16 sounds in the world on
+  each client (`AudioConfig.VOICES`); past them the oldest goes first, so
+  a chaotic fight costs the same as a busy one.
 - **Shots stay server-authoritative under lag.** A late shot is checked
   against where players are when it arrives; a lost one leaves a gap the
   server accepts; a late, out-of-order one is dropped.
