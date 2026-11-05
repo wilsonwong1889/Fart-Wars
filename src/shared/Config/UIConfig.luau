@@ -167,6 +167,8 @@ local UIConfig = {
 		-- Kept free for later mechanics.
 		reserved = table.freeze({ Enum.KeyCode.R, Enum.KeyCode.F }),
 	}),
+	-- How many emotes fit around E, in the Loadout and on the wheel.
+	emoteSpots = 8,
 	-- The one-time card on a player's first PLAY.
 	controls = table.freeze({
 		{ "WASD", "Move" },
@@ -175,7 +177,7 @@ local UIConfig = {
 		{ "SHIFT", "Fart Dash" },
 		{ "Q", "Ability (once unlocked)" },
 		{ "1-4", "Pick a weapon" },
-		{ "E", "Emote" },
+		{ "E", "Emote (hold for the wheel)" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "ALT", "Free the mouse" },

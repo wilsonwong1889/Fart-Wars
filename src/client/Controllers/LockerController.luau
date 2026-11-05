@@ -110,7 +110,8 @@ local function owns(list: any, id: string): boolean
 	return type(list) == "table" and table.find(list, id) ~= nil
 end
 
--- The weapons this player could buy right now (the Shop button's badge).
+-- What this player could buy right now, weapons and today's cosmetics (the
+-- Shop button's badge).
 function LockerController.buyable(): number
 	local profile = LockerController.profile
 	if not profile or profile.saving == false then
@@ -119,6 +120,12 @@ function LockerController.buyable(): number
 	local level, coins, count = number("Level", 1), number("Coins", 0), 0
 	for _, id in WeaponConfig.order do
 		if not owns(profile.ownedWeapons, id) and level >= WeaponConfig.weapons[id].level and coins >= LockerController.priceOf(id) then
+			count += 1
+		end
+	end
+	local ownedCosmetics = if type(profile.ownedCosmetics) == "table" then profile.ownedCosmetics else {}
+	for _, item in DailyShopConfig.today(LockerController.now()) do
+		if coins >= item.price and not ProgressionConfig.ownsCosmetic(ownedCosmetics, item.id) then
 			count += 1
 		end
 	end
@@ -345,6 +352,27 @@ local function swatch(id: string, holder: GuiObject)
 end
 LockerController.swatch = swatch
 
+-- A cosmetic on the player's own gun: the gun, with the tracer coming out
+-- of its barrel, or the trail, boom or emote beside it.
+local function onGun(id: string, holder: GuiObject)
+	local equipped = (LockerController.profile or {}).equippedWeapon
+	local gun = if type(equipped) == "string" and WeaponConfig.weapons[equipped] then equipped else WeaponConfig.order[1]
+	WeaponView.new(gun, { Name = "Preview", Size = UDim2.new(0.56, 0, 1, 0), Parent = holder })
+	local effect = UI.new("Frame", {
+		Name = "Effect",
+		Position = UDim2.new(0.44, 0, 0, 0),
+		Size = UDim2.new(0.56, 0, 1, 0),
+		BackgroundTransparency = 1,
+		Parent = holder,
+	})
+	swatch(id, effect)
+	local streak = effect:FindFirstChild("Streak", true)
+	if streak then
+		streak.Rotation = 0
+		streak.Size = UDim2.new(1, -8, 0, 10)
+	end
+end
+
 -- Recolours a UI.box.
 local function tint(box: Frame, color: Color3)
 	local h, s, v = color:ToHSV()
@@ -361,6 +389,8 @@ local function confirm(kind: string, id: string, title: string, cost: number, co
 	p.confirmTitle.Text = title
 	p.confirmPrice.Text = `💰 {UI.commas(cost)}`
 	p.confirmLeft.Text = `You'll have {UI.commas(number("Coins", 0) - cost)} coins left.`
+	UI.setEnabled(p.confirmYes, true)
+	p.confirmNo.Text, p.confirmNo.Label.Text = "NO", "NO"
 	tint(p.confirmCard, color)
 	for _, child in p.confirmPreview:GetChildren() do
 		if not child:IsA("UICorner") then
@@ -379,16 +409,32 @@ function LockerController.confirmBuy(id: string)
 	end)
 end
 
--- The same for one of today's cosmetics.
+-- The same for one of today's cosmetics, on the player's own gun. Anything
+-- on sale can be looked at: if it can't be bought yet, the card says why
+-- and YES stays grey.
 function LockerController.confirmCosmetic(id: string)
+	local p = LockerController.parts
 	local item = DailyShopConfig.item(id)
 	local cosmetic = ProgressionConfig.cosmetics[id]
 	if not item or not cosmetic then
 		return
 	end
-	confirm("cosmetic", id, `BUY {string.upper(cosmetic.name)}?`, item.price, DailyShopConfig.rarities[item.rarity].color, function(holder)
-		swatch(id, holder)
+	local profile = LockerController.profile or {}
+	local owned = type(profile.ownedCosmetics) == "table" and ProgressionConfig.ownsCosmetic(profile.ownedCosmetics, id)
+	local short = item.price - number("Coins", 0)
+	local why = if owned then "You own this one: equip it in your Loadout."
+		elseif profile.saving == false then "Progress isn't saving this session: the shop is closed."
+		elseif short > 0 then `{UI.commas(short)} more coins and it's yours.`
+		else nil
+	local name = string.upper(cosmetic.name)
+	confirm("cosmetic", id, if why then name else `BUY {name}?`, item.price, DailyShopConfig.rarities[item.rarity].color, function(holder)
+		onGun(id, holder)
 	end)
+	if why then
+		p.confirmLeft.Text = why
+		UI.setEnabled(p.confirmYes, false)
+		p.confirmNo.Text, p.confirmNo.Label.Text = "CLOSE", "CLOSE"
+	end
 end
 
 function LockerController.closeConfirm()
@@ -433,6 +479,7 @@ local turn = 0
 -- part shows.
 local sectionTops: { [string]: number } = {}
 local shownDay = -1
+local badgeDay: number?
 
 -- The store's prices come from Roblox, once each.
 local priceCache: { [string]: string } = {}
@@ -698,15 +745,21 @@ local function dailyPart(parent: Frame)
 				Font = UIConfig.bodyFont,
 				Parent = tile,
 			})
-			local window = UI.new("Frame", {
+			-- The window is a button: it previews what's in it, bought or not.
+			local window = UI.new("TextButton", {
 				Name = "Window",
 				Position = UDim2.new(0, 8, 0, 52),
 				Size = UDim2.new(1, -16, 0, 90),
 				BackgroundColor3 = Color3.fromRGB(14, 12, 22),
 				BackgroundTransparency = 0.45,
+				AutoButtonColor = false,
+				Text = "",
 				Parent = tile,
 			}, { UI.corner(10) })
 			swatch(item.id, window)
+			UI.onClick(window, function()
+				LockerController.confirmCosmetic(item.id)
+			end)
 			local owned = type(profile.ownedCosmetics) == "table" and ProgressionConfig.ownsCosmetic(profile.ownedCosmetics, item.id)
 			local cost = `💰 {UI.commas(item.price)}`
 			local button = if owned
@@ -862,11 +915,17 @@ end
 -- shop).
 local function tickDaily()
 	local p = LockerController.parts
+	local now = LockerController.now()
+	local day = DailyShopConfig.day(now)
+	if badgeDay and day ~= badgeDay then
+		-- New cosmetics to count on the Shop button.
+		LockerController.BadgesChanged:Fire()
+	end
+	badgeDay = day
 	if not LockerController.isOpen or LockerController.tab ~= "Weapons" or not p.dailyTimer or not p.dailyTimer.Parent then
 		return
 	end
-	local now = LockerController.now()
-	if DailyShopConfig.day(now) ~= shownDay then
+	if day ~= shownDay then
 		render()
 		return
 	end

@@ -46,11 +46,14 @@ local SeasonController = require(script.Parent.SeasonController)
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
+local DailyShopConfig = require(Shared.Config.DailyShopConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local WeaponView = require(Client.WeaponView)
 
 local C = UIConfig.colors
 local Phase = States.Phase
+-- How many of today's cosmetics the lobby's daily card shows.
+local DAILY_CARD_ITEMS = 3
 
 local HomeController = {}
 
@@ -148,9 +151,10 @@ local function layoutTiles()
 end
 
 -- The featured offers: what's worth a look right now, from what the player
--- has and the server says (never made up): the Starter Pack until it's
--- owned, the next weapon to buy (or the level it opens at), the daily
--- reward, free spins waiting, and the season while one is on.
+-- has and the server says (never made up): today's daily shop while it has
+-- something they don't own, the Starter Pack until it's owned, the next
+-- weapon to buy (or the level it opens at), the daily reward, free spins
+-- waiting, and the season while one is on.
 type Offer = {
 	id: string,
 	tag: string,
@@ -160,6 +164,8 @@ type Offer = {
 	ready: boolean,
 	color: Color3,
 	weapon: string?,
+	-- Cosmetics on sale today, shown in place of the text and action.
+	items: { string }?,
 	open: () -> (),
 }
 
@@ -171,6 +177,28 @@ local function offers(): { Offer }
 		return if type(value) == "number" then value else default
 	end
 	local list: { Offer } = {}
+	local today = {}
+	local ownedCosmetics = if type(profile.ownedCosmetics) == "table" then profile.ownedCosmetics else {}
+	for _, item in DailyShopConfig.today(LockerController.now()) do
+		if #today < DAILY_CARD_ITEMS and not ProgressionConfig.ownsCosmetic(ownedCosmetics, item.id) then
+			table.insert(today, item.id)
+		end
+	end
+	if #today > 0 then
+		table.insert(list, {
+			id = "DailyShop",
+			tag = "",
+			title = "DAILY COSMETICS",
+			text = "",
+			action = "",
+			ready = true,
+			color = UIConfig.pages.Progression.color,
+			items = today,
+			open = function()
+				LockerController.open("Weapons", "Daily")
+			end,
+		})
+	end
 	for _, pass in MonetizationConfig.passes do
 		local owned = type(profile.passes) == "table" and table.find(profile.passes, pass.key) ~= nil
 		if not owned then
@@ -253,6 +281,67 @@ local function offers(): { Offer }
 	return list
 end
 
+local function timeLeft(): string
+	return DailyShopConfig.countdown(DailyShopConfig.secondsLeft(LockerController.now()))
+end
+
+-- The daily shop's card: the time left and a few of today's cosmetics.
+local function dailyCard(items: { string }, title: string, card: Instance)
+	local p = HomeController.parts
+	UI.label(title, 18, {
+		Name = "Title",
+		Position = UDim2.new(0, 12, 0, 8),
+		Size = UDim2.new(1, -104, 0, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = UIConfig.gold,
+		Parent = card,
+	})
+	p.offerTimer = UI.label(timeLeft(), 14, {
+		Name = "Timer",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -12, 0, 10),
+		Size = UDim2.new(0, 84, 0, 18),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Color3.fromRGB(255, 154, 216),
+		Parent = card,
+	})
+	local row = UI.new("Frame", {
+		Name = "Items",
+		Position = UDim2.new(0, 10, 0, 34),
+		Size = UDim2.new(1, -20, 0, 96),
+		BackgroundTransparency = 1,
+		Parent = card,
+	}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center) })
+	for i, id in items do
+		local item = DailyShopConfig.item(id)
+		local cosmetic = ProgressionConfig.cosmetics[id]
+		if item and cosmetic then
+			local tile = UI.new("Frame", {
+				Name = id,
+				LayoutOrder = i,
+				Size = UDim2.new(0, 88, 1, 0),
+				BackgroundColor3 = DailyShopConfig.rarities[item.rarity].color,
+				Parent = row,
+			}, { UI.corner(10), UI.stroke(C.stroke, 2) })
+			local window = UI.new("Frame", {
+				Name = "Window",
+				Size = UDim2.new(1, 0, 0, 70),
+				BackgroundTransparency = 1,
+				Parent = tile,
+			})
+			LockerController.swatch(id, window)
+			UI.label(cosmetic.name, 12, {
+				Name = "ItemName",
+				AnchorPoint = Vector2.new(0, 1),
+				Position = UDim2.new(0, 4, 1, -4),
+				Size = UDim2.new(1, -8, 0, 18),
+				TextScaled = true,
+				Parent = tile,
+			})
+		end
+	end
+end
+
 -- One offer as a card: its colour, the gun turning in it for a weapon, and
 -- what clicking does (BUY 400, LEVEL 15, CLAIM!...).
 local function offerCard(offer: Offer, order: number, parent: Instance)
@@ -272,6 +361,10 @@ local function offerCard(offer: Offer, order: number, parent: Instance)
 	})
 	UI.springy(card, 1.04)
 	UI.onClick(card, offer.open)
+	if offer.items then
+		dailyCard(offer.items, offer.title, card)
+		return
+	end
 	local left = 12
 	if offer.weapon then
 		local preview = WeaponView.new(offer.weapon, {
@@ -328,6 +421,7 @@ end
 local function renderOffers()
 	local p = HomeController.parts
 	local list = offers()
+	p.offerDay = DailyShopConfig.day(LockerController.now())
 	for _, child in p.offerRow:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
@@ -353,6 +447,17 @@ local function renderOffers()
 	end
 end
 HomeController.renderOffers = renderOffers
+
+-- The daily card's time left, and a new day's cosmetics at midnight.
+local function tickOffers()
+	local p = HomeController.parts
+	if DailyShopConfig.day(LockerController.now()) ~= p.offerDay then
+		renderOffers()
+	elseif p.offerTimer and p.offerTimer.Parent then
+		p.offerTimer.Text = timeLeft()
+	end
+end
+HomeController.tickOffers = tickOffers
 
 local function pageOffers(by: number)
 	local p = HomeController.parts
@@ -381,7 +486,8 @@ local function build()
 	local pages = UI.new("Frame", {
 		Name = "Pages",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 24, 0.5, 0),
+		-- Lower than the middle: Roblox's chat box sits above.
+		Position = UDim2.new(0, 24, 0.5, 40),
 		Size = UDim2.new(0, 250, 0, #UIConfig.lobbyPages * 84),
 		BackgroundTransparency = 1,
 		Parent = home,
@@ -536,14 +642,14 @@ local function build()
 		BackgroundTransparency = 0.1,
 		Parent = center,
 	}, { UI.corner(20), UI.stroke(Color3.fromRGB(54, 224, 244), 4) })
-	UI.label("FEATURED", 28, {
+	UI.label("TODAY IN THE SHOP", 28, {
 		Name = "Heading",
 		Position = UDim2.new(0, 0, 0, 8),
 		Size = UDim2.new(1, 0, 0, 32),
 		TextColor3 = C.accent,
 		Parent = p.featured,
 	})
-	UI.label("What's worth a look right now.", 15, {
+	UI.label("New cosmetics every day. Pick one to preview it on your gun.", 15, {
 		Name = "Subheading",
 		Position = UDim2.new(0, 0, 0, 40),
 		Size = UDim2.new(1, 0, 0, 18),
@@ -1100,6 +1206,7 @@ function HomeController.start()
 		while true do
 			task.wait(0.5)
 			HomeController.parts.status.Text = statusText()
+			tickOffers()
 		end
 	end)
 end

@@ -1,6 +1,6 @@
 -- PC controls: WASD and Space are Roblox's own; this adds mouse aim and
 -- left click to fire, Shift for Fart Dash, Q for the equipped ability, 1-4
--- for the hotbar's weapons, E to emote, V for first/third person, Left Alt
+-- for the hotbar's weapons, E to emote (held: the wheel), V for first/third person, Left Alt
 -- to free the mouse from the crosshair (and lock it again; MouseLock), M
 -- for the menu and Tab (held) for the scoreboard. R and F stay free for
 -- later mechanics. Keys pressed while typing in chat or a text box are
@@ -28,6 +28,7 @@ InputController.DashPressed = Signal.new()
 InputController.AbilityPressed = Signal.new()
 InputController.SlotPressed = Signal.new() -- (slot number)
 InputController.EmotePressed = Signal.new()
+InputController.EmoteReleased = Signal.new()
 
 -- Set by the menu: no firing or dashing while it's open.
 InputController.menuOpen = false
@@ -113,12 +114,15 @@ function InputController.start()
 			setFire(false)
 		elseif input.KeyCode == keys.scoreboard then
 			InputController.ScoreboardHeld:Fire(false)
+		elseif input.KeyCode == keys.emote then
+			InputController.EmoteReleased:Fire()
 		end
 	end)
 	-- Losing focus (alt-tab) lets go of every held input.
 	UserInputService.WindowFocusReleased:Connect(function()
 		setFire(false)
 		InputController.ScoreboardHeld:Fire(false)
+		InputController.EmoteReleased:Fire()
 	end)
 end
 

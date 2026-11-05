@@ -11,6 +11,10 @@
 --   * the shop: one page with a rail to each part; the Daily part's tiles
 --     by rarity, price or OWNED, "Buy it?" first, the countdown ticking, a
 --     new shop at midnight; redrawn where it was scrolled to
+--   * a tile's window previews it on the player's gun, bought or not, and
+--     says why it can't be bought yet
+--   * the lobby: the daily card with today's unowned cosmetics and the time
+--     left, a new day at midnight, and the SHOP badge counting them
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -116,6 +120,7 @@ task.wait(0.1)
 run(game.StarterPlayer.StarterPlayerScripts.Client.ClientBootstrap)
 local Controllers = game.StarterPlayer.StarterPlayerScripts.Client.Controllers
 local Locker = require(Controllers.LockerController)
+local Home = require(Controllers.HomeController)
 local UI = require(game.StarterPlayer.StarterPlayerScripts.Client.UI)
 local function click(button: GuiButton)
 	button.Activated:Fire()
@@ -186,8 +191,23 @@ end
 check(Locker.card(cheapest.id).Action.Text == "OWNED" and Locker.card(cheapest.id).Action:GetAttribute("Enabled") == false, "the one bought: OWNED")
 check(Locker.card(other.id).Action:GetAttribute("Enabled") ~= false, "one I can afford: ready")
 check(Locker.card(dearest.id).Action:GetAttribute("Enabled") == false, "the dearest, too dear for now: greyed")
+local dearestName = string.upper(ProgressionConfig.cosmetics[dearest.id].name)
+click(Locker.card(dearest.id).Window)
+check(p.confirm.Visible and p.confirmTitle.Text == dearestName, "its window previews it anyway")
+check(p.confirmPreview:FindFirstChild("Preview") and p.confirmPreview:FindFirstChild("Swatch", true), "on the player's gun")
+check(p.confirmLeft.Text == `{UI.commas(dearest.price - data().Coins)} more coins and it's yours.`, "saying what's missing: " .. p.confirmLeft.Text)
+check(p.confirmYes:GetAttribute("Enabled") == false and p.confirmNo.Label.Text == "CLOSE", "YES grey, NO says CLOSE")
+click(p.confirmYes)
+check(p.confirm.Visible and not table.find(data().OwnedCosmetics, dearest.id), "YES does nothing")
+click(p.confirmNo)
+check(not p.confirm.Visible, "CLOSE closes it")
+click(Locker.card(cheapest.id).Window)
+check(p.confirmLeft.Text == "You own this one: equip it in your Loadout." and p.confirmYes:GetAttribute("Enabled") == false, "one already owned: it says so")
+click(p.confirmNo)
 coins(dearest.price - data().Coins)
 task.wait(0.1)
+check(Locker.buyable() == DailyShopConfig.SLOTS - 1, "the SHOP badge: today's I don't own and can pay for")
+check(Home.parts.pageButtons.Weapons.Badge.Count.Text == tostring(DailyShopConfig.SLOTS - 1), "on the home screen")
 local buy = Locker.card(dearest.id).Action
 check(buy.Text == `💰 {UI.commas(dearest.price)}` and buy:GetAttribute("Enabled") ~= false, "with the coins: its price, ready")
 check(p.dailyTimer.Text == "⏳ Refreshes in 23:00:00", "the countdown: " .. p.dailyTimer.Text)
@@ -196,7 +216,8 @@ Locker.tickDaily()
 check(p.dailyTimer.Text == "⏳ Refreshes in 22:59:59", "ticking")
 click(buy)
 check(p.confirm.Visible and p.confirmKind == "cosmetic" and p.confirmPrice.Text == `💰 {UI.commas(dearest.price)}`, "BUY asks first")
-check(p.confirmTitle.Text == `BUY {string.upper(ProgressionConfig.cosmetics[dearest.id].name)}?` and p.confirmPreview:FindFirstChild("Swatch"), "showing what it is")
+check(p.confirmTitle.Text == `BUY {dearestName}?` and p.confirmPreview:FindFirstChild("Swatch", true), "showing what it is")
+check(p.confirmYes:GetAttribute("Enabled") ~= false and p.confirmNo.Label.Text == "NO", "YES ready, NO back to NO")
 check(p.confirmLeft.Text == "You'll have 0 coins left.", "and what's left")
 click(p.confirmYes)
 task.wait(0.5)
@@ -205,13 +226,35 @@ check(Locker.card(dearest.id).Action.Text == "OWNED", "and the tile says so")
 check(Locker.section == "Daily" and p.shop.CanvasPosition.Y > 0, "still at the daily part after the redraw")
 
 -- Midnight.
+local badgesChanged = 0
+Locker.BadgesChanged:Connect(function()
+	badgesChanged += 1
+end)
 now = (DAY + 1) * 86400 + 2
 Locker.tickDaily()
+check(badgesChanged > 0, "a new day: the badges count again")
 local tomorrow = DailyShopConfig.forDay(DAY + 1)
 for _, item in tomorrow do
 	check(Locker.card(item.id), `a new day: {item.id}`)
 end
 check(p.dailyTimer.Text == "⏳ Refreshes in 23:59:58", "counting down again")
+Home.parts.offerStart = 1
+Home.tickOffers()
+local dailyCard = Home.parts.offerRow.DailyShop
+local shown = 0
+for _, item in tomorrow do
+	local owned = ProgressionConfig.ownsCosmetic(data().OwnedCosmetics, item.id)
+	if not owned and shown < 3 then
+		shown += 1
+		check(dailyCard.Items:FindFirstChild(item.id), `the lobby's card: {item.id}`)
+	else
+		check(not dailyCard.Items:FindFirstChild(item.id), `and not {item.id}`)
+	end
+end
+check(dailyCard.Timer.Text == "23:59:58", "with the time left: " .. dailyCard.Timer.Text)
+now += 1
+Home.tickOffers()
+check(dailyCard.Parent and dailyCard.Timer.Text == "23:59:57", "ticking, without redrawing the card")
 if not DailyShopConfig.onSale(notToday.id, now) then
 	check(request("buy", "cosmetic", notToday.id).reason == "unknown", "and the server goes by the same day")
 end

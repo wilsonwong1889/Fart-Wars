@@ -80,6 +80,7 @@ run(game.StarterPlayer.StarterPlayerScripts.Client.ClientBootstrap)
 local Controllers = game.StarterPlayer.StarterPlayerScripts.Client.Controllers
 local Locker = require(Controllers.LockerController)
 local Home = require(Controllers.HomeController)
+local DailyShopConfig = require(ReplicatedStorage.Shared.Config.DailyShopConfig)
 local function click(button: GuiButton)
 	button.Activated:Fire()
 	task.wait(0.05)
@@ -260,6 +261,11 @@ local function shownOffers(): { string }
 end
 Home.parts.offerStart = 1
 Home.renderOffers()
+for _ = 1, 5 do
+	if not Home.parts.offerRow:FindFirstChild("Weapon") then
+		click(Home.parts.nextOffer)
+	end
+end
 local weaponOffer = Home.parts.offerRow:FindFirstChild("Weapon")
 check(weaponOffer and weaponOffer.Title.Text == "STINK LOBBER" and weaponOffer.Action.Label.Text == "BUY 7,000" and weaponOffer:FindFirstChild("Preview"), "featured: the Stink Lobber, BUY 7,000, with the gun")
 check(Home.parts.nextOffer.Visible, "more than two offers: arrows")
@@ -269,7 +275,8 @@ check(shownOffers()[1] == first[2], "the next arrow moves along: " .. table.conc
 click(Home.parts.prevOffer)
 check(shownOffers()[1] == first[1], "and back")
 local shopButton = Home.parts.pageButtons.Weapons
-check(Locker.buyable() == 1 and shopButton.Badge.Visible and shopButton.Badge.Count.Text == "1", "the home screen's SHOP badge: one to buy")
+local toBuy = 1 + DailyShopConfig.SLOTS
+check(Locker.buyable() == toBuy and shopButton.Badge.Visible and shopButton.Badge.Count.Text == tostring(toBuy), "the home screen's SHOP badge: the gun and today's cosmetics")
 -- A tip says so too (once), between fights.
 local Progress = require(Controllers.ProgressController)
 local function tipShown(fragment: string): boolean

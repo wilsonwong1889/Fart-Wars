@@ -119,8 +119,9 @@ check(home.comingSoon.Enabled and home.soonTitle.Text == "LEADERBOARD", "Leaderb
 click(home.comingSoon:FindFirstChild("Close", true))
 check(not home.comingSoon.Enabled, "and closes")
 
--- The lobby: the battlefield blurred, LOADOUT, SHOP and LEVELS, the
--- featured offers two at a time, the bubble for a first-timer, and Space.
+-- The lobby: the battlefield blurred, LOADOUT, SHOP and LEVELS, today's
+-- cosmetics and the other offers two at a time, the bubble for a
+-- first-timer, and Space.
 local Lighting = game:GetService("Lighting")
 local Locker = require(client.Controllers.LockerController)
 check(Lighting.MenuBlur.Size == UIConfig.menuBlur, "the battlefield blurs behind the home screen")
@@ -152,9 +153,22 @@ local function shownOffers(): { string }
 	return names
 end
 -- (No profile here yet, so no weapon offer: the Shop spec has those.)
-check(home.featured.Visible and table.concat(shownOffers(), ",") == "StarterPack,Daily", "featured: the Starter Pack and the daily reward: " .. table.concat(shownOffers(), ","))
+check(home.featured.Heading.Text == "TODAY IN THE SHOP", "the panel: today in the shop")
+check(home.featured.Visible and table.concat(shownOffers(), ",") == "DailyShop,StarterPack", "today's cosmetics and the Starter Pack: " .. table.concat(shownOffers(), ","))
+local dailyCard = home.offerRow.DailyShop
+local dailyItems = 0
+for _, tile in dailyCard.Items:GetChildren() do
+	if tile:IsA("Frame") then
+		dailyItems += 1
+		check(tile.Window:FindFirstChild("Swatch") and tile.ItemName.Text ~= "", "each with its look and name")
+	end
+end
+check(dailyItems == 3 and string.find(dailyCard.Timer.Text, ":", 1, true), "three of them, and the time left: " .. dailyCard.Timer.Text)
+click(dailyCard)
+check(Locker.isOpen and Locker.section == "Daily", "the daily card opens the shop's daily part")
+Locker.close()
 check(home.offerRow.StarterPack.Action.Label.Text == "SEE STORE", "the pack sends you to the store (no pass ID yet)")
-check(not home.nextOffer.Visible, "two offers: no arrows")
+check(home.nextOffer.Visible, "three offers: arrows")
 click(home.offerRow.StarterPack)
 check(Locker.isOpen and Locker.tab == "Weapons" and Locker.section == "Featured", "a card opens what it's about: the pack, at the shop's top")
 Locker.close()

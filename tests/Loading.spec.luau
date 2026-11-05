@@ -5,6 +5,8 @@
 --   * it says what it's waiting for: the profile (DataStatus "loading"),
 --     then the lobby (the home screen), the bar filling as it goes
 --   * once the home screen exists it fades and is gone
+--   * the background's gradient stays off the group, and text within what
+--     Roblox draws
 --   * a profile that never loads doesn't trap anyone: after
 --     loadingSeconds.stage it moves on anyway
 local Players = game:GetService("Players")
@@ -46,6 +48,15 @@ local screen = me.PlayerGui:FindFirstChild("LoadingScreen")
 check(screen and screen.Enabled and screen.DisplayOrder >= 100, "it shows straight away, over everything")
 local stage = screen.Group.Stage
 check(stage.Logo.FART and stage.Logo.WARS and stage.Tagline.Text == UIConfig.tagline, "the logo and the tagline")
+-- What the specs can't see, kept from coming back: a gradient on a
+-- CanvasGroup tints all that's in it, and Roblox stops text at size 100.
+check(screen.Group:FindFirstChildOfClass("UIGradient") == nil, "no gradient on the group itself")
+check(screen.Group.Background:FindFirstChildOfClass("UIGradient"), "it's on the background")
+for _, item in screen:GetDescendants() do
+	if item:IsA("TextLabel") then
+		check(item.TextSize <= 100, `{item.Name}: text Roblox can draw at that size`)
+	end
+end
 check(table.find(UIConfig.loadingTips, stage.Tip.Text) ~= nil, "a tip: " .. stage.Tip.Text)
 check(string.find(screen.Group.Version.Text, ReleaseConfig.VERSION, 1, true), "and the build")
 check(stage.Status.Text == "Loading your profile...", "waiting for the profile: " .. stage.Status.Text)

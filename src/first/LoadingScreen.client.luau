@@ -22,6 +22,7 @@ local GREEN = Color3.fromRGB(139, 232, 58)
 local GOLD = Color3.fromRGB(255, 201, 40)
 -- Until the tips and timings arrive with the rest of the game.
 local STAGE_SECONDS, TIP_SECONDS, FADE_SECONDS = 15, 4, 0.5
+local LOGO_SCALE = 1.5
 
 pcall(ReplicatedFirst.RemoveDefaultLoadingScreen, ReplicatedFirst)
 
@@ -58,26 +59,27 @@ local function outlined(text: string, size: number, props: { [string]: any }): T
 end
 
 -- A logo word: its colour as a top-to-bottom shine, a thick outline, and a
--- dark copy just below it for depth.
-local function logoWord(text: string, color: Color3, parent: Instance, order: number)
+-- dark copy just below it for depth. Roblox stops text at size 100, so the
+-- word is drawn at 100 and scaled up; `width` fits it at that size.
+local function logoWord(text: string, width: number, color: Color3, parent: Instance, order: number)
 	local h, s, v = color:ToHSV()
 	local holder = new("Frame", {
 		Name = text,
 		LayoutOrder = order,
-		Size = UDim2.new(0, #text * 104, 0, 170),
+		Size = UDim2.new(0, width, 0, 113),
 		BackgroundTransparency = 1,
 		Parent = parent,
-	})
+	}, { new("UIScale", { Scale = LOGO_SCALE }) })
 	-- (A frame's rotation doesn't turn its children, so each label tilts.)
-	outlined(text, 150, {
+	outlined(text, 100, {
 		Name = "Shadow",
-		Position = UDim2.new(0, 0, 0, 12),
+		Position = UDim2.new(0, 0, 0, 8),
 		Size = UDim2.new(1, 0, 1, 0),
 		Rotation = -4,
 		TextColor3 = INK,
 		Parent = holder,
 	})
-	outlined(text, 150, {
+	outlined(text, 100, {
 		Name = "Word",
 		Size = UDim2.new(1, 0, 1, 0),
 		Rotation = -4,
@@ -102,9 +104,17 @@ local screen = new("ScreenGui", {
 local group = new("CanvasGroup", {
 	Name = "Group",
 	Size = UDim2.new(1, 0, 1, 0),
-	BackgroundColor3 = Color3.new(1, 1, 1),
+	BackgroundTransparency = 1,
 	Active = true,
 	Parent = screen,
+})
+-- Its own frame: a gradient on the group itself would tint all that's in it.
+new("Frame", {
+	Name = "Background",
+	Size = UDim2.new(1, 0, 1, 0),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	ZIndex = 0,
+	Parent = group,
 }, {
 	new("UIGradient", {
 		Rotation = 90,
@@ -145,8 +155,8 @@ local logo = new("Frame", {
 		SortOrder = Enum.SortOrder.LayoutOrder,
 	}),
 })
-logoWord("FART", GREEN, logo, 1)
-logoWord("WARS", GOLD, logo, 2)
+logoWord("FART", 236, GREEN, logo, 1)
+logoWord("WARS", 268, GOLD, logo, 2)
 outlined("Skibidi Stinkers vs Sigma Sharters", 28, {
 	Name = "Tagline",
 	Position = UDim2.new(0, 0, 0, 340),

@@ -281,10 +281,10 @@ function LoadoutService.testGive(player: Player, kind: string, id: string): bool
 	return true
 end
 
--- E: the player's emote, seen by everyone (cosmetic only, a few seconds
--- apart).
+-- E: an emote, seen by everyone (cosmetic only, a few seconds apart): the
+-- player's equipped one, or `id` from the emote wheel if they own it.
 --   CombatEvent { kind = "emote", player, emote }
-function LoadoutService.emote(player: Player): boolean
+function LoadoutService.emote(player: Player, id: unknown?): boolean
 	local profile = DataService.get(player)
 	local character = player.Character
 	if not (profile and character and PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE) then
@@ -294,10 +294,18 @@ function LoadoutService.emote(player: Player): boolean
 		Telemetry.reject("Emote", player, "rateLimited")
 		return false
 	end
-	local id = LoadoutService.cosmetic(profile.data, "emote")
+	local emote = LoadoutService.cosmetic(profile.data, "emote")
+	if id ~= nil then
+		local cosmetic = if type(id) == "string" then ProgressionConfig.cosmetics[id] else nil
+		if not (cosmetic and cosmetic.kind == "emote" and ProgressionConfig.ownsCosmetic(profile.data.OwnedCosmetics, id :: string)) then
+			Telemetry.reject("Emote", player, "notOwned")
+			return false
+		end
+		emote = id :: string
+	end
 	Telemetry.count("Loadout.emotes")
 	local combatEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CombatEvent") :: RemoteEvent
-	combatEvent:FireAllClients({ kind = "emote", player = player.UserId, emote = id })
+	combatEvent:FireAllClients({ kind = "emote", player = player.UserId, emote = emote })
 	return true
 end
 
@@ -307,8 +315,8 @@ function LoadoutService.start()
 	end
 	started = true
 	local emoteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Emote") :: RemoteEvent
-	emoteRemote.OnServerEvent:Connect(Telemetry.guard("Loadout", function(player)
-		LoadoutService.emote(player)
+	emoteRemote.OnServerEvent:Connect(Telemetry.guard("Loadout", function(player, id)
+		LoadoutService.emote(player, id)
 	end))
 	DataService.Loaded:Connect(function(player, profile)
 		if inCombat(player) then

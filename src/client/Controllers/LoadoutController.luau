@@ -46,7 +46,7 @@ local SLOTS = {
 	{ kind = "trail", label = "DASH TRAIL", field = "equippedTrail", none = "None" },
 	{ kind = "boom", label = "BOOM", field = "equippedBoom", none = "Default" },
 }
-local EMOTE_SPOTS = 8
+local EMOTE_SPOTS = UIConfig.emoteSpots
 local SELECTED = Color3.fromRGB(45, 155, 245)
 local ROW = Color3.fromRGB(34, 28, 48)
 local ROW_LOCKED = Color3.fromRGB(23, 18, 31)
@@ -616,7 +616,7 @@ local function build()
 	end
 
 	-- Right: the emotes around E.
-	label("EMOTE (E)", 15, {
+	label("EMOTES (HOLD E)", 15, {
 		Name = "EmotesHeading",
 		Position = UDim2.new(0, 950, 0, 120),
 		Size = UDim2.new(0, 290, 0, 20),
@@ -648,7 +648,7 @@ local function build()
 		TextColor3 = UIConfig.gold,
 		Parent = stage,
 	})
-	label("Pick an emote for E. More in the daily shop.", 13, {
+	label("Tap E for the lit one, hold E for the wheel.", 13, {
 		Name = "EmoteHint",
 		Position = UDim2.new(0, 950, 0, 478),
 		Size = UDim2.new(0, 290, 0, 18),
