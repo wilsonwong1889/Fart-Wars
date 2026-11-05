@@ -2,7 +2,8 @@
 -- three bots, 2v2; joins, leaves and team changes add, remove and move
 -- them; a dead bot is back after RESPAWN_SECONDS with no body left
 -- behind; two bots face to face fight at a human rate of fire and the kill
--- is credited; the /fw bots commands; Gas Control sends them to the zone.
+-- is credited; the /fw bots commands; a new round brings every bot back in a
+-- fresh avatar with no gas; Gas Control sends them to the zone.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
@@ -162,9 +163,27 @@ print("13 s:", #shots, "gas", Bots.gasOf(a), Bots.gasOf(b), Bots.isAlive(a), Bot
 task.wait(60)
 print("a minute on:", line(), Round.phase())
 print(TestControls.run(ada, "/fw mode gascontrol"))
+-- A new round: everyone back at a spawn. Gas on them first, or "no gas"
+-- below would prove nothing.
+local before, gassed = {}, 0
+for _, bot in Bots.all() do
+	before[bot] = bot.character
+	Bots.endProtection(bot)
+	local enemy = if bot.team == "Stinkers" then "Sharters" else "Stinkers"
+	if Bots.addGas(bot, 40, { team = enemy, cause = "cloud" }) then
+		gassed += 1
+	end
+end
+check(gassed > 0, "gas on them before the round ends")
 print(TestControls.run(ada, "/fw end 1"))
 task.wait(20)
 print("mode now", Round.getMode().id, Round.phase())
+check(Round.phase() == "ACTIVE", "the next round is on: " .. Round.phase())
+check(#Bots.all() == 3 and #workspace.Bots:GetChildren() == 3, "three bots, no old bodies: " .. #workspace.Bots:GetChildren())
+for _, bot in Bots.all() do
+	check(Bots.isAlive(bot) and bot.character ~= before[bot], "a fresh avatar: " .. bot.name)
+	check(Bots.gasOf(bot) == 0, "no gas: " .. bot.name .. " " .. Bots.gasOf(bot))
+end
 do
 	local Brain = require(server.Bots.BotBrain)
 	local Zone = require(server.Services.ZoneService)
