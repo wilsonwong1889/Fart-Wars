@@ -24,6 +24,10 @@ local RewardsConfig = {
 	-- Free spins a brand-new profile starts with, so the wheel works from
 	-- the first visit.
 	STARTING_SPINS = 1,
+	-- The prize is paid when it's drawn, but the wallet and the "+coins"
+	-- line wait for the wheel to land: the client says when, and this is
+	-- the longest they wait if it never does (a whole spin takes 4.75 s).
+	SPIN_REVEAL_SECONDS = 6,
 
 	-- Playing with friends (masterplan 4.3). The squad bonus: for every
 	-- SQUAD_MINUTES of active play with a Roblox friend active on your team
