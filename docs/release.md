@@ -62,6 +62,13 @@ On staging (a private server, two or more accounts):
 7. A test purchase of each store item (Studio's test purchases, or a real
    one on staging) if the store or saving changed.
 
+   If saving or the soft shutdown changed, also try a restart: two
+   accounts in an ordinary staging server (Play, not a private server,
+   which the soft shutdown leaves to Roblox), then Server Management →
+   Restart Servers. Both see "FART WARS JUST GOT AN UPDATE!", pass
+   briefly through a reserved server and land in a fresh one with their
+   coins and level as they were.
+
 Before publishing to live:
 
 8. `GameConfig.TEST_CONTROLS.ENABLED = false` (or the allow-list holds only
@@ -82,13 +89,15 @@ Before publishing to live:
 ## Rollback
 
 - **A bad build**: Creator Hub → the place → Version History → the
-  previous version → Restore. Then shut down servers (Creator Hub →
-  Servers → Shut down all, or "migrate to latest update") so players move
-  to it. Saves stay compatible both ways within a `SaveVersion`; a build
-  that raised `SaveVersion` can't be rolled back past without the older
-  build refusing those profiles (it plays them on temporary profiles
-  rather than overwrite them), so treat a `SaveVersion` bump as a release
-  of its own.
+  previous version → Restore. Then restart the servers (Creator Hub →
+  your experience → Configure → Server Management → Restart Servers) so
+  players move to it: the soft shutdown (`FeatureFlags.SOFT_SHUTDOWN`)
+  shows them "FART WARS JUST GOT AN UPDATE!", saves everyone and moves
+  them to a fresh server. Saves stay compatible both ways within a
+  `SaveVersion`; a build that raised `SaveVersion` can't be rolled back
+  past without the older build refusing those profiles (it plays them on
+  temporary profiles rather than overwrite them), so treat a
+  `SaveVersion` bump as a release of its own.
 - **A bad system**: turn it off with its flag (`FeatureFlags`,
   `ExperimentConfig`) in a patch release instead of rolling back
   everything.

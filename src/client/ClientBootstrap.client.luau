@@ -1,9 +1,11 @@
 -- Starts the client: the match state first, then input, camera and the
 -- screens. Controllers render and send requests; they never decide teams
--- or results.
+-- or results. The soft shutdown's screen goes before all of them, so it
+-- can show while the rest is still loading.
 local Client = script.Parent
 local Controllers = Client.Controllers
 
+require(Controllers.ShutdownController).start()
 require(Client.ClientState).start()
 require(Client.Detail).apply()
 require(Controllers.InputController).start()

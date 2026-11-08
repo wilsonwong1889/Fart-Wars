@@ -1,6 +1,8 @@
 -- Starts the server. Services load in dependency order, none requires one
 -- loaded after it, and each start() only wires itself up:
 --   DataService           player profiles: load, autosave, save on leave
+--   SoftShutdownService   a closing server saves, then moves its players
+--                         to a fresh one (through a reserved server)
 --   MapService            the map in Workspace, spawn lookups
 --   MatchScoreService     this round's scores
 --   TeamService           active team slots and balancing
@@ -46,6 +48,7 @@ local GameConfig = require(Shared.Config.GameConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local Services = script.Parent.Services
 local DataService = require(Services.DataService)
+local SoftShutdownService = require(Services.SoftShutdownService)
 local MapService = require(Services.MapService)
 local MatchScoreService = require(Services.MatchScoreService)
 local TeamService = require(Services.TeamService)
@@ -82,6 +85,7 @@ local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 Moderation.start()
 Health.start({ probe = DataService.probe })
 DataService.start()
+SoftShutdownService.start()
 MapService.load(GameConfig.DEFAULT_MAP)
 MatchScoreService.reset()
 TeamService.start()

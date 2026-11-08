@@ -55,4 +55,10 @@ return table.freeze({
 	-- Structured "[FW]" lines in the output for every service event and
 	-- rejected request. Counters are kept either way.
 	DEBUG_LOGS = true,
+
+	-- Soft shutdown (SoftShutdownService): a server closing with players in
+	-- it says "FART WARS JUST GOT AN UPDATE!", saves everyone, then moves
+	-- them through a reserved server to a fresh one. Never in Studio or in
+	-- private servers. Off: closing servers leave their players to Roblox.
+	SOFT_SHUTDOWN = true,
 })

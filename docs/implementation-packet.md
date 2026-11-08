@@ -56,7 +56,8 @@ Services start in this order and never require one that starts later.
 
 | Module | Public API |
 | --- | --- |
-| `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `probe() -> (ok, why)` (a scratch round trip), `setStore(store)` (specs), signal `Loaded(player, profile)` |
+| `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `isSettled(player)` (not loading, holding or writing it), `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `probe() -> (ok, why)` (a scratch round trip), `setStore(store)` (specs), signal `Loaded(player, profile)` |
+| `SoftShutdownService` | `start()`, `close(reason?)` (bound to `BindToClose`), `skipReason(reason?) -> string?`, `serverKind() -> "public" \| "reserved" \| "private"`, `describe()` (selftest), `setLive(parts)` and `testReset()` (specs) |
 | `MapService` | `load(mapId) -> Model` (errors on a broken map), `current()`, `spawns(teamId)`, `safeSpawn(teamId, enemyPositions)`, `cameraPoints()`, signal `Loaded(model, entry)` |
 | `MatchScoreService` | `reset()`, `open(mode, context, endsAt)`, `closeAt(t)`, `freeze()`, `isOpen()`, `getScores()`, `recordElimination(event) -> boolean`, `testAddElimination(team, n)`, signal `Changed` |
 | `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `areFriends(a, b)`, `testSetTeam(player, team)`, signal `Changed` |
@@ -268,7 +269,9 @@ specially; an older server never writes a newer save.
   attacker. Gas from someone now on the victim's team is refused.
 - **Saving:** one write per profile at a time, each taking the profile as
   it is when it reaches the DataStore; nothing writes after the release;
-  shutdown waits for releases and loads already under way.
+  shutdown waits for releases and loads already under way, and the soft
+  shutdown teleports nobody until their last save is written (or
+  `SAVE_WAIT_SECONDS` has gone by).
 
 ## Known bugs and limits
 
