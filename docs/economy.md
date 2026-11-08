@@ -14,8 +14,8 @@ python3 scripts/analyze_economy.py --squad --live-ops       # with the squad bon
 
 Plain Python 3, nothing to install. It parses `ProgressionConfig`,
 `RewardsConfig`, `WeaponConfig`, `GameConfig`, `FeatureFlags`,
-`EventConfig` and `SeasonConfig` (it doesn't copy their values), so after
-changing a number you just run it again. It prints income, the time to each
+`EventConfig`, `SeasonConfig` and `ChallengeConfig` (it doesn't copy their
+values), so after changing a number you just run it again. It prints income, the time to each
 level milestone, when each gun is unlocked, affordable and bought, and a
 PASS/MISS line for each target.
 
@@ -25,7 +25,9 @@ the daily reward at the start of it and spins every free spin straight
 away. They buy each gun the moment it's both unlocked and affordable, cheapest first.
 Combat pays per round. Participation, ten-minute gifts, the daily track,
 weapon mastery (on the newest gun bought) and the level-50 rewards pay as
-configured. The squad bonus, Bean Rain and the season track are left out unless asked
+configured. The day's three daily challenges are done one a round over the
+session's first three rounds (the slowest, "Play 3 rounds", takes three),
+while `FeatureFlags.CHALLENGES` is on, as shipped. The squad bonus, Bean Rain and the season track are left out unless asked
 for (events and seasons are off as shipped).
 
 **The profiles** are assumptions, not config, and live at the top of the script:
@@ -52,30 +54,73 @@ model's "day 1, all: coins / 10 min") and `Economy.reachedLevel.<n>`.
    while they wait for its level.
 
 Target 4 is judged on the average and stronger players only, and the
-casual player's figure is shown as a note. About 85% of a casual player's coins come
-from time (spins, daily rewards, participation), while nearly all of their
+casual player's figure is shown as a note. About 80% of a casual player's coins come
+from time (spins, daily rewards, participation), while most of their
 XP comes from combat, so with any prices an average player can reach in a
-week, a casual player gets the coins before the level. The fix would be XP
-from timed rewards (for example spin weights moving from coins to the
-150 XP prize), which is a bigger change than this pass.
+week, a casual player tends to get the coins before the level. The daily
+challenges' XP (below) closes most of that gap: the casual player's longest
+wait went from 2.6 hours to 10 minutes. More would need XP from other timed
+rewards (for example spin weights moving from coins to the 150 XP prize).
+
+## Daily challenges
+
+Three a day for each player (`ChallengeConfig`, behind `FeatureFlags.CHALLENGES`, on as
+shipped), new at 00:00 UTC, the same day boundary as the daily shop. Each
+pays **40 coins and 75 XP** once, the moment it's done, so all three are
+**120 coins and 225 XP a day**: about one free spin's coins and eleven
+eliminations' XP. The reward leans on XP on purpose, since XP is what lags
+for casual players (above). Progress is saved, so a challenge can be
+finished over several sessions that day.
+
+Servers are often mostly bots, and kills of or by bots pay nothing, so the
+pool only has challenges one player alone with bots can do, and nothing a
+bot does or suffers counts toward any of them:
+
+| Challenge | What counts | Why bots can't feed it |
+| --- | --- | --- |
+| Play 3 rounds | rounds with at least a minute ACTIVE in them | a round takes its five minutes whoever is in it; AFK and the home screen don't count |
+| Play for 15 minutes | minutes ACTIVE | the same clock as participation rewards |
+| Win a round | a round won with at least a minute on the winning team | five minutes a round, and no switching onto the winners at the end |
+| Fart Dash 30 times | dashes the server accepted | nobody else is involved |
+| Blow up 3 gas barrels | barrels the player set off (a shot, or their own blast) | a bot's blast credits nobody; barrels come back only every 20 seconds |
+| Start a barrel chain reaction | a barrel set off by one of the player's barrels | the same |
+
+Each day picks three of different kinds ("Play 3 rounds" and "Play for 15
+minutes" never come together), from the player's ID and the day, so they're
+the same on every server all day. Left out: eliminations, assists, streaks
+and gas dealt. Bots can't feed them, but they need real enemies, so a player
+alone with bots couldn't finish them.
+
+What the challenges change, from the model (without → with):
+
+| | casual | average | strong | grinder |
+| --- | --- | --- | --- | --- |
+| week 1: coins / XP per hour | 1,438 / 676 → 1,579 / 976 | 1,784 / 1,323 → 1,904 / 1,548 | 2,216 / 2,368 → 2,296 / 2,518 | 1,679 / 2,270 → 1,767 / 2,345 |
+| Spritzer bought | 0:30 → 0:10 (d1) | 0:12 → 0:10 (d1) | 0:09 → 0:07 (d1) | 0:09 → 0:07 (d1) |
+| all three guns | 10 h d14 → 6:55 d10 | 6:00 d6 → 5:24 d6 | 4:47 d4 → 4:36 d4 | 6:00 d3 → 6:00 d2 |
+| level 50 | day 123 → 85 | day 47 → 40 | day 18 → 17 | day 10 → 9 |
+| longest coins-but-no-level wait | 2.6 h → 10 min | 2 min → none | 1 min, both | 1 min, both |
+
+Every target still passes. The biggest change is for casual players, whose
+225 XP a day is a third of what they earn; for the grinder it's a few per cent.
 
 ## Results
 
-Income after this pass. No reward changed, so it's nearly the same as before; only mastery
-lands at slightly different times:
+Income as shipped, daily challenges included:
 
 | | casual | average | strong | grinder |
 | --- | --- | --- | --- | --- |
 | combat coins / XP per 10 min | 29 / 57 | 89 / 171 | 190 / 362 | 190 / 362 |
 | combat coins / XP per hour | 171 / 343 | 531 / 1,029 | 1,143 / 2,171 | 1,143 / 2,171 |
-| all sources, day 1: coins / XP per 10 min | 213 / 115 | 285 / 223 | 349 / 396 | 289 / 379 |
-| all sources, week 1: coins / XP per hour | 1,438 / 676 | 1,784 / 1,323 | 2,216 / 2,368 | 1,679 / 2,270 |
-| week 1 coins from spins / daily / combat | 52 / 24 / 12% | 45 / 15 / 30% | 24 / 8 / 52% | 16 / 5 / 68% |
+| all sources, day 1: coins / XP per 10 min | 239 / 165 | 305 / 260 | 363 / 421 | 296 / 391 |
+| all sources, week 1: coins / XP per hour | 1,579 / 976 | 1,904 / 1,548 | 2,296 / 2,518 | 1,767 / 2,345 |
+| week 1 coins from spins / daily / challenges / combat | 47 / 22 / 10 / 11% | 43 / 14 / 6 / 28% | 24 / 8 / 3 / 50% | 15 / 5 / 2 / 65% |
 
 A free spin is worth 125.5 coins and 22.5 XP on average, and six an hour is the
 largest single coin source for anyone who isn't a strong player.
 
-Pacing for the average player (play time, day at an hour a day), before and after:
+The XP-curve pass below came before the daily challenges, so its figures
+are without them. Pacing for the average player (play time, day at an hour a day), before and after:
 
 | | before | after |
 | --- | --- | --- |
@@ -139,7 +184,8 @@ eliminations, they get them on day 6.
 ## Known gaps (after the beta)
 
 - **No coin sink after the last gun.** Once a player owns all three guns, nothing in the beta
-  costs coins, and an average player banks about 2,000 a day.
+  costs coins, and an average player banks about 2,100 a day (2,000 before the daily
+  challenges).
   `samples.unspentCoins` will climb. A coin sink (coin-priced cosmetics,
   for example) is a new system, so it's on the [roadmap](roadmap.md).
 - The coin packs in `MonetizationConfig` (500 / 1,200 / 3,000) matched the

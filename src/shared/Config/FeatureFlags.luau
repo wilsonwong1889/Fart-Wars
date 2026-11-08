@@ -11,6 +11,11 @@ return table.freeze({
 	-- between SeasonConfig's dates. Off as shipped.
 	SEASONS = false,
 
+	-- Daily challenges: three a day for each player, new at 00:00 UTC, on
+	-- the DAILY screen; each pays coins and XP once, when it's done
+	-- (ChallengeConfig; needs PROGRESSION). Nothing bots do counts.
+	CHALLENGES = true,
+
 	-- Live events (Phase 6): Bean Rain now and then in a round, always
 	-- announced first (EventConfig). Off as shipped.
 	EVENTS = false,

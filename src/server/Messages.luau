@@ -13,6 +13,7 @@ export type Kind =
 	| "team" -- which team they joined or switched to, and why
 	| "denied" -- a request the server turned down
 	| "test" -- feedback from the test-only controls
+	| "challenge" -- a daily challenge done
 
 local Messages = {}
 

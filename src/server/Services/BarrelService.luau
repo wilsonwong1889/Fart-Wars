@@ -23,7 +23,8 @@ local BARREL = GameConfig.BARREL
 
 local BarrelService = {}
 
--- (owner?): a barrel went off; the owner is whoever finished it.
+-- (owner?, chained): a barrel went off; the owner is whoever finished it,
+-- and `chained` says another barrel's blast set it off (a chain reaction).
 BarrelService.Exploded = Signal.new()
 
 type Barrel = {
@@ -33,6 +34,7 @@ type Barrel = {
 	owner: Player?,
 	ownerTeam: string?,
 	depth: number,
+	chained: boolean,
 }
 local barrels: { [Model]: Barrel } = {}
 local started = false
@@ -68,6 +70,7 @@ local function reset(barrel: Barrel)
 	barrel.health = BARREL.HEALTH
 	barrel.state = "ready"
 	barrel.owner, barrel.ownerTeam, barrel.depth = nil, nil, 0
+	barrel.chained = false
 	barrel.model:SetAttribute("FuseAt", nil)
 	setVisible(barrel.model, true)
 	publish(barrel)
@@ -96,7 +99,7 @@ local function explode(barrel: Barrel)
 	setVisible(barrel.model, false)
 	publish(barrel)
 	Telemetry.count("Barrel.explosions")
-	BarrelService.Exploded:Fire(barrel.owner)
+	BarrelService.Exploded:Fire(barrel.owner, barrel.chained)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
 	local radius = reach(barrel)
@@ -120,14 +123,16 @@ local function explode(barrel: Barrel)
 	end)
 end
 
--- Lights the fuse (once), crediting `owner` (the last shot or the chain).
-local function fuse(barrel: Barrel, owner: Player?, ownerTeam: string?, depth: number)
+-- Lights the fuse (once), crediting `owner` (the last shot or the chain);
+-- `chained` when another barrel's blast lit it.
+local function fuse(barrel: Barrel, owner: Player?, ownerTeam: string?, depth: number, chained: boolean?)
 	if barrel.state ~= "ready" then
 		return
 	end
 	barrel.state = "fused"
 	barrel.health = 0
 	barrel.owner, barrel.ownerTeam, barrel.depth = owner, ownerTeam, depth
+	barrel.chained = chained == true
 	barrel.model:SetAttribute("FuseAt", now() + BARREL.FUSE_SECONDS)
 	publish(barrel)
 	task.delay(BARREL.FUSE_SECONDS, explode, barrel)
@@ -177,7 +182,7 @@ local function register(map: Model)
 	end
 	for _, model in folder:GetChildren() do
 		if model:IsA("Model") and model.Name == "GasBarrel" then
-			local barrel: Barrel = { model = model, health = BARREL.HEALTH, state = "ready", owner = nil, ownerTeam = nil, depth = 0 }
+			local barrel: Barrel = { model = model, health = BARREL.HEALTH, state = "ready", owner = nil, ownerTeam = nil, depth = 0, chained = false }
 			barrels[model] = barrel
 			reset(barrel)
 		end
@@ -204,7 +209,7 @@ function BarrelService.start()
 			if barrel.state == "ready" and (at - blast.position).Magnitude <= blast.radius
 				and not ExplosionService.blocked(blast.position, at)
 			then
-				fuse(barrel, blast.owner, blast.ownerTeam, blast.depth + 1)
+				fuse(barrel, blast.owner, blast.ownerTeam, blast.depth + 1, blast.cause == "barrel")
 			end
 		end
 	end)

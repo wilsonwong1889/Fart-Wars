@@ -81,6 +81,9 @@ export type Data = {
 	SpinsUsed: number,
 	GiftDay: number,
 	GiftsToday: number,
+	-- Daily challenges: the UTC day they're for, which three, the progress
+	-- on each (by challenge ID) and the ones done and paid.
+	Challenges: { day: number, ids: { string }, progress: { [string]: number }, claimed: { string } },
 	-- Store (Phase 4): Roblox purchase IDs already granted (the latest
 	-- RECEIPT_MEMORY), and game passes whose contents were given.
 	Receipts: { string },
@@ -163,6 +166,7 @@ function DataService.defaults(): Data
 		SpinsUsed = 0,
 		GiftDay = 0,
 		GiftsToday = 0,
+		Challenges = { day = 0, ids = {}, progress = {}, claimed = {} },
 		Receipts = {},
 		PassesGranted = {},
 		SquadDay = 0,
