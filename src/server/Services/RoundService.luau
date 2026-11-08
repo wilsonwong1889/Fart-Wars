@@ -3,6 +3,7 @@
 --            is empty (bots count, so one player and the bots start a round)
 --   ACTIVE   for the mode's round length (300 s); scores count
 --   RESULTS  for the intermission (15 s); scores frozen, winner or draw shown
+--            with the round's awards (AwardService)
 --   then ACTIVE again, or WAITING if the population has dropped. A round in
 --   progress always runs to the end, even if players leave.
 -- Every change goes to clients as a snapshot (RoundUpdate) holding absolute
@@ -37,6 +38,7 @@ local TeamService = require(script.Parent.TeamService)
 local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local MapService = require(script.Parent.MapService)
+local AwardService = require(script.Parent.AwardService)
 
 local Phase = States.Phase
 
@@ -63,6 +65,8 @@ type State = {
 	phaseStartTime: number,
 	phaseEndTime: number?,
 	result: GameModeBase.Result?,
+	-- The finished round's award cards, with its result.
+	awards: { RoundClock.Award }?,
 	participation: { [number]: number },
 }
 local state: State = {
@@ -71,6 +75,7 @@ local state: State = {
 	phaseStartTime = 0,
 	phaseEndTime = nil,
 	result = nil,
+	awards = nil,
 	participation = {},
 }
 local lastStep: number? = nil
@@ -105,6 +110,7 @@ function RoundService.snapshot(): RoundClock.Snapshot
 		activePlayersByTeam = TeamService.counts(),
 		botsByTeam = TeamService.botCounts(),
 		result = state.result,
+		awards = state.awards,
 		mode = mode.id,
 		modeName = mode.displayName,
 		objective = mode.objective,
@@ -189,9 +195,11 @@ local function startRound(at: number)
 	mode = RoundService.nextMode()
 	lastPlayed = mode.id
 	state.result = nil
+	state.awards = nil
 	state.participation = {}
 	local endsAt = at + mode.roundSeconds
 	MatchScoreService.reset()
+	AwardService.reset()
 	MatchScoreService.open(mode, context(), endsAt)
 	PlayerLifecycleService.beginRound(state.roundId)
 	mode:onRoundStart(context())
@@ -214,6 +222,7 @@ local function endRound(at: number)
 		table.insert(scores, tostring(result.scores[team] or 0))
 	end
 	Telemetry.log("Round", "ended", { mode = mode.id, winner = result.winner or "draw", scores = table.concat(scores, "-") })
+	state.awards = AwardService.awards()
 	state.participation = PlayerLifecycleService.finishRound()
 	mode:onRoundEnd(context(), result)
 	enter(Phase.RESULTS, at, at + mode.intermissionSeconds)
@@ -231,7 +240,9 @@ end
 
 local function waitForPlayers(at: number)
 	state.result = nil
+	state.awards = nil
 	MatchScoreService.reset()
+	AwardService.reset()
 	enter(Phase.WAITING, at, nil)
 end
 

@@ -7,6 +7,11 @@ return table.freeze({
 	-- no results screen (the masterplan's alternative baseline).
 	MATCH_MODE = "Rounds" :: "Rounds" | "Continuous",
 
+	-- Award cards on the results screen (AwardService): Top Fragger, Chain
+	-- Master, Barrel Buster and Team Player, from the round's own stats.
+	-- Off: the results show the winner and the scores alone.
+	ROUND_AWARDS = true,
+
 	-- Seasons (Phase 6): a free seasonal track with weekly challenges
 	-- between SeasonConfig's dates. Off as shipped.
 	SEASONS = false,

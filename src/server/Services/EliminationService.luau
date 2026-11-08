@@ -31,6 +31,9 @@ local EliminationService = {}
 EliminationService.Eliminated = Signal.new()
 -- (player, eventId): `player` reached STREAK.ALPHA_AT with that kill.
 EliminationService.Alpha = Signal.new()
+-- (Credit): every elimination, of a player or a bot, by the ids the kill
+-- feed uses; the round's awards (AwardService) count from it.
+EliminationService.Credited = Signal.new()
 
 export type Info = {
 	killer: Player?,
@@ -58,6 +61,13 @@ export type Elimination = {
 	weapon: string?,
 	-- Whether it scored for the round (the round was live).
 	counted: boolean,
+}
+-- What Credited carries: a player's UserId or a bot's BotId for each.
+export type Credit = {
+	victim: number,
+	killer: number?,
+	assists: { number },
+	cause: string,
 }
 
 type Record = { streak: number, bestStreak: number, eliminations: number, deaths: number }
@@ -213,6 +223,12 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		counted = counted,
 	}
 	EliminationService.Eliminated:Fire(elimination)
+	EliminationService.Credited:Fire({
+		victim = victim.UserId,
+		killer = if killer then killer.UserId else killerBot,
+		assists = assistIds,
+		cause = info.cause,
+	} :: Credit)
 	return eventId
 end
 
@@ -273,6 +289,12 @@ function EliminationService.eliminateBot(victim: number, character: Model, info:
 		assists = assistIds,
 		cause = info.cause,
 	})
+	EliminationService.Credited:Fire({
+		victim = victim,
+		killer = if killer then killer.UserId else killerBot,
+		assists = assistIds,
+		cause = info.cause,
+	} :: Credit)
 	return eventId
 end
 

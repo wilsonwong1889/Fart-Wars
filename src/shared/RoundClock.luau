@@ -2,6 +2,16 @@
 -- server's snapshot (an absolute end time on the server clock) and
 -- workspace:GetServerTimeNow(), so a laggy client is right again as soon as
 -- it looks.
+
+-- One award card on the results screen (AwardService works them out).
+export type Award = {
+	award: string, -- "TopFragger", "ChainMaster", "BarrelBuster" or "TeamPlayer" (UIConfig.awards)
+	id: number, -- the winner's UserId, or a bot's (negative) BotId
+	name: string, -- their display name (a bot's says it's a bot)
+	team: string?,
+	bot: boolean,
+	value: number, -- eliminations, the biggest chain, barrels or assists
+}
 export type Snapshot = {
 	roundId: number,
 	phase: string,
@@ -12,6 +22,9 @@ export type Snapshot = {
 	-- How many of activePlayersByTeam are bots.
 	botsByTeam: { [string]: number }?,
 	result: { winner: string?, draw: boolean, scores: { [string]: number }, mode: string? }?,
+	-- With the result: the round's awards, in the cards' order (empty when
+	-- nobody earned one; nil with FeatureFlags.ROUND_AWARDS off).
+	awards: { Award }?,
 	mode: string,
 	modeName: string?,
 	objective: string?, -- "eliminations" or "zone"

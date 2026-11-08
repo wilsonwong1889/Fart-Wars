@@ -151,6 +151,45 @@ local UIConfig = {
 		}),
 	}),
 
+	-- The award cards under the results (AwardService picks the winners):
+	-- each award's title, its badge, what its number counts (one, many) and
+	-- the lines it can shout, one a round (the same for everyone in the
+	-- server). A bot that wins one gets botLine instead. With motion, the
+	-- cards come in one at a time, revealSeconds apart; Reduce Motion shows
+	-- them all at once, still.
+	awards = table.freeze({
+		TopFragger = table.freeze({
+			title = "TOP FRAGGER",
+			icon = "💀",
+			one = "ELIMINATION",
+			many = "ELIMINATIONS",
+			lines = table.freeze({ "BRO IS BUILT DIFFERENT", "NOBODY WAS SAFE FR" }),
+		}),
+		ChainMaster = table.freeze({
+			title = "CHAIN MASTER",
+			icon = "🔗",
+			one = "IN ONE CHAIN",
+			many = "IN ONE CHAIN",
+			lines = table.freeze({ "ONE FART. WHOLE SQUAD GONE.", "CHAIN REACTION GOD" }),
+		}),
+		BarrelBuster = table.freeze({
+			title = "BARREL BUSTER",
+			icon = "🛢️",
+			one = "BARREL POPPED",
+			many = "BARRELS POPPED",
+			lines = table.freeze({ "BARRELS FEAR BRO", "BRO SPEAKS FLUENT KABOOM" }),
+		}),
+		TeamPlayer = table.freeze({
+			title = "TEAM PLAYER",
+			icon = "🤝",
+			one = "ASSIST",
+			many = "ASSISTS",
+			lines = table.freeze({ "BRO CARRIED THE SQUAD", "NO STINK LEFT BEHIND" }),
+		}),
+	}),
+	awardBotLine = "OUT-FARTED BY A BOT. EMBARRASSING.",
+	awardRevealSeconds = 0.25,
+
 	-- What each reward line says it was for.
 	rewardReasons = table.freeze({
 		elimination = "Elimination",

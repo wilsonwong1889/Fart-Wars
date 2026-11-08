@@ -122,8 +122,9 @@ the Output window help).
 - [ ] Equip a different weapon mid-fight: "you'll have it when you
       respawn", and the HUD's weapon line says so; it swaps on respawn.
 - [ ] Five eliminations in a row: "BRO IS THE ALPHA FART!" on both screens.
-- [ ] Let the round end (`/fw end 5`): results, a 15-second intermission,
-      the next round starts by itself.
+- [ ] Let the round end (`/fw end 5`): results, with the round's award
+      cards under them (real headshots; a bot's card shows a robot), a
+      15-second intermission, the next round starts by itself.
 
 ## 3. Saving
 

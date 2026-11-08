@@ -119,7 +119,7 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
 | `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
 | `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
-| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `MapDressing` (the map's Blender props) |
+| `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `RoundAwards` (the award maths), `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
@@ -140,6 +140,7 @@ else.
 | `AFKService` | the 45/60-second warning and spectator move, judged on the server |
 | `MapService` | loads the map template, checks it against `MapBase`, picks safe spawns; ready for map rotation |
 | `MatchScoreService` | this round's scores, frozen the moment a round ends; the test-only elimination input |
+| `AwardService` | the round's award cards (behind `FeatureFlags.ROUND_AWARDS`): each player's and bot's eliminations, deaths, assists, chain reactions and barrels while a round is live, then Top Fragger, Chain Master, Barrel Buster and Team Player for the results (ties broken, nobody on 0, only those still in the game) |
 | `CombatService` | the Gas Blaster: checks each shot (state, interval, shot numbers, payload), casts it on the server, sends hits to GasService; logs suspicious accuracy and movement |
 | `GasService` | the gas meter: enemy-only gas, protection, recovery, the countdown and the explosion, killer and assists |
 | `EliminationService` | each death credited exactly once, with an event ID; streaks and the alpha announcement |
