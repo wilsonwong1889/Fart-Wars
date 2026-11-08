@@ -56,12 +56,25 @@ local UIConfig = {
 			active = "🫘 BEAN RAIN! Grab the beans: coins and a Fart Dash (%ds)",
 		}),
 	}),
-	-- Gas Control's zone line under the score boxes (%s: a team's short
-	-- name; the counts are each team's players in the zone).
+	-- Gas Control. The zone line under the score boxes (%s: a team's short
+	-- name; %d: how far its capture is, or each team's players in the
+	-- zone): held and scoring, held with nobody in it, being taken (a bar
+	-- fills under it), contested, nobody's yet. Then the marker over the
+	-- plaza, what a zone round says as it starts, and the results card's
+	-- line by how it went.
 	zone = table.freeze({
 		held = "%s HOLD THE PLAZA · +1 A SECOND",
+		idle = "%s HOLD THE PLAZA · EMPTY, NO POINTS",
+		capturing = "%s TAKING THE PLAZA · %d%%",
 		contested = "PLAZA CONTESTED (%d v %d)",
-		empty = "STAND IN THE PLAZA TO SCORE",
+		empty = "STAND IN THE PLAZA TO TAKE IT",
+		marker = "🚽 PLAZA",
+		start = "GAS CONTROL! TAKE THE PLAZA, GUARD THE THRONE, KEEP THEM OUT TO SCORE!",
+		results = table.freeze({
+			won = "Gas Control: your team owned the plaza!",
+			lost = "Gas Control: they held the plaza longer. Next round!",
+			draw = "Gas Control: nobody out-held anybody",
+		}),
 	}),
 
 	-- What each reward line says it was for.

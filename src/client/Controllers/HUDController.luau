@@ -118,7 +118,8 @@ local function build()
 		Visible = false,
 		Parent = hud,
 	})
-	-- Gas Control: who holds the zone (in words as well as colour).
+	-- Gas Control: who holds the zone (in words as well as colour), and
+	-- under it, while a team is taking it, a bar filling in its colour.
 	p.zone = UI.label("", 18, {
 		Name = "Zone",
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -127,6 +128,22 @@ local function build()
 		Visible = false,
 		Parent = hud,
 	})
+	p.zoneBar = UI.new("Frame", {
+		Name = "Capture",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 1, -2),
+		Size = UDim2.new(0, 260, 0, 6),
+		BackgroundColor3 = C.panel,
+		BorderSizePixel = 0,
+		Visible = false,
+		Parent = p.zone,
+	}, { UI.corner(3) })
+	p.zoneFill = UI.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(0, 0, 1, 0),
+		BorderSizePixel = 0,
+		Parent = p.zoneBar,
+	}, { UI.corner(3) })
 	p.waiting = UI.label("", 18, {
 		Name = "Waiting",
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -324,14 +341,16 @@ local function renderResults()
 		p.resultTitle.TextColor3 = C.text
 	end
 	local mine = ClientState.teamId()
+	-- A zone round's results say which mode it was, in its own words.
+	local zone = if (snapshot :: RoundClock.Snapshot).objective == "zone" then UIConfig.zone.results else nil
 	if not ClientState.isActive() or not mine then
 		p.resultYou.Text = "You were spectating"
 	elseif result.draw then
-		p.resultYou.Text = "Nobody out-farted anybody"
+		p.resultYou.Text = if zone then zone.draw else "Nobody out-farted anybody"
 	elseif result.winner == mine then
-		p.resultYou.Text = "Your team won!"
+		p.resultYou.Text = if zone then zone.won else "Your team won!"
 	else
-		p.resultYou.Text = "Your team lost. Next round!"
+		p.resultYou.Text = if zone then zone.lost else "Your team lost. Next round!"
 	end
 end
 
@@ -487,7 +506,10 @@ function HUDController.renderEvent()
 	p.event.Visible = true
 end
 
--- The zone line, from the server's Zone* attributes on Workspace.
+-- The zone line, from the server's Zone* attributes on Workspace: the
+-- standoff; the holder in it and scoring; a team in it taking it; the
+-- holder away; or nobody's yet. The bar under it shows any capture (going
+-- up, frozen in a standoff, or running back down).
 function HUDController.renderZone()
 	local p = HUDController.parts
 	if not p.zone then
@@ -498,19 +520,37 @@ function HUDController.renderZone()
 	if not on then
 		return
 	end
-	local owner = workspace:GetAttribute("ZoneOwner")
-	local team = type(owner) == "string" and TeamConfig.teams[owner]
-	if team then
-		p.zone.Text = string.format(UIConfig.zone.held, team.shortName)
-		p.zone.TextColor3 = team.color
-	elseif workspace:GetAttribute("ZoneContested") == true then
-		local a = workspace:GetAttribute(`Zone_{TeamConfig.order[1]}`) or 0
-		local b = workspace:GetAttribute(`Zone_{TeamConfig.order[2]}`) or 0
-		p.zone.Text = string.format(UIConfig.zone.contested, a :: number, b :: number)
+	local words = UIConfig.zone
+	local function teamAt(attribute: string): string?
+		local id = workspace:GetAttribute(attribute)
+		return if type(id) == "string" and TeamConfig.teams[id] then id else nil
+	end
+	local function inZone(team: string?): number
+		local n = team and workspace:GetAttribute(`Zone_{team}`)
+		return if type(n) == "number" then n else 0
+	end
+	local owner, taker = teamAt("ZoneOwner"), teamAt("ZoneCapturing")
+	local progress = math.clamp(tonumber(workspace:GetAttribute("ZoneProgress")) or 0, 0, 1)
+	if workspace:GetAttribute("ZoneContested") == true then
+		p.zone.Text = string.format(words.contested, inZone(TeamConfig.order[1]), inZone(TeamConfig.order[2]))
 		p.zone.TextColor3 = C.text
+	elseif owner and inZone(owner) > 0 then
+		p.zone.Text = string.format(words.held, TeamConfig.teams[owner].shortName)
+		p.zone.TextColor3 = TeamConfig.teams[owner].color
+	elseif taker and inZone(taker) > 0 then
+		p.zone.Text = string.format(words.capturing, TeamConfig.teams[taker].shortName, math.floor(progress * 100 + 1e-6))
+		p.zone.TextColor3 = TeamConfig.teams[taker].color
+	elseif owner then
+		p.zone.Text = string.format(words.idle, TeamConfig.teams[owner].shortName)
+		p.zone.TextColor3 = TeamConfig.teams[owner].color
 	else
-		p.zone.Text = UIConfig.zone.empty
+		p.zone.Text = words.empty
 		p.zone.TextColor3 = C.muted
+	end
+	p.zoneBar.Visible = taker ~= nil and progress > 0
+	if taker then
+		p.zoneFill.BackgroundColor3 = TeamConfig.teams[taker].color
+		p.zoneFill.Size = UDim2.new(progress, 0, 1, 0)
 	end
 end
 
@@ -539,7 +579,7 @@ function HUDController.start()
 			renderScoreboard()
 		end
 	end)
-	for _, name in { "ZoneActive", "ZoneOwner", "ZoneContested" } do
+	for _, name in { "ZoneActive", "ZoneOwner", "ZoneContested", "ZoneCapturing", "ZoneProgress" } do
 		workspace:GetAttributeChangedSignal(name):Connect(HUDController.renderZone)
 	end
 	for _, name in { "Event", "EventPhase" } do

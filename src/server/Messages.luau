@@ -12,6 +12,7 @@ export type Kind =
 	| "teamFull" -- both teams are full
 	| "team" -- which team they joined or switched to, and why
 	| "denied" -- a request the server turned down
+	| "mode" -- a round of another mode is starting: what to do in it
 	| "test" -- feedback from the test-only controls
 
 local Messages = {}

@@ -190,9 +190,14 @@ Expansion (each is off as shipped; turn one on in `FeatureFlags`, test,
 turn it back off unless you're keeping it):
 
 - [ ] `/fw mode gascontrol`, then end the round (`/fw end 0`): the next
-      round is Gas Control. The plaza ring shows; standing in it alone
-      scores a point a second and the HUD says who holds it; with an enemy
-      in it, CONTESTED and no points.
+      round is Gas Control and a message says what to do. The plaza ring
+      shows round the throne and the 🚽 PLAZA marker floats over it, seen
+      through walls from the spawn. Standing on the ring alone: TAKING THE
+      PLAZA with a bar filling for 6 seconds, then HOLD THE PLAZA and a
+      point a second; one step off the ring stops it. With an enemy in
+      it, CONTESTED and no points; the ring and marker go white. Bots
+      walk to spots all round the throne, none stuck against it. The
+      results card says Gas Control.
 - [ ] `PRESTIGE = true`, `/fw xp 120000` to reach level 50, leave the match:
       Progression → PRESTIGE 1... shows the exact numbers; the second press
       resets you to level 1 with P1 on the level bar.

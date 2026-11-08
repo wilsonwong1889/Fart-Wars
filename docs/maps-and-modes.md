@@ -25,23 +25,36 @@ round is open and the mode accepts them.
 Two modes so far:
 
 - **Team Elimination** (the default): most eliminations wins.
-- **Gas Control**: a team alone in the control zone (Porcelain Plaza,
-  around the throne) scores a point a second; a contested zone scores
-  nothing; eliminations don't score, they clear the zone. Holders earn
-  2 coins and 5 XP every 10 seconds, 15 times a round at most
-  (`GameConfig.ZONE`).
+- **Gas Control**: hold the control zone, Porcelain Plaza around the
+  throne (a circle 60 studs out on the full-size map, exactly as wide as
+  its floor ring). A team alone in it takes it in 6 seconds, 4 with two
+  of them in it, 3 with three or more (bots count); an enemy in it
+  freezes the capture, an empty zone lets it run back down. The team
+  that holds it scores a point a second while it has the zone to
+  itself; contested or empty nobody scores, but it stays theirs until
+  the other team takes it. Eliminations don't score, they clear the
+  zone. Holders earn 2 coins and 5 XP every 10 seconds of scoring, 15
+  times a round at most (`GameConfig.ZONE`). The HUD's zone line says
+  who holds it, who's taking it (with a bar) or the standoff; a marker
+  over the plaza shows it from anywhere; the results say it was Gas
+  Control. Bots head for open ground in it, never into the throne.
 
 ## Rollout
 
 - `FeatureFlags.MODE_ROTATION` (off as shipped): each round takes the next
   mode in `GameConfig.MODE_ROTATION` that the map lists in
-  `MapConfig.modes`, but only once `ROTATION_MIN_PLAYERS` (6) are on
-  teams. Smaller servers always get `DEFAULT_MODE`, so a quiet server
-  keeps the stable queue.
+  `MapConfig.modes` (a zone mode only where the map has a zone) and isn't
+  the one just played, but only once `ROTATION_MIN_PLAYERS` (6) players,
+  not bots, are on teams. Smaller servers always get `DEFAULT_MODE`, so a
+  quiet server keeps the stable queue even when bots fill it; one that
+  grows past six after a run of default rounds goes straight to Gas
+  Control.
 - `/fw mode gascontrol` sets the next round's mode on a test server,
   whatever the rotation says.
 - Turn rotation on after a staging playtest of each mode, then watch
-  `firsts.session`, `session.reached10Minutes` and the results by mode.
+  `firsts.session`, `session.reached10Minutes` and the results by mode
+  (`round.<mode>.ended` and `round.<mode>.draws` in `/fw stats`, and a
+  `Round ended` line per round).
 
 ## Maps
 

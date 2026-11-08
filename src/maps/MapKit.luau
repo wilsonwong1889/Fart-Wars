@@ -249,11 +249,21 @@ function MapKit.scale(model: Model, factor: number)
 	end
 end
 
--- The control zone for zone modes (a marker) and its floor ring (hidden
--- until a zone round turns it on), centred on `center` at ground level.
-function MapKit.controlZone(zones: Instance, floor: Instance, center: Vector3, size: Vector3, theme: MapConfig.Theme)
-	MapKit.marker(zones, "ControlZone", size, CFrame.new(center.X, size.Y / 2, center.Z))
-	local diameter = math.min(size.X, size.Z) + 4
+-- The control zone for zone modes and its floor ring (hidden until a zone
+-- round turns it on), centred on `center` at ground level: a round marker
+-- `radius` out and `height` up (an upright cylinder, invisible and in
+-- nobody's way) and a ring exactly as wide, so standing on the ring is
+-- standing in the zone (ZoneService checks the cylinder).
+function MapKit.controlZone(zones: Instance, floor: Instance, center: Vector3, radius: number, height: number, theme: MapConfig.Theme)
+	local diameter = radius * 2
+	MapKit.part(zones, "ControlZone", Vector3.new(height, diameter, diameter), CFrame.new(center.X, height / 2, center.Z) * MapKit.UPRIGHT, {
+		Shape = Enum.PartType.Cylinder,
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+	})
 	MapKit.part(floor, "ControlZoneFloor", Vector3.new(0.2, diameter, diameter), CFrame.new(center.X, 0.25, center.Z) * MapKit.UPRIGHT, {
 		Shape = Enum.PartType.Cylinder,
 		Material = Enum.Material.Neon,

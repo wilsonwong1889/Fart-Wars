@@ -9,7 +9,7 @@ export type Snapshot = {
 	phaseEndTime: number?,
 	scoresByTeam: { [string]: number },
 	activePlayersByTeam: { [string]: number },
-	result: { winner: string?, draw: boolean, scores: { [string]: number } }?,
+	result: { winner: string?, draw: boolean, scores: { [string]: number }, mode: string? }?,
 	mode: string,
 	modeName: string?,
 	objective: string?, -- "eliminations" or "zone"

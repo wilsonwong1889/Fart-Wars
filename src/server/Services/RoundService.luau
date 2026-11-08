@@ -12,9 +12,12 @@
 -- With FeatureFlags.MATCH_MODE = "Continuous" there are no rounds: one
 -- ACTIVE match with no end time starts with the server and scores run on.
 -- With FeatureFlags.MODE_ROTATION each round picks the next mode in
--- GameConfig.MODE_ROTATION that the map supports, once the server has
+-- GameConfig.MODE_ROTATION that the map supports (a zone mode only where
+-- the map has a zone) and isn't the one just played, once the server has
 -- ROTATION_MIN_PLAYERS (players, not bots) on teams; otherwise every round
--- is DEFAULT_MODE.
+-- is DEFAULT_MODE. A server that grows past the minimum after a run of
+-- default rounds goes straight to the next mode. Each result says which
+-- mode it was (result.mode).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -49,6 +52,8 @@ end
 local defaultMode = assert(loadMode(GameConfig.DEFAULT_MODE), "GameConfig.DEFAULT_MODE isn't in ServerScriptService.Server.Modes")
 local mode: GameModeBase.GameMode = defaultMode
 local rotationIndex = 0
+-- The mode of the last round played (nil before the first).
+local lastPlayed: string? = nil
 local nextOverride: GameModeBase.GameMode? = nil
 local rotationOverride: boolean? = nil
 
@@ -160,20 +165,28 @@ function RoundService.nextMode(): GameModeBase.GameMode
 	end
 	local _, entry = MapService.current()
 	local rotation = GameConfig.MODE_ROTATION
+	local again: GameModeBase.GameMode? = nil
 	for _ = 1, #rotation do
 		rotationIndex = rotationIndex % #rotation + 1
 		local id = rotation[rotationIndex]
 		local candidate = loadMode(id)
-		if candidate and (not entry or table.find(entry.modes, id)) then
-			return candidate
+		local fits = candidate ~= nil and (not entry or table.find(entry.modes, id) ~= nil)
+			and (candidate.objective ~= "zone" or (entry ~= nil and entry.zone ~= nil))
+		if candidate and fits then
+			-- Turns: the one just played again only if nothing else fits.
+			if candidate.id ~= lastPlayed then
+				return candidate
+			end
+			again = again or candidate
 		end
 	end
-	return defaultMode
+	return again or defaultMode
 end
 
 local function startRound(at: number)
 	state.roundId += 1
 	mode = RoundService.nextMode()
+	lastPlayed = mode.id
 	state.result = nil
 	state.participation = {}
 	local endsAt = at + mode.roundSeconds
@@ -186,8 +199,20 @@ end
 
 local function endRound(at: number)
 	MatchScoreService.freeze()
-	local result = mode:computeResult(MatchScoreService.getScores(), TeamConfig.order)
+	-- The result names its mode, so the results screen needn't guess, and
+	-- the counts show how each mode's rounds go (round.<mode>.*).
+	local result = table.clone(mode:computeResult(MatchScoreService.getScores(), TeamConfig.order))
+	result.mode = mode.id
 	state.result = result
+	Telemetry.count(`round.{mode.id}.ended`)
+	if result.draw then
+		Telemetry.count(`round.{mode.id}.draws`)
+	end
+	local scores = {}
+	for _, team in TeamConfig.order do
+		table.insert(scores, tostring(result.scores[team] or 0))
+	end
+	Telemetry.log("Round", "ended", { mode = mode.id, winner = result.winner or "draw", scores = table.concat(scores, "-") })
 	state.participation = PlayerLifecycleService.finishRound()
 	mode:onRoundEnd(context(), result)
 	enter(Phase.RESULTS, at, at + mode.intermissionSeconds)

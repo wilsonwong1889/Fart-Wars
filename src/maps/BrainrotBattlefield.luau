@@ -266,8 +266,13 @@ local function build(entry: MapConfig.MapEntry): Model
 	sharterZone:SetAttribute("TeamId", "Sharters")
 	-- Gas Control's zone: Porcelain Plaza around the throne (the same
 	-- distance from both spawns), and the floor ring that shows who holds
-	-- it (hidden unless a zone mode is on).
-	MapKit.controlZone(zones, floorFolder, Vector3.zero, Vector3.new(36, 12, 40), theme)
+	-- it (hidden unless a zone mode is on). A circle 20 out from the
+	-- centre (60 at full size): the throne and the ground all round it,
+	-- with room in front of and behind the bowls to get from one side to
+	-- the other inside the zone, 15 short of the dividers so the gaps
+	-- between the lanes stay outside it. Six high (18): standing and
+	-- jumping count, flying over or up on the bowls doesn't.
+	MapKit.controlZone(zones, floorFolder, Vector3.zero, 20, 6, theme)
 
 	-- Fixed views for the home screen's live battlefield, all from outside
 	-- the walls so they show the whole field and favour nobody.

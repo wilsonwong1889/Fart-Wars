@@ -83,7 +83,7 @@ Services start in this order and never require one that starts later.
 | `WeaponModel` (shared) | `tool(weaponId, name?) -> Tool`, `model(weaponId) -> (Model, center, size)`, `parts(weaponId, origin, anchored?) -> (parts, "mesh" \| "pieces")`, `imported(weaponId) -> (meshes?, why)`, `matches(meshSize, size)`, `muzzle(weaponId)` |
 | `WeaponFxController` (client) | `start()`, `track(tool)`, `fired(userId)`, `impact(position, color)`, `step(dt)`, `cameraKick()`, `states`, `emitted` |
 | `PrestigeService` | `start()`, `enabled()`, `eligible(player) -> (ok, reason)`, `describe(data)`, `preview(player)`, `confirm(player, token)`, `request(player, action, token?)`, `testEnable(on?)`, `testExpire(player)` |
-| `ZoneService` | `start()`, `parts() -> (zone?, ring?)`, `inside(position, zone)`, `isActive()`, `state() -> (owner?, contested)`, `tick(dt)`, signal `Changed(owner?, contested)` |
+| `ZoneService` | `start()`, `parts() -> (zone?, ring?)`, `inside(position, zone)` (round or box zones), `spot(rng) -> Vector3?`, `isActive()`, `state() -> (owner?, contested)`, `capture() -> (team?, progress)`, `tick(dt)`, signals `Changed(owner?, contested)`, `Captured(team)`, `Held(player, seconds)` |
 | `MetricsService` | `start()`, `segments(player) -> (age?, pay?)`, `setAnalytics(fake)` (tests); constants `FUNNEL`, `LENGTHS` |
 | `Profiler` | `record(name, seconds)`, `wrap(name, fn)`, `costs() -> { { name, count, averageMs, maxMs, totalMs } }`, `reset()` |
 | `Health` | `start({ probe })`, `loop(name, seconds, tick)`, `check() -> Report`, `report()`, `probe()`, `clientReport(player, payload)`, `loopNames()`, `testSetBeat(name, at)`, `setProbe(fn)`; a report is `{ status, problems, version, channel, players, serverFps, memoryMb?, errorsPerMinute, saving, at }` |
