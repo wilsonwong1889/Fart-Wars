@@ -420,7 +420,10 @@ end
 -- you're in the match with no screen open and the last ping was long
 -- enough ago. True if it was sent (the server has the last word).
 function CompassController.ping(): boolean
-	if not (FeatureFlags.COMPASS and started and ClientState.isActive() and player.Character) or InputController.menuOpen then
+	if not (FeatureFlags.COMPASS and started and ClientState.isActive() and player.Character)
+		or ClientState.inPractice()
+		or InputController.menuOpen
+	then
 		return false
 	end
 	local now = clock()
@@ -639,7 +642,8 @@ function CompassController.render()
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local camera = workspace.CurrentCamera
-	local on = ClientState.isActive() and root ~= nil and root:IsA("BasePart") and camera ~= nil
+	-- Not in the practice yard: it's far from the battlefield, with no team.
+	local on = ClientState.isActive() and not ClientState.inPractice() and root ~= nil and root:IsA("BasePart") and camera ~= nil
 	if p.screen.Enabled ~= on then
 		p.screen.Enabled = on
 	end

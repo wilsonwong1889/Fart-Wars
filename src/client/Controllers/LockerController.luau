@@ -1451,7 +1451,7 @@ local function settingsTab(content: Frame)
 	note(codeRow, "Got a code? Type it here.")
 	-- The practice yard again, from the home screen.
 	if PracticeController.available() then
-		local practiceRow = row("Practice", #toggles + 4)
+		local practiceRow = row("Practice", #toggles + 8)
 		local practice = UI.chunky("PRACTICE YARD", C.play, "🎯", {
 			Name = "Practice",
 			Size = UDim2.new(0, 300, 0, 38),

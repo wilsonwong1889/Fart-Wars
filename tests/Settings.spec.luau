@@ -277,6 +277,8 @@ check(waitFor(function()
 	return SettingsController.state ~= "loading"
 end, 5), "the saved settings load")
 check(SettingsController.state == "saving", "into a profile that saves")
+-- (Done with the practice yard already: PLAY goes straight to the teams.)
+require(server.Services.PracticeService).testSetDue(me, false)
 check(Settings.fieldOfView == 90 and Settings.sensitivity == 0.5 and Settings.crosshairColor == "Cyan" and Settings.crosshairSize == 1.5, "the view, sensitivity and crosshair are back")
 check(Settings.lowDetail and Settings.hudScale == 1.1 and Settings.tips == false, "and the rest")
 check(Settings.chosen.fieldOfView and Settings.chosen.tips and not Settings.chosen.volume, "as picks of the player's own; unpicked ones stay at their defaults")

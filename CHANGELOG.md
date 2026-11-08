@@ -1,7 +1,14 @@
 # Changelog
 
-## 0.14.0: bots with every gun, launch pads, a compass, daily challenges and round awards
+## 0.14.0: a practice yard, bots with every gun, launch pads, daily challenges and round awards
 
+- New players warm up first: a new profile's first PLAY goes to the
+  practice yard, a yard of your own, for about half a minute. Gas the
+  dummies till they pop, Fart Dash down a lane, then blow up a barrel and
+  watch it set off the dummies round it, and then pick a team. SKIP (or
+  Enter) leaves any time, and the PRACTICE tile on the home screen and
+  Settings replay it. Nothing in the yard pays or counts toward anything,
+  and the compass stays off there.
 - Bots fight with the whole arsenal. Each life picks a Gas Blaster,
   Spritzer, Thunderclapper or Stink Lobber (teammates mix it up) and plays
   it at its range: Spritzer bots rush in, Thunderclapper bots hang back on
@@ -87,8 +94,9 @@
   it, and it moves to the bottom right while the Loadout is open.
 - Specs: `TeamPick`, `BotArsenal`, `LaunchPads`, `Compass`, `CompassOff`,
   `GasNumbers`, `ChainCallouts`, `Awards`, `Challenges`, `Leaderboard`,
-  `Badges`, `Settings`, `Feedback`, `SoftShutdown`, `DashCheck` and
-  `ChatSpace` are new (64 in all, with 0.13.0's `Gift`).
+  `Badges`, `Settings`, `Feedback`, `SoftShutdown`, `DashCheck`,
+  `ChatSpace`, `Practice` and `PracticeOff` are new (66 in all, with
+  0.13.0's `Gift`).
 
 ## 0.13.0: a bigger battlefield, mouse aim, sound in the world, a range for every gun
 

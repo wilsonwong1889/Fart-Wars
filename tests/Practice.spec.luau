@@ -209,6 +209,10 @@ local cam = workspace.CurrentCamera
 check(cam.CameraType == Enum.CameraType.Custom and cam.CameraSubject == character:FindFirstChildOfClass("Humanoid"), "the camera follows the avatar")
 RunService.RenderStepped:Fire(0.016)
 check(CombatScreen.parts.crosshair.Visible, "with the crosshair")
+-- The compass is the battlefield's: none in the yard, and no pings from it.
+local Compass = require(Controllers.CompassController)
+Compass.render()
+check(not Compass.parts.screen.Enabled and not Compass.ping(), "no compass or pings in the yard")
 -- A second PLAY while it opens does nothing more.
 Home.play()
 task.wait(0.1)
