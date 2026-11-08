@@ -312,6 +312,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
 | `Camera` | the mouse locked to the centre in a match and free on the home screen, freed and locked again by MouseLock; the 3rd person mouse lock setting; the over-the-shoulder offset (eased in, snapped with Reduce motion, none in first person or with a free mouse), pulled in by walls but not by art meshes or things you walk through; the avatar facing where the camera looks without stopping a Fart Dash; spectating |
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
+| `Settings` | saved settings: the list (defaults, steps, colours, junk values); the server (a new profile empty, a save in the profile and adding to it, one a second, junk payloads and actions refused and changing nothing, written on leaving and back on rejoining, damaged saves back to defaults, a newer build's choices kept, saves without the field, still SaveVersion 1); the client (saved choices back on joining with their effects and on the Settings page, changes saved shortly after in one save, never refused, a choice made while loading winning); field of view and sensitivity in third and first person, with the M menu and Alt, and the usual field of view on the home screen's shots; the crosshair's colour and size; the weapon previews' own view |
 | `Windows` | every window (the team picker, the menu, Coming Soon, the shop and its "Buy it?", the loadout, Players, the daily reward, the free spin, the season, prestige) takes the clicks on it, so none reach what's under it; PLAY closes the daily reward and the free spin, a spin still going landing out of sight and the wallet catching up |
 | `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining), the same seeded game every run: no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
 | `Map` | the MapBase contract, symmetry, lanes, cover heights (low cover at avatar height, the rest scaled; `MapKit.scale`'s KeepHeight on its own), spawn sightlines (standing, up on low cover, up on anything on the enemy half), the lane gates (a sign per lane per half reading both ways, lit, in sight of the spawn exits, decor above the dividers, a few dozen parts), barrel placement, reloading |
@@ -448,7 +449,10 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Moderation is review-only by default.** Flags are logged and counted;
   kicking is a setting (`GameConfig.MODERATION`), off until the checks are
   tuned on real players.
-- **Settings last a session**: reduced effects, sound effects and tips.
+- **Settings are saved to your profile** and come back next visit: only
+  the ones you've changed (the rest follow the defaults), each checked
+  by the server; who you've hidden emotes from lasts the session.
+  `FeatureFlags.SAVED_SETTINGS` off makes them last the session again.
 - **A profile that won't load is never written.** If DataStores are down
   (or it's Studio without API access, or the save comes from a newer
   version), the player gets a temporary profile, the HUD says progress

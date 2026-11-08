@@ -341,6 +341,7 @@ local REMOTES = {
 	ReportPlayer = "RemoteFunction",
 	ClientReport = "RemoteEvent",
 	PrestigeRequest = "RemoteFunction",
+	SettingsRequest = "RemoteFunction",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,

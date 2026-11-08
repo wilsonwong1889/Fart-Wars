@@ -1199,6 +1199,8 @@ local DEFAULTS = {
 	Workspace = { Gravity = 196.2, FallenPartsDestroyHeight = -500, DistributedGameTime = 0, StreamingEnabled = false },
 	Lighting = { ClockTime = 14, Brightness = 2, FogEnd = 100000, FogStart = 0, GlobalShadows = true, ExposureCompensation = 0 },
 	Players = { MaxPlayers = 30, RespawnTime = 5, CharacterAutoLoads = true },
+	-- Roblox's own scale on mouse movement (the camera's sensitivity), 1 to start.
+	UserInputService = { MouseDeltaSensitivity = 1 },
 	Attachment = { CFrame = IDENTITY, Position = Vector3.zero, Visible = false },
 	Camera = { CFrame = IDENTITY, FieldOfView = 70, ViewportSize = v2(1280, 720), CameraType = Enum.CameraType.Custom },
 	ProximityPrompt = { Enabled = true, MaxActivationDistance = 10, HoldDuration = 0, ActionText = "Interact", ObjectText = "", RequiresLineOfSight = true },

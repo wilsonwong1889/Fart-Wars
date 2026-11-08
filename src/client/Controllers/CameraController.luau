@@ -10,6 +10,15 @@
 -- looks, and third person sits over the right shoulder. All of this is
 -- applied every frame just after Roblox's own camera update, which resets
 -- the mouse behaviour each frame.
+--
+-- The player's field of view and mouse sensitivity (Settings) are applied
+-- every frame too, so they hold in both views, with screens open or the
+-- mouse freed. The field of view is the player's while the camera follows
+-- their avatar; the home screen's shots keep the usual one, so a spectator
+-- sees no more of the battlefield than before. Roblox doesn't let a game
+-- change the player's own camera sensitivity, so ours scales the mouse
+-- movement Roblox's camera turns by (UserInputService's
+-- MouseDeltaSensitivity): on top of theirs, and the cursor is untouched.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -18,6 +27,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local UIConfig = require(Shared.Config.UIConfig)
+local SettingsConfig = require(Shared.Config.SettingsConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
 local ClientState = require(script.Parent.Parent.ClientState)
 local Settings = require(script.Parent.Parent.Settings)
@@ -28,6 +38,8 @@ local InputController = require(script.Parent.InputController)
 -- far short of a wall the camera stops when one is in the way (studs).
 local SHOULDER_EASE = 12
 local WALL_GAP = 0.5
+-- The field of view off the avatar (the home screen's shots): Roblox's own.
+local USUAL_FIELD_OF_VIEW = SettingsConfig.settings.fieldOfView.default
 
 local CameraController = {}
 
@@ -231,20 +243,32 @@ local function shoulder(cam: Camera, amount: number)
 	cam.CFrame = shifted
 end
 
--- Every frame, after Roblox's camera: the mouse, which way the avatar
--- faces, and the shoulder offset.
+-- Every frame, after Roblox's camera: the mouse, the field of view and
+-- sensitivity, which way the avatar faces, and the shoulder offset.
 function CameraController.step(dt: number)
 	local locked = CameraController.locked()
 	local behavior = if locked then Enum.MouseBehavior.LockCenter else Enum.MouseBehavior.Default
 	if UserInputService.MouseBehavior ~= behavior then
 		UserInputService.MouseBehavior = behavior
 	end
+	-- The field of view (the player's while following their avatar) and the
+	-- sensitivity. Roblox stores both as floats, so 0.4 reads back a hair
+	-- off: near enough is the same.
+	local cam = camera()
+	local following = ClientState.isActive() and not spectating
+	local fieldOfView = if following then Settings.fieldOfView else USUAL_FIELD_OF_VIEW
+	if math.abs(cam.FieldOfView - fieldOfView) > 1e-3 then
+		cam.FieldOfView = fieldOfView
+	end
+	if math.abs(UserInputService.MouseDeltaSensitivity - Settings.sensitivity) > 1e-4 then
+		UserInputService.MouseDeltaSensitivity = Settings.sensitivity
+	end
 	face(locked)
 
 	-- The offset eases in and out between a locked and a free mouse in
 	-- third person (snaps with Reduce motion); first person and spectating
 	-- never have it.
-	local thirdPerson = ClientState.isActive() and not spectating and not CameraController.firstPerson
+	local thirdPerson = following and not CameraController.firstPerson
 	local target = if locked and thirdPerson then 1 else 0
 	if not thirdPerson or Settings.reduceMotion then
 		shoulderAmount = target
@@ -254,7 +278,6 @@ function CameraController.step(dt: number)
 			shoulderAmount = target
 		end
 	end
-	local cam = camera()
 	if shoulderAmount > 0 and cam.CameraType == Enum.CameraType.Custom then
 		shoulder(cam, shoulderAmount)
 	end

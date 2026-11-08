@@ -6,6 +6,7 @@ local Controllers = Client.Controllers
 
 require(Client.ClientState).start()
 require(Client.Detail).apply()
+require(Controllers.SettingsController).start()
 require(Controllers.InputController).start()
 require(Controllers.CameraController).start()
 require(Controllers.CombatController).start()
