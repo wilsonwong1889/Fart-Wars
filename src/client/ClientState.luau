@@ -22,7 +22,10 @@ ClientState.TeamChanged = Signal.new() -- (teamId?)
 ClientState.Message = Signal.new() -- (payload from UIMessage)
 
 ClientState.snapshot = nil :: RoundClock.Snapshot?
+-- Everyone on each team, and how many of them are bots (the team rules
+-- are about the players, so they're given both).
 ClientState.counts = {} :: { [string]: number }
+ClientState.bots = {} :: { [string]: number }
 ClientState.maxTeamSize = GameConfig.MAX_TEAM_SIZE
 
 local remotes: Folder
@@ -54,15 +57,18 @@ function ClientState.remaining(): number?
 	return RoundClock.remaining(ClientState.snapshot, workspace:GetServerTimeNow())
 end
 
-local function setCounts(counts: { [string]: number }?)
+local function setCounts(counts: { [string]: number }?, bots: { [string]: number }?)
 	if type(counts) ~= "table" then
 		return
 	end
-	local clean = {}
+	local clean, cleanBots = {}, {}
 	for _, team in TeamConfig.order do
 		clean[team] = tonumber(counts[team]) or 0
+		local n = if type(bots) == "table" then tonumber(bots[team]) else nil
+		cleanBots[team] = math.max(0, math.min(n or 0, clean[team]))
 	end
 	ClientState.counts = clean
+	ClientState.bots = cleanBots
 	ClientState.TeamsChanged:Fire(clean)
 end
 
@@ -71,7 +77,7 @@ local function setSnapshot(snapshot: RoundClock.Snapshot?)
 		return
 	end
 	ClientState.snapshot = snapshot
-	setCounts(snapshot.activePlayersByTeam)
+	setCounts(snapshot.activePlayersByTeam, snapshot.botsByTeam)
 	ClientState.SnapshotChanged:Fire(snapshot)
 end
 
@@ -99,7 +105,7 @@ function ClientState.start()
 	teamUpdate.OnClientEvent:Connect(function(update)
 		if type(update) == "table" then
 			ClientState.maxTeamSize = tonumber(update.maxTeamSize) or ClientState.maxTeamSize
-			setCounts(update.counts)
+			setCounts(update.counts, update.bots)
 		end
 	end)
 	uiMessage.OnClientEvent:Connect(function(payload)

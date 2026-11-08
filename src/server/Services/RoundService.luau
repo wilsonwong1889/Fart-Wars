@@ -98,6 +98,7 @@ function RoundService.snapshot(): RoundClock.Snapshot
 		phaseEndTime = state.phaseEndTime,
 		scoresByTeam = MatchScoreService.getScores(),
 		activePlayersByTeam = TeamService.counts(),
+		botsByTeam = TeamService.botCounts(),
 		result = state.result,
 		mode = mode.id,
 		modeName = mode.displayName,

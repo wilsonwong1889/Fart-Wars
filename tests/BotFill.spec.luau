@@ -5,7 +5,9 @@
 --   * the bots keep the teams level: one human's side gets 1 of the 3, two
 --     humans on one team get both bots against them, two apart one each
 --   * a human leaving, spectating or joining changes as little as it can,
---     and a joining human takes a bot's place
+--     and a joining human takes a bot's place (on level teams, from the
+--     side with fewer humans, where they'll be sent); one who picks the
+--     side with more bots sends a bot across
 --   * every head count: the teams end as level as bots can make them, and
 --     asking again changes nothing
 --   * BotConfig: 0.5 by default, and at any difficulty no quicker or surer
@@ -91,13 +93,25 @@ check(is(plan.bots, 1, 1) and #plan.move == 1 and plan.move[1].from == "Sharters
 plan = fill(1, teams(0, 1), teams(3, 0))
 check(is(plan.bots, 2, 1) and #plan.move == 1 and #plan.add == 0, "a 3v1 is evened with a move, not a swap of bots")
 
--- A human joining: a bot goes from the team they'll then join.
+-- A human joining: a bot goes from the team they'll then join (TeamBalance
+-- keeps the humans level, so on level teams that's the side with fewer).
 plan = fill(2, teams(1, 0), teams(1, 2))
-check(is(plan.bots, 0, 2) and #plan.remove == 1 and plan.remove[1] == "Stinkers", "a 2nd human arrives: a bot goes (level teams: by team order)")
+check(is(plan.bots, 1, 1) and #plan.remove == 1 and plan.remove[1] == "Sharters", "a 2nd human arrives, teams level: a bot goes from the side with no human")
 local counts = teams(1 + plan.bots.Stinkers, 0 + plan.bots.Sharters)
-local joined = TeamBalance.choose(counts, ORDER, 10)
-check(joined == "Stinkers", "PLAY puts them where the bot was")
-check(empty(fill(2, teams(2, 0), plan.bots)), "and then nothing changes: 2v2")
+local joined, why = TeamBalance.choose(counts, ORDER, 10, { bots = plan.bots })
+check(joined == "Sharters" and why == "balance", "PLAY puts them where the bot was, against the first human")
+check(empty(fill(2, teams(1, 1), plan.bots)), "and then nothing changes: 2v2, a bot each")
+plan = fill(2, teams(1, 0), teams(2, 1))
+check(is(plan.bots, 1, 1) and plan.remove[1] == "Stinkers", "teams not level: the bigger one loses the bot, as before")
+plan = fill(3, teams(1, 1), teams(1, 1))
+check(is(plan.bots, 0, 1) and plan.remove[1] == "Stinkers", "humans level too: by team order")
+
+-- A human picking the side that's fuller only because of bots: one crosses.
+plan = fill(1, teams(1, 0), teams(2, 1))
+check(is(plan.bots, 1, 2) and #plan.move == 1 and plan.move[1].from == "Stinkers" and #plan.add + #plan.remove == 0, "alone, onto the 2-bot side: a bot crosses over, 2v2")
+plan = BotFill.plan(1, teams(1, 0), teams(10, 9), ORDER, 20)
+check(is(plan.bots, 9, 10) and #plan.move == 1 and #plan.add + #plan.remove == 0, "into a team of ten bots (fill 20): one crosses over, 10v10")
+check(empty(BotFill.plan(1, teams(1, 0), plan.bots, ORDER, 20)), "and stays")
 
 -- Every head count: as level as it can be, the right number, and settled.
 local cases = 0
