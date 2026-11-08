@@ -31,7 +31,9 @@ function WeaponView.new(weaponId: string, props: { [string]: any }?): ViewportFr
 			end
 		end
 	end
-	MeshBuilder.request(weaponId)
+	if not WeaponModel.imported(weaponId) then
+		MeshBuilder.request(weaponId)
+	end
 	local model, center, size = WeaponModel.model(weaponId)
 	model.Parent = viewport
 	views[viewport] = weaponId

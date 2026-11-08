@@ -15,6 +15,11 @@
   a landmark on top (a giant bean can, a toilet roll, a gas vent puffing
   green), so you know where you are on a field this big. They're above
   everyone's heads and never stop a shot, a player or the camera.
+- Imported meshes now face the right way. The guns, the map's props and the
+  shot effects were each a half turn round from how they were made, which
+  hid the barrels inside the guns and left pieces floating.
+- A life starts level, facing the middle of the map: not looking down at the
+  top of your head, and not (for the Stinkers) at your own back wall.
 - In a match the mouse is locked to the crosshair in first and third
   person, and third person sits over your right shoulder. Left Alt frees
   the mouse (again to lock it); every screen with buttons frees it while

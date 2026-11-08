@@ -77,6 +77,20 @@ local function followAvatar()
 	applyView()
 end
 
+-- Levels the camera the way the avatar faces, for the start of a life: the
+-- camera keeps the angle it had, and a shot looks steeply down at the map.
+local function faceForward(character: Model?)
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not (root and root:IsA("BasePart")) then
+		return
+	end
+	local ahead = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	if ahead.Magnitude > 1e-3 then
+		local cam = camera()
+		cam.CFrame = CFrame.lookAt(cam.CFrame.Position, cam.CFrame.Position + ahead)
+	end
+end
+
 -- Cycles through the map's fixed views with a slow push-in on each.
 local function runShots(token: number)
 	local index = 0
@@ -120,6 +134,7 @@ end
 
 local function refresh()
 	if ClientState.isActive() then
+		local entering = spectating
 		spectating = false
 		shotToken += 1
 		if shotTween then
@@ -127,6 +142,9 @@ local function refresh()
 			shotTween = nil
 		end
 		followAvatar()
+		if entering then
+			faceForward(player.Character)
+		end
 	else
 		spectate()
 	end
@@ -263,6 +281,7 @@ function CameraController.start()
 		character:WaitForChild("Humanoid", 10)
 		if ClientState.isActive() then
 			followAvatar()
+			faceForward(character)
 		end
 	end)
 	refresh()

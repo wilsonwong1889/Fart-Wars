@@ -27,6 +27,11 @@ local WeaponModel = {}
 -- before it counts as imported the wrong way round.
 WeaponModel.TOLERANCE = 0.2
 
+-- The 3D Importer leaves each mesh a half turn about Y from how Blender made
+-- it, which a box's size can't show (so `matches` can't catch it). Imported
+-- meshes go in with this turn; meshes built from MeshData don't need it.
+WeaponModel.IMPORT_TURN = CFrame.Angles(0, math.pi, 0)
+
 local SHAPES = {
 	block = Enum.PartType.Block,
 	cylinder = Enum.PartType.Cylinder,
@@ -153,7 +158,7 @@ function WeaponModel.parts(weaponId: string, origin: CFrame, anchored: boolean?,
 			local part = if meshes then meshes[name]:Clone() else (built :: any)[name]
 			part.Name = name
 			part.Size = mesh.size
-			part.CFrame = origin * CFrame.new(mesh.center)
+			part.CFrame = origin * CFrame.new(mesh.center) * (if meshes then WeaponModel.IMPORT_TURN else CFrame.identity)
 			finish(part, name, mesh.role, if mesh.moving then name else nil)
 		end
 		return parts, if meshes then "mesh" else "runtime"

@@ -90,8 +90,11 @@ for _, part in parts do
 	local want = reflected(part.CFrame)
 	local found = false
 	for _, other in parts do
-		if other.ClassName == part.ClassName and other.Shape == part.Shape and (other.Size - part.Size).Magnitude < 1e-3
-			and same({ other.CFrame:GetComponents() }, want) then
+		-- Pads are square and each faces the middle: mirrored in place, not turn.
+		local matches = if part:IsA("SpawnLocation")
+			then (other.Position - Vector3.new(want[1], want[2], want[3])).Magnitude < 1e-3
+			else same({ other.CFrame:GetComponents() }, want)
+		if other.ClassName == part.ClassName and other.Shape == part.Shape and (other.Size - part.Size).Magnitude < 1e-3 and matches then
 			found = true
 			break
 		end
@@ -188,9 +191,11 @@ check(#pads.Stinkers >= 2 and #pads.Stinkers == #pads.Sharters, "the same number
 for _, pad in pads.Stinkers do
 	check(pad.Position.Z < -40 * S and pad.TeamColor == BrickColor.new("Lime green") and not pad.Neutral, "Stinker pads are theirs, at -Z")
 	check(pad.Duration == 0 and not pad.AllowTeamChangeOnTouch, "no forcefield yet, and touching doesn't switch teams")
+	check(pad.CFrame.LookVector.Z > 0.99, "and faces the middle of the map (+Z), not its own back wall")
 end
 for _, pad in pads.Sharters do
 	check(pad.Position.Z > 40 * S and pad.TeamColor == BrickColor.new("New Yeller"), "Sharter pads are theirs, at +Z")
+	check(pad.CFrame.LookVector.Z < -0.99, "and faces the middle of the map (-Z)")
 end
 check(MapService.safeSpawn("Stinkers", {}) ~= nil, "a spawn with nobody around")
 local nearEnemy = pads.Stinkers[1].Position

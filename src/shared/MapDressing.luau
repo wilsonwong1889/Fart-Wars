@@ -117,8 +117,9 @@ local function undressed(map: Instance): { { part: BasePart, rule: MapArt.Rule }
 end
 
 -- Draws fresh copies of a mesh (from `make`) over `hitbox`, one a piece,
--- coloured like it and never in the way. Returns them.
-local function drawOver(map: Instance, hitbox: BasePart, rule: MapArt.Rule, make: () -> MeshPart?): { MeshPart }
+-- coloured like it and never in the way, each with the `turn` its kind of
+-- mesh needs. Returns them.
+local function drawOver(map: Instance, hitbox: BasePart, rule: MapArt.Rule, turn: CFrame, make: () -> MeshPart?): { MeshPart }
 	local scale = map:GetAttribute("Scale")
 	local parent = hitbox.Parent
 	local folder = if parent and parent:IsA("Model") and parent ~= map then parent else map:FindFirstChild("Dressing")
@@ -135,7 +136,7 @@ local function drawOver(map: Instance, hitbox: BasePart, rule: MapArt.Rule, make
 		end
 		art.Name = `{hitbox.Name}Art`
 		art.Size = piece.size
-		art.CFrame = piece.cframe
+		art.CFrame = piece.cframe * turn
 		art.Color = hitbox.Color
 		art.Material = hitbox.Material
 		art.Reflectance = hitbox.Reflectance
@@ -167,7 +168,7 @@ function MapDressing.dress(map: Instance): number
 		if not mesh then
 			continue
 		end
-		drawOver(map, hitbox, rule, function()
+		drawOver(map, hitbox, rule, WeaponModel.IMPORT_TURN, function()
 			return (mesh :: MeshPart):Clone()
 		end)
 		hitbox.Transparency = 1
@@ -198,7 +199,7 @@ function MapDressing.dressRuntime(map: Instance): number
 	local dressed = 0
 	for _, found in undressed(map) do
 		local hitbox, rule = found.part, found.rule
-		local arts = drawOver(map, hitbox, rule, function()
+		local arts = drawOver(map, hitbox, rule, CFrame.identity, function()
 			return MeshBuilder.copy(MapDressing.SET, rule.mesh)
 		end)
 		if #arts == 0 then

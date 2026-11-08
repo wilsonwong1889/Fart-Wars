@@ -53,6 +53,7 @@ local MapBase = require(Shared.Interfaces.MapBase)
 local GameConfig = require(Shared.Config.GameConfig)
 local EventConfig = require(Shared.Config.EventConfig)
 local MapDressing = require(Shared.MapDressing)
+local WeaponModel = require(Shared.WeaponModel)
 local Map = require(server.Services.MapService)
 local Barrels = require(server.Services.BarrelService)
 local Events = require(server.Services.EventService)
@@ -202,7 +203,8 @@ for _, item in map:GetDescendants() do
 		local part, piece, rule = entry.part :: BasePart, entry.piece, entry.rule
 		check(item.Name == `{part.Name}Art` and item:GetAttribute("Prop") == rule.mesh, `{item:GetFullName()} names its part and prop`)
 		check(near(item.Size, piece.size), `{item:GetFullName()} sized to its part, whatever the import's scale`)
-		check(near(item.CFrame.LookVector, piece.cframe.LookVector) and near(item.CFrame.UpVector, piece.cframe.UpVector), `{item:GetFullName()} turned as placed`)
+		local turned = piece.cframe * WeaponModel.IMPORT_TURN
+		check(near(item.CFrame.LookVector, turned.LookVector) and near(item.CFrame.UpVector, turned.UpVector), `{item:GetFullName()} turned as placed`)
 		check(item.Color == part.Color and item.Material == part.Material, `{item:GetFullName()} coloured like its part`)
 		if part.Name == "SpawnFloor" then
 			check(math.abs(item.Transparency - 0.35) < 1e-3, "the spawn floor's tiles are see-through like it was")
@@ -304,12 +306,12 @@ for _, tank in partsNamed(map, "ThroneTank") do
 		end
 	end
 	local bowlSide = if tank.Position.Z < 0 then -1 else 1
-	check(near(art.CFrame.LookVector, Vector3.new(0, 0, bowlSide)), `the throne's tank at z = {tank.Position.Z} faces its bowl`)
+	check(near((art.CFrame * WeaponModel.IMPORT_TURN).LookVector, Vector3.new(0, 0, bowlSide)), `the throne's tank at z = {tank.Position.Z} faces its bowl`)
 end
 for _, tank in partsNamed(map, "GutterTank") do
 	for _, art in map.Dressing:GetChildren() do
 		if art.Name == "GutterTankArt" and near(art.Position, tank.Position) then
-			check(near(art.CFrame.LookVector, Vector3.new(-1, 0, 0)), "the Gutter's tank faces its bowl (-X)")
+			check(near((art.CFrame * WeaponModel.IMPORT_TURN).LookVector, Vector3.new(-1, 0, 0)), "the Gutter's tank faces its bowl (-X)")
 			check(near(art.Size, Vector3.new(tank.Size.Z, tank.Size.Y, tank.Size.X)), "and is sized for its turn")
 		end
 	end
@@ -317,7 +319,7 @@ end
 for _, bowl in partsNamed(map, "ThroneBowl") do
 	for _, art in map.Dressing:GetChildren() do
 		if art.Name == "ThroneBowlArt" and near(art.Position, bowl.Position) then
-			check(near(art.CFrame.RightVector, Vector3.new(0, 1, 0)), "the bowl stands up like its part")
+			check(near((art.CFrame * WeaponModel.IMPORT_TURN).RightVector, Vector3.new(0, 1, 0)), "the bowl stands up like its part")
 		end
 	end
 end
@@ -482,7 +484,7 @@ for _, item in map:GetDescendants() do
 	if item:IsA("MeshPart") and item:GetAttribute("Dresses") then
 		runtimeArts += 1
 		local piece = places[key(item:GetAttribute("Dresses"), item.Position)]
-		if not (piece and near(item.Size, piece.size)) then
+		if not (piece and near(item.Size, piece.size) and near(item.CFrame.LookVector, piece.cframe.LookVector)) then
 			outOfPlace += 1
 		end
 		check(item.Anchored and not item.CanCollide and not item.CanQuery and not item.CanTouch, `{item:GetFullName()} is never in the way`)

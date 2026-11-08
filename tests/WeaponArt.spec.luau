@@ -193,6 +193,7 @@ check(spritzer:GetAttribute("ArtSource") == "mesh", "and the gun is made of them
 for name, mesh in WeaponArt.Spritzer.meshes do
 	local part = spritzer:FindFirstChild(name) :: BasePart
 	check(part and part:IsA("MeshPart"), `the {name} MeshPart`)
+	check(part.CFrame.LookVector.Z > 0.99 and part.CFrame.UpVector.Y > 0.99, `{name}: an import has the half turn the importer leaves out`)
 	check((part.Size - mesh.size).Magnitude < 1e-3 and (part.CFrame.Position - mesh.center).Magnitude < 1e-3, `{name} sized and placed from the art, whatever the import's scale`)
 	check(part.Color == WeaponArt.Spritzer.roles[mesh.role].color and part.Material == WeaponArt.Spritzer.roles[mesh.role].material, `{name} coloured from the art`)
 	check(if mesh.moving then part:FindFirstChild("Move") ~= nil else part:FindFirstChild("Move") == nil, `{name} welded to move or not`)
@@ -417,8 +418,26 @@ check(meshBurst and meshBurst:IsA("MeshPart"), "the burst is the Blender burst")
 local burstFull = ShotArt.MuzzleBurst.size * (blaster.burst / ShotArt.MuzzleBurst.size.X)
 frames(SHOT.BURST_SECONDS * 0.6)
 check((meshBurst.Size - burstFull).Magnitude < 1e-3, "out to the weapon's burst size")
-check(meshSplat and meshSplat:IsA("MeshPart") and meshSplat.CFrame.LookVector.Z > 0.999, "the splat is the Blender splat, facing out of the wall")
+check(meshBolt.CFrame.LookVector.Z > 0.999 and meshBolt:FindFirstChild("Glow").CFrame.LookVector.Z > 0.999, "imported, so half turned: its head leads down -Z")
+check(meshBurst.CFrame.LookVector:Dot(Vector3.new(0, 0, 1)) > 0, "the burst half turned too")
+check(meshSplat and meshSplat:IsA("MeshPart") and meshSplat.CFrame.LookVector.Z < -0.999, "the splat is the Blender splat, half turned to face out of the wall")
 wall:Destroy()
+-- What's imported isn't built as well (a client's budget for that is small).
+local asked = {}
+local realRequest = MeshBuilder.request
+MeshBuilder.request = function(set: string)
+	table.insert(asked, set)
+	return realRequest(set)
+end
+local WeaponView = require(Client.WeaponView)
+WeaponView.new("Spritzer"):Destroy()
+check(#asked == 0, "an imported gun's view builds nothing: " .. table.concat(asked, ","))
+ShotFx.bolt(Vector3.new(0, 5, 0), Vector3.new(0, 5, -40), Color3.new(1, 1, 1), blaster)
+check(#asked == 0, "nor does a shot, with every shot effect imported: " .. table.concat(asked, ","))
+WeaponView.new("GasBlaster"):Destroy()
+check(table.find(asked, "GasBlaster") ~= nil, "a gun that isn't imported is built")
+MeshBuilder.request = realRequest
+ShotFx.clear()
 local sideways = effectsFolder:FindFirstChild("Splat") :: MeshPart
 sideways.MeshSize = Vector3.new(ShotArt.Splat.size.Z, ShotArt.Splat.size.Y, ShotArt.Splat.size.X)
 local none, sidewaysWhy = WeaponModel.effect("Splat")
@@ -750,6 +769,8 @@ for _, s in Hotbar.parts.slots do
 end
 local iconModel = blasterSlot and blasterSlot:FindFirstChild("Icon"):FindFirstChildOfClass("Model")
 check(iconModel and iconModel:GetAttribute("ArtSource") == "runtime", "the hotbar shows the meshes too")
+local builtPart = iconModel:FindFirstChildWhichIsA("MeshPart")
+check(builtPart and builtPart.CFrame.LookVector.Z < -0.99, "meshes built here need no half turn")
 -- The Stink Lobber's bomb goes with the throw and grows back.
 TestControls.weapon(ada, "StinkLobber")
 task.wait(0.2)
