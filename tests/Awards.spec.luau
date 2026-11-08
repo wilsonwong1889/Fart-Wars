@@ -214,6 +214,7 @@ local Gas = require(server.Services.GasService)
 local Bots = require(server.Services.BotService)
 local Barrels = require(server.Services.BarrelService)
 local Lifecycle = require(server.Services.PlayerLifecycleService)
+local TeamService = require(server.Services.TeamService)
 local AFK = require(server.Services.AFKService)
 local TestControls = require(server.TestControls)
 local Remotes = ReplicatedStorage.Remotes
@@ -361,9 +362,12 @@ check(Barrels.shoot(me, lone[3].PrimaryPart, GameConfig.BARREL.HEALTH), "I light
 task.wait(GameConfig.BARREL.FUSE_SECONDS + 0.2)
 check(not lone[1]:GetAttribute("Ready") and not lone[2]:GetAttribute("Ready") and not lone[3]:GetAttribute("Ready"), "all three blow")
 
--- Cy gets the most, then leaves before the end.
+-- Cy gets the most, then leaves before the end. Joining, Cy goes to Ada's
+-- side: bots don't count, so it's the one with fewer people. The test
+-- moves Cy to mine.
 local cy = join("Cy", 903)
-check(cy:GetAttribute("TeamId") == mine, "Cy joins my side")
+check(cy:GetAttribute("TeamId") == theirs, "Cy joins Ada's side, the one with fewer people")
+check(TeamService.testSetTeam(cy, mine) and cy:GetAttribute("TeamId") == mine, "and is moved to mine")
 for i = 1, 4 do
 	Eliminations.eliminateBot(whiff.id, life(whiff, 0, 60 + 10 * i), { killer = cy, victimTeam = theirs, cause = "shot" })
 	task.wait(0.1)

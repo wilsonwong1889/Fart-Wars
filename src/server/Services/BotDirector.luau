@@ -8,9 +8,10 @@
 -- of changes (and the team changes the bots themselves make) is settled in
 -- one go.
 -- Each bot is a BotService slot. Every life gets an avatar built here: an
--- R15 body in the team's colours, walking at the Gas Blaster's speed with
--- the Gas Blaster in hand (the same Tool a player holds, so every client
--- dresses it), standing on the team's safest spawn in workspace.Bots, with
+-- R15 body in the team's colours, built with the Gas Blaster in hand (the
+-- same Tool a player holds, so every client dresses it; BotService then
+-- swaps in the gun each life carries and sets the walk speed from it),
+-- standing on the team's safest spawn in workspace.Bots, with
 -- Roblox's default animations played from the server, and one BotBrain
 -- driving it. A bot that dies is back RESPAWN_SECONDS later (BotService
 -- clears the old body away), every bot starts again from a spawn when a
