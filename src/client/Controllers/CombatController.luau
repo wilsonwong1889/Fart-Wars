@@ -167,13 +167,25 @@ local function build()
 		Parent = screen,
 	})
 
+	-- The kill feed, top right under the menu bar's corner (MenuBarController:
+	-- 196 tall, 52 down and 16 in, the free spin and daily reward its last
+	-- row). It hangs from the corner's own spot, so the HUD size grows the
+	-- two alike and the feed's lines always start under that row.
+	local underMenuBar = UI.new("Frame", {
+		Name = "UnderMenuBar",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 52),
+		Size = UDim2.new(0, 324, 0, 344),
+		BackgroundTransparency = 1,
+		Parent = screen,
+	})
 	p.feed = UI.new("Frame", {
 		Name = "KillFeed",
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -20, 0, 190),
+		Position = UDim2.new(1, -4, 0, 204),
 		Size = UDim2.new(0, 320, 0, 140),
 		BackgroundTransparency = 1,
-		Parent = screen,
+		Parent = underMenuBar,
 	}, { UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Right) })
 
 	-- Over the hotbar (HotbarController: 72 tall, its bottom 32 up), one

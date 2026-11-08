@@ -7,7 +7,7 @@
 --     size, on a 768 or 820 tall screen, nothing runs into anything (the
 --     home screen's tiles stay under the coin pill and on the screen; the
 --     gas and Fart Dash bars over the hotbar, the weapon and streak over
---     them)
+--     them; the kill feed under the menu bar's SPIN / DAILY row)
 --   * reduce motion: softer explosion bursts, a steady gas outline
 --   * friends: the team cards say where your friends are
 local Players = game:GetService("Players")
@@ -57,6 +57,7 @@ local Home = require(Controllers.HomeController)
 local Locker = require(Controllers.LockerController)
 local CombatUI = require(Controllers.CombatController)
 local Hotbar = require(Controllers.HotbarController)
+local MenuBar = require(Controllers.MenuBarController)
 local Effects = require(Controllers.EffectsController)
 local PlayersUI = require(Controllers.PlayersController)
 local function join(name: string, userId: number): Player
@@ -249,6 +250,12 @@ eachLayout(function(screen, label)
 		local _, bottom = rect(CombatUI.parts[name], screen)
 		check(bottom.Y <= barsTop.Y, `{label}: the {name} line clears the bars ({bottom.Y} vs {barsTop.Y})`)
 	end
+	-- The kill feed under the menu bar's corner and its last row, the free
+	-- spin and the daily reward (always there for a new player).
+	local _, corner = rect(MenuBar.parts.corner, screen)
+	local _, claims = rect(MenuBar.parts.spin.Parent, screen)
+	local feed = rect(CombatUI.parts.feed, screen)
+	check(feed.Y >= corner.Y and feed.Y >= claims.Y, `{label}: the kill feed starts under the SPIN / DAILY row ({feed.Y} vs {claims.Y})`)
 end)
 
 -- Reduce motion.
