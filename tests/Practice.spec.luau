@@ -5,11 +5,12 @@
 --     Gas Blaster, the camera and crosshair as in a match), not to the team
 --     screen; a veteran's and a temporary profile's PLAY, and a second
 --     PLAY, go straight to the teams
---   * the steps in order: the intro; gas the dummies (they swell, pop with
---     the shooter's hit markers, set their neighbours off and come back;
---     headshots do more); a Fart Dash; the barrel (two hits, the fuse, a
---     blast that pops the dummies round it); done, then home with the team
---     screen open, and picking a team joins the match from its own spawn
+--   * the steps in order: the intro; gas the dummies (their faces in front
+--     of their heads; they swell, pop with the shooter's hit markers, set
+--     their neighbours off and come back; headshots do more); a Fart Dash;
+--     the barrel (two hits, the fuse, a blast that pops the dummies round
+--     it); done, then home with the team screen open, and picking a team
+--     joins the match from its own spawn
 --   * nothing in the yard pays or counts: coins, XP, stats, the ledger,
 --     playtime, match shots, the funnel, challenge dashes, team points
 --   * the AFK check leaves the yard alone, and the yard ends by itself
@@ -227,6 +228,13 @@ local dummies = session.yard.Dummies
 local range1, range2, range3 = dummies.Range1, dummies.Range2, dummies.Range3
 local minSize = PracticeConfig.DUMMY.MIN_SIZE
 check(range2.Body.Size.X == minSize and range2:GetAttribute("Gas") == 0, "the dummies start empty")
+-- A face the head can't hide: in front of it toward the camera (a
+-- billboard's StudsOffset +Z), never drawn over walls.
+for _, dummy in dummies:GetChildren() do
+	local face = dummy.Head:FindFirstChild("Face")
+	check(face and face.StudsOffset.Z > dummy.Head.Size.Z / 2 and face.StudsOffset.X == 0 and face.StudsOffset.Y == 0, `{dummy.Name}'s face sits in front of its head`)
+	check(not face.AlwaysOnTop, `{dummy.Name}'s face doesn't show through walls`)
+end
 shoot(me, range2.Body, 4)
 check(range2:GetAttribute("Gas") == 80 and range2.Body.Size.X > minSize, "four hits: 80% and swelling")
 check(sent(me, "hit", function(e)

@@ -103,7 +103,10 @@ function PracticeYard.dummy(parent: Instance, name: string, at: CFrame): Model
 	local head = MapKit.part(model, "Head", Vector3.one * HEAD_SIZE, at, props({ Color = THEME.porcelain }, shootable))
 	model.PrimaryPart = body
 
-	local face = billboard("Face", head, Vector2.new(HEAD_SIZE * 0.9, HEAD_SIZE * 0.9), Vector3.zero)
+	-- The face floats just in front of the head, toward whoever's looking (a
+	-- billboard's StudsOffset is in the camera's frame: +Z comes toward it),
+	-- so the head never hides it; it isn't drawn on top, so walls still do.
+	local face = billboard("Face", head, Vector2.new(HEAD_SIZE * 0.9, HEAD_SIZE * 0.9), Vector3.new(0, 0, HEAD_SIZE / 2 + 0.1))
 	local emoji = Instance.new("TextLabel")
 	emoji.Name = "Emoji"
 	emoji.BackgroundTransparency = 1
