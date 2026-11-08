@@ -89,9 +89,17 @@
   progress is saved.
 - Fart Dash no longer flags you for going through a wall when you dash
   round a corner, along a wall, off a ledge or on a laggy connection; a
-  dash through a wall is still put back. Roblox's chat no longer covers the
-  LOADOUT button or your weapon list: the home screen's buttons sit below
-  it, and it moves to the bottom right while the Loadout is open.
+  dash through a wall is still put back. The chat is Roblox's current one
+  (it was the old, legacy chat), and it no longer covers the LOADOUT button
+  or your weapon list: the home screen's buttons sit below it, and it moves
+  to the bottom right while the Loadout is open.
+- Fixes: HUD SIZE changes now show at once (they only did on your next
+  visit); at a bigger HUD size the hotbar no longer covers the gas and
+  dash bars, and the home screen's tiles no longer slide under your coins
+  (they shrink a little to fit if they must); the kill feed moved below the
+  SPIN and DAILY buttons, which were hiding its newest lines; the Settings
+  list stays where you scrolled it when you change something; and the
+  Choose a Team hint isn't cut off.
 - Specs: `TeamPick`, `BotArsenal`, `LaunchPads`, `Compass`, `CompassOff`,
   `GasNumbers`, `ChainCallouts`, `Awards`, `Challenges`, `Leaderboard`,
   `Badges`, `Settings`, `Feedback`, `SoftShutdown`, `DashCheck`,

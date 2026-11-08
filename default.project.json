@@ -139,6 +139,11 @@
       "$properties": {
         "StreamingEnabled": false
       }
+    },
+    "TextChatService": {
+      "$properties": {
+        "ChatVersion": "TextChatService"
+      }
     }
   }
 }

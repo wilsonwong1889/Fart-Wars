@@ -137,6 +137,8 @@ Rojo maps the source like this (`default.project.json`):
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces), and `PracticeYard` (the practice yard, built for each player in it) |
 | `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes), `GasNumbers` (the gas your shots put in, floating up where they land), `Compass` (the compass's arithmetic) and the controllers |
 
+The project also sets a few service properties: `StarterPlayer` (camera zoom, walk speed, no Shift lock), `Players` (avatars spawn when the game says, 3 s respawn), `Workspace` (no streaming) and `TextChatService.ChatVersion = TextChatService`, Roblox's current chat (the chat placement in `ChatSpace` and the `/fw` chat command need it; a place still on the legacy chat gets it when Rojo syncs, or set it by hand in TextChatService's properties).
+
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
 `Progress`, `Locker`, plus `GameMenu` and `ComingSoon`) are built in code by the client controllers
 rather than stored in `StarterGui`, so they live in Git like everything
