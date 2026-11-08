@@ -5,7 +5,9 @@
 --   * HUD size: every panel scales around its own anchor, full-screen
 --     backdrops don't; from Settings, in steps, within limits; at every
 --     size, on a 768 or 820 tall screen, nothing runs into anything (the
---     home screen's tiles stay under the coin pill and on the screen)
+--     home screen's tiles stay under the coin pill and on the screen; the
+--     gas and Fart Dash bars over the hotbar, the weapon and streak over
+--     them)
 --   * reduce motion: softer explosion bursts, a steady gas outline
 --   * friends: the team cards say where your friends are
 local Players = game:GetService("Players")
@@ -54,6 +56,7 @@ local HUD = require(Controllers.HUDController)
 local Home = require(Controllers.HomeController)
 local Locker = require(Controllers.LockerController)
 local CombatUI = require(Controllers.CombatController)
+local Hotbar = require(Controllers.HotbarController)
 local Effects = require(Controllers.EffectsController)
 local PlayersUI = require(Controllers.PlayersController)
 local function join(name: string, userId: number): Player
@@ -236,6 +239,17 @@ for _, season in { false, true } do
 end
 workspace:SetAttribute("SeasonActive", nil)
 check(home.tileFit.Scale == 1, "the tiles full size again")
+-- In a match: the gas and Fart Dash bars over the hotbar, the weapon in
+-- hand and the streak over them.
+eachLayout(function(screen, label)
+	local hotbarTop = rect(Hotbar.parts.bar, screen)
+	local barsTop, barsBottom = rect(CombatUI.parts.bars, screen)
+	check(barsBottom.Y <= hotbarTop.Y, `{label}: the gas and Fart Dash bars clear the hotbar ({barsBottom.Y} vs {hotbarTop.Y})`)
+	for _, name in { "weapon", "streak" } do
+		local _, bottom = rect(CombatUI.parts[name], screen)
+		check(bottom.Y <= barsTop.Y, `{label}: the {name} line clears the bars ({bottom.Y} vs {barsTop.Y})`)
+	end
+end)
 
 -- Reduce motion.
 Locker.parts.content.Settings.ReduceMotionRow.ReduceMotion.Activated:Fire()

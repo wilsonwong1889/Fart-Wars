@@ -176,14 +176,25 @@ local function build()
 		Parent = screen,
 	}, { UI.list(Enum.FillDirection.Vertical, 4, Enum.HorizontalAlignment.Right) })
 
-	-- The bars over the hotbar: gas (left) and Fart Dash charge (right).
+	-- Over the hotbar (HotbarController: 72 tall, its bottom 32 up), one
+	-- panel hung from the hotbar's own bottom, so the HUD size grows the two
+	-- alike and never one into the other: the bars, gas (left) and Fart
+	-- Dash charge (right), and above them the weapon and the streak.
+	local overHotbar = UI.new("Frame", {
+		Name = "OverHotbar",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -32),
+		Size = UDim2.new(0, 470, 0, 130),
+		BackgroundTransparency = 1,
+		Parent = screen,
+	})
 	local bars = UI.new("Frame", {
 		Name = "Bars",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -110),
+		Position = UDim2.new(0.5, 0, 1, -78),
 		Size = UDim2.new(0, 470, 0, 26),
 		BackgroundTransparency = 1,
-		Parent = screen,
+		Parent = overHotbar,
 	})
 	p.bars = bars
 	local meter = UI.new("Frame", {
@@ -246,21 +257,21 @@ local function build()
 	p.weapon = UI.label("", 16, {
 		Name = "Weapon",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, -90, 1, -140),
+		Position = UDim2.new(0.5, -90, 1, -108),
 		Size = UDim2.new(0, 290, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Visible = false,
-		Parent = screen,
+		Parent = overHotbar,
 	})
 	p.streak = UI.label("", 16, {
 		Name = "Streak",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 150, 1, -140),
+		Position = UDim2.new(0.5, 150, 1, -108),
 		Size = UDim2.new(0, 170, 0, 22),
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextColor3 = Color3.fromRGB(255, 221, 26),
 		Visible = false,
-		Parent = screen,
+		Parent = overHotbar,
 	})
 end
 
