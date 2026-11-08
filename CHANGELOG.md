@@ -39,6 +39,39 @@
   hit did nothing (a teammate, spawn protection, or they're already going
   off).
   Reduce motion and Reduced effects tone it down.
+- Bots fill a quiet server to four: with one player in it there are three
+  bots, with two there are two, with three there's one. They keep the
+  teams level, a player who joins takes a bot's place, and a bot changes
+  sides when the teams get uneven. Bots are named [BOT], carry the Gas
+  Blaster and play at half difficulty: they take a moment to react and
+  miss more against someone on the move. Kills of and by bots score in
+  Team Elimination and bots hold the zone in Gas Control, but killing one
+  pays no coins or XP, so there's nothing to farm.
+- Joining shows the game's own loading screen instead of Roblox's: the
+  FART WARS logo over a dark purple background, a tip every few seconds,
+  a yellow progress bar and what it's waiting for (the battlefield, your
+  profile, the lobby). A slow server can't keep you there: each step
+  gives up after 15 seconds.
+- The shop is one scrolling page, with a rail beside it that jumps to
+  each part: FEATURED, WEAPONS, DAILY and COINS. DAILY sells five
+  cosmetics a day for 200 to 1,800 coins each: the same in every server,
+  new at midnight UTC, with a countdown. Click one to preview it on your
+  own gun, bought or not; if you can't buy it yet, it says why.
+- The lobby's TODAY IN THE SHOP panel leads with a card of up to three
+  of today's cosmetics you don't own and the time left (click it for the
+  daily shop), then the Starter Pack, your next gun, the daily reward,
+  free spins and the season, as they apply, two at a time with arrows
+  for more. The Shop button's red badge counts what you can buy now,
+  today's cosmetics included.
+- LOADOUT is its own screen (from the lobby, the M menu or the shop's
+  tabs): your guns with their keys, the picked one's gas, range and fire
+  rate against the shop's best, Fart Dash, your pick of Q ability, and
+  slots for your tracer, Fart Dash trail and boom (the blast when someone
+  you eliminate goes off). Your emotes sit in a ring around E: pick the
+  one E plays, and an empty spot takes you to the daily shop.
+- Hold E in a match for a wheel of every emote you own; let go on one to
+  play it (in the middle, nothing plays). Your equipped emote stays as it
+  is, and a tap of E still plays it, as you let go.
 - Every gun has its own range, and long shots do less: full gas out to a
   gun's effective range, then less, down to half at its full range, and
   nothing past it (a headshot always stays the better hit; the server
