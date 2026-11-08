@@ -41,6 +41,7 @@ task.wait(0.5)
 check(RoundService.phase() == "ACTIVE", "the match is on from the start")
 local snapshot = RoundService.snapshot()
 check(snapshot.phaseEndTime == nil and snapshot.matchMode == "Continuous", "with no end time")
+check(snapshot.awards == nil and not require(server.Services.AwardService).enabled(), "and no award cards: there's no results screen")
 
 -- A client joins.
 local me = Instance.new("Player")

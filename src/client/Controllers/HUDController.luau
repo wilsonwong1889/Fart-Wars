@@ -3,7 +3,9 @@
 --                 count) either side of the timer and round state; your
 --                 team; messages; the AFK warning; the one-time controls
 --                 card on a first PLAY
---   ResultsScreen the winner (or draw) and the countdown to the next round
+--   ResultsScreen the winner (or draw) and the countdown to the next round,
+--                 over the round's award cards (Top Fragger and co.: the
+--                 winner's headshot, name and number)
 --   Scoreboard    Tab (held): who is on each team, any bots after the
 --                 players (stats come with combat)
 -- Everything shown comes from ClientState; times come from the snapshot's
@@ -23,6 +25,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
+local Settings = require(Client.Settings)
 local InputController = require(script.Parent.InputController)
 
 local C = UIConfig.colors
@@ -63,6 +66,93 @@ local function teamPanel(team: string, order: number): Frame
 		Parent = panel,
 	})
 	return panel
+end
+
+-- The results: the winner's card with up to four award cards in a row
+-- under it, all in one block (Stack), so the HUD size scales them as one.
+local RESULT_CARD = Vector2.new(560, 220)
+local AWARD_CARD = Vector2.new(150, 190)
+local AWARD_GAP = 10
+local AWARD_SLOTS = 4
+local STACK_WIDTH = AWARD_SLOTS * AWARD_CARD.X + (AWARD_SLOTS - 1) * AWARD_GAP
+local STACK_HEIGHT = RESULT_CARD.Y + 12 + AWARD_CARD.Y
+local AWARD_GOLD = Color3.fromRGB(255, 205, 50)
+
+-- One award card: the award, the winner's face (a headshot; a bot's is a
+-- robot), the award's badge on it, their name, the number and a line to go
+-- with it. renderAwards fills it in.
+local function awardCard(order: number, parent: Instance): Frame
+	local card = UI.new("Frame", {
+		Name = `Award{order}`,
+		LayoutOrder = order,
+		Size = UDim2.new(0, AWARD_CARD.X, 0, AWARD_CARD.Y),
+		BackgroundColor3 = C.panel,
+		BackgroundTransparency = 0.05,
+		Visible = false,
+		Parent = parent,
+	}, { UI.corner(14), UI.stroke(C.stroke, 3), UI.padding(6) })
+	local title = UI.label("", 16, {
+		Name = "Title",
+		Size = UDim2.new(1, 0, 0, 20),
+		TextColor3 = AWARD_GOLD,
+		TextScaled = true,
+		Parent = card,
+	})
+	UI.new("UITextSizeConstraint", { MaxTextSize = 16, Parent = title })
+	local face = UI.new("Frame", {
+		Name = "Face",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 24),
+		Size = UDim2.new(0, 64, 0, 64),
+		BackgroundColor3 = C.panelLight,
+		Parent = card,
+	}, { UI.corner(32), UI.stroke(C.stroke, 3) })
+	UI.new("ImageLabel", {
+		Name = "Headshot",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		Image = "",
+		Parent = face,
+	}, { UI.corner(32) })
+	-- A bot's robot, or a player's initial until their headshot arrives.
+	UI.label("", 30, { Name = "Glyph", Size = UDim2.new(1, 0, 1, 0), Parent = face })
+	local badge = UI.label("", 16, {
+		Name = "Badge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -6, 1, -6),
+		Size = UDim2.new(0, 28, 0, 28),
+		BackgroundTransparency = 0,
+		BackgroundColor3 = C.panel,
+		ZIndex = 2,
+		Parent = face,
+	})
+	UI.corner(14).Parent = badge
+	UI.label("", 15, {
+		Name = "PlayerName",
+		Position = UDim2.new(0, 0, 0, 92),
+		Size = UDim2.new(1, 0, 0, 18),
+		Font = UIConfig.bodyFont,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Parent = card,
+	})
+	UI.label("", 28, { Name = "Value", Position = UDim2.new(0, 0, 0, 108), Size = UDim2.new(1, 0, 0, 28), Parent = card })
+	UI.label("", 11, {
+		Name = "Unit",
+		Position = UDim2.new(0, 0, 0, 135),
+		Size = UDim2.new(1, 0, 0, 13),
+		Font = UIConfig.bodyFont,
+		TextColor3 = C.muted,
+		Parent = card,
+	})
+	UI.label("", 12, {
+		Name = "Line",
+		Position = UDim2.new(0, 0, 0, 149),
+		Size = UDim2.new(1, 0, 0, 29),
+		TextWrapped = true,
+		TextColor3 = C.accent,
+		Parent = card,
+	})
+	return card
 end
 
 local function build()
@@ -200,14 +290,23 @@ local function build()
 	local results = UI.screen("ResultsScreen", 6)
 	results.Enabled = false
 	p.results = results
-	local card = UI.new("Frame", {
-		Name = "Card",
+	local stack = UI.new("Frame", {
+		Name = "Stack",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0.5, 0, 0.45, 0),
-		Size = UDim2.new(0, 560, 0, 220),
+		Size = UDim2.new(0, STACK_WIDTH, 0, RESULT_CARD.Y),
+		BackgroundTransparency = 1,
+		Parent = results,
+	})
+	p.resultStack = stack
+	local card = UI.new("Frame", {
+		Name = "Card",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		Size = UDim2.new(0, RESULT_CARD.X, 0, RESULT_CARD.Y),
 		BackgroundColor3 = C.panel,
 		BackgroundTransparency = 0.05,
-		Parent = results,
+		Parent = stack,
 	}, { UI.corner(18), UI.stroke(C.stroke, 4), UI.padding(14) })
 	p.resultTitle = UI.label("", 48, { Name = "Title", Size = UDim2.new(1, 0, 0, 56), Parent = card })
 	p.resultScores = UI.label("", 34, { Name = "Scores", Position = UDim2.new(0, 0, 0, 64), Parent = card })
@@ -218,6 +317,19 @@ local function build()
 		Parent = card,
 	})
 	p.resultNext = UI.label("", 22, { Name = "Next", Position = UDim2.new(0, 0, 0, 150), Parent = card })
+	p.awards = UI.new("Frame", {
+		Name = "Awards",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		Size = UDim2.new(1, 0, 0, AWARD_CARD.Y),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = stack,
+	}, { UI.list(Enum.FillDirection.Horizontal, AWARD_GAP, Enum.HorizontalAlignment.Center) })
+	p.awardCards = {}
+	for i = 1, AWARD_SLOTS do
+		p.awardCards[i] = awardCard(i, p.awards)
+	end
 
 	-- Scoreboard
 	local board = UI.screen("Scoreboard", 7)
@@ -301,6 +413,123 @@ local function renderTeams()
 	end
 end
 
+-- Players' headshots by user ID: asked for once (GetUserThumbnailAsync
+-- yields, so never while drawing), then kept for the session. One that
+-- fails (a Studio test player) is asked again next round at most.
+HUDController.headshots = {} :: { [number]: string }
+local askedInRound: { [number]: number } = {}
+
+local function showHeadshot(card: Frame, userId: number, roundId: number)
+	local face = (card :: any).Face
+	local image = HUDController.headshots[userId]
+	face.Headshot.Image = image or ""
+	face.Glyph.Visible = image == nil
+	if image or askedInRound[userId] == roundId then
+		return
+	end
+	askedInRound[userId] = roundId
+	task.spawn(function()
+		local ok, content = pcall(function()
+			return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+		end)
+		if not (ok and type(content) == "string" and content ~= "") then
+			return
+		end
+		HUDController.headshots[userId] = content
+		for _, other in HUDController.parts.awardCards do
+			if other:GetAttribute("UserId") == userId then
+				local otherFace = (other :: any).Face
+				otherFace.Headshot.Image = content
+				otherFace.Glyph.Visible = false
+			end
+		end
+	end)
+end
+
+-- A name's first letter or digit, for the face until the headshot comes.
+local function initial(name: string): string
+	return string.upper(string.match(name, "%w") or "?")
+end
+
+local function fillAward(card: Frame, award: RoundClock.Award, look: any, roundId: number)
+	local c = card :: any
+	c.Title.Text = look.title
+	c.Face.Badge.Text = look.icon
+	c.PlayerName.Text = award.name
+	local mine = not award.bot and award.id == Players.LocalPlayer.UserId
+	c.PlayerName.TextColor3 = if mine then C.accent else C.text
+	c.Value.Text = tostring(award.value)
+	c.Unit.Text = if award.value == 1 then look.one else look.many
+	-- One line a round, the same on every screen; a bot gets roasted.
+	c.Line.Text = if award.bot then UIConfig.awardBotLine else look.lines[roundId % #look.lines + 1]
+	local team = award.team and TeamConfig.teams[award.team]
+	c.Face.Border.Color = if team then team.color else C.stroke
+	card:SetAttribute("UserId", if award.bot then nil else award.id)
+	if award.bot then
+		c.Face.Headshot.Image = ""
+		c.Face.Glyph.Text = "🤖"
+		c.Face.Glyph.Visible = true
+	else
+		c.Face.Glyph.Text = initial(award.name)
+		showHeadshot(card, award.id, roundId)
+	end
+end
+
+-- Which round's awards are up, and how many of its cards are out yet.
+local awardsRound: number? = nil
+local revealed = 0
+local revealToken = 0
+
+-- A new round's cards come in one at a time, each with a pop; with Reduce
+-- Motion they're all there at once, still.
+local function revealAwards(count: number)
+	revealToken += 1
+	local token = revealToken
+	if Settings.reduceMotion or count == 0 then
+		revealed = AWARD_SLOTS
+		return
+	end
+	revealed = 0
+	task.spawn(function()
+		for i = 1, count do
+			task.wait(UIConfig.awardRevealSeconds)
+			if token ~= revealToken then
+				return
+			end
+			revealed = i
+			local card = HUDController.parts.awardCards[i]
+			card.Visible = true
+			UI.pop(card, 1.25)
+		end
+	end)
+end
+
+-- The award cards from the snapshot (nothing earned, or awards off: none,
+-- and the winner's card sits where it always did).
+local function renderAwards(snapshot: RoundClock.Snapshot)
+	local p = HUDController.parts
+	local list = if type(snapshot.awards) == "table" then snapshot.awards else {}
+	local filled = 0
+	for _, award in list do
+		local look = type(award) == "table" and UIConfig.awards[award.award]
+		if look and filled < AWARD_SLOTS then
+			filled += 1
+			fillAward(p.awardCards[filled], award, look, snapshot.roundId)
+		end
+	end
+	if awardsRound ~= snapshot.roundId then
+		awardsRound = snapshot.roundId
+		revealAwards(filled)
+	end
+	for i, card in p.awardCards do
+		card.Visible = i <= filled and i <= revealed
+	end
+	local any = filled > 0
+	p.awards.Visible = any
+	p.resultStack.Size = UDim2.new(0, STACK_WIDTH, 0, if any then STACK_HEIGHT else RESULT_CARD.Y)
+	p.resultStack.Position = UDim2.new(0.5, 0, if any then 0.5 else 0.45, 0)
+end
+
 local function renderResults()
 	local p = HUDController.parts
 	local snapshot = ClientState.snapshot
@@ -333,6 +562,7 @@ local function renderResults()
 	else
 		p.resultYou.Text = "Your team lost. Next round!"
 	end
+	renderAwards(snapshot :: RoundClock.Snapshot)
 end
 
 local function render()
