@@ -144,6 +144,15 @@ are recorded in `art/export/mesh-assets.json`. The server dresses the map
 and builds the guns from them, so players never have to build meshes
 themselves (a client's budget for that is small). Save or publish the place
 to keep them; after changing a model, import its FBX again over the old one.
+If a place loses them, `scripts/restore_assets.luau` puts them all back from
+those IDs in a moment, with nothing to import.
+
+The importer leaves each mesh a half turn about Y from how Blender made it.
+The game turns imported meshes back (`WeaponModel.IMPORT_TURN`), so keep the
+default orientation below. The selftest can't see this: a half turn doesn't
+change a mesh's box. If guns ever show their funnel inside the body and the
+butt plate in front of the grip, that's the turn: check them against
+`art/export/weapons/*.png`.
 
 ## Import the meshes into Studio (optional)
 

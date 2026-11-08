@@ -78,6 +78,8 @@ Lifecycle.requestPlay(me, nil)
 task.wait(0.5)
 check(me:GetAttribute("State") == "ACTIVE" and me.Character, "on a team, with an avatar")
 check(cam.CameraType == Enum.CameraType.Custom and not Camera.firstPerson, "the camera follows, third person")
+local spawnLook = me.Character.HumanoidRootPart.CFrame.LookVector
+check(math.abs(cam.CFrame.LookVector.Y) < 1e-3 and cam.CFrame.LookVector:Dot(spawnLook) > 0.99, "starting level, the way the avatar faces, not down at the map like the shot before")
 me.Character:PivotTo(CFrame.new(0, 400, 0))
 local character = me.Character
 local root = character.HumanoidRootPart

@@ -116,6 +116,26 @@ local function meshed(part: BasePart): boolean
 	return part:GetAttribute("ArtSource") ~= "part"
 end
 
+-- Puts `part` at `frame`, with the half turn an imported mesh needs.
+local function setFrame(part: BasePart, frame: CFrame)
+	part.CFrame = if part:GetAttribute("ArtSource") == "mesh" then frame * WeaponModel.IMPORT_TURN else frame
+end
+
+-- Builds the shot meshes here, unless they're all imported.
+local allImported = false
+local function requestShots()
+	if allImported then
+		return
+	end
+	for name in ShotArt do
+		if not WeaponModel.effect(name) then
+			MeshBuilder.request("Shots")
+			return
+		end
+	end
+	allImported = true
+end
+
 local function hide(part: BasePart)
 	part.Transparency = 1
 	local glow = part:FindFirstChild("Glow")
@@ -219,10 +239,10 @@ local function place(bolt: Bolt): boolean
 	end
 	local middle = bolt.from + bolt.direction * ((head + tail) / 2)
 	local frame = CFrame.lookAt(middle, middle + bolt.direction)
-	bolt.part.CFrame = frame
+	setFrame(bolt.part, frame)
 	bolt.part.Size = Vector3.new(bolt.width, bolt.width, span)
 	local glow = bolt.width * SHOT.GLOW
-	bolt.glow.CFrame = frame
+	setFrame(bolt.glow, frame)
 	bolt.glow.Size = Vector3.new(glow, glow, span + bolt.width)
 	lay(bolt, tail)
 	return true
@@ -237,7 +257,7 @@ function ShotFx.bolt(from: Vector3, to: Vector3, color: Color3, style: WeaponFx.
 	if distance < 0.5 or style.width <= 0 then
 		return nil
 	end
-	MeshBuilder.request("Shots")
+	requestShots()
 	nextTracer = nextTracer % GameConfig.BUDGET.MAX_TRACERS + 1
 	local part = ShotFx.tracers[nextTracer]
 	if not part or not part.Parent then
@@ -289,7 +309,7 @@ function ShotFx.burst(at: CFrame, color: Color3, size: number): BasePart?
 	if reduced() or size <= 0 then
 		return nil
 	end
-	MeshBuilder.request("Shots")
+	requestShots()
 	nextBurst = nextBurst % SHOT.BURSTS + 1
 	local part = ShotFx.bursts[nextBurst]
 	if not part or not part.Parent then
@@ -299,7 +319,7 @@ function ShotFx.burst(at: CFrame, color: Color3, size: number): BasePart?
 	local art = ShotArt.MuzzleBurst
 	local full = if meshed(part) then art.size * (size / art.size.X) else Vector3.new(1, 1, 1) * size * 0.6
 	part.Color = color:Lerp(WHITE, 0.3)
-	part.CFrame = at * CFrame.Angles(0, 0, math.random() * 2 * math.pi)
+	setFrame(part, at * CFrame.Angles(0, 0, math.random() * 2 * math.pi))
 	part.Size = full * 0.55
 	part.Transparency = 0
 	bolts[part] = nil
@@ -314,7 +334,7 @@ function ShotFx.ring(at: CFrame, color: Color3, size: number): BasePart?
 	if reduced() or size <= 0 then
 		return nil
 	end
-	MeshBuilder.request("Shots")
+	requestShots()
 	nextRing = nextRing % SHOT.RINGS + 1
 	local part = ShotFx.rings[nextRing]
 	if not part or not part.Parent then
@@ -333,7 +353,7 @@ function ShotFx.ring(at: CFrame, color: Color3, size: number): BasePart?
 		full = Vector3.new(0.04, size, size)
 	end
 	part.Color = color:Lerp(WHITE, 0.4)
-	part.CFrame = frame
+	setFrame(part, frame)
 	part.Size = full * 0.25
 	part.Transparency = SHOT.RING_TRANSPARENCY
 	bolts[part] = nil
@@ -378,7 +398,7 @@ function ShotFx.splat(position: Vector3, direction: Vector3, color: Color3, size
 	if not surface then
 		return nil
 	end
-	MeshBuilder.request("Shots")
+	requestShots()
 	nextSplat = nextSplat % SHOT.SPLATS + 1
 	local part = ShotFx.splats[nextSplat]
 	if not part or not part.Parent then
@@ -398,7 +418,7 @@ function ShotFx.splat(position: Vector3, direction: Vector3, color: Color3, size
 		full = Vector3.new(0.06, size * 0.8, size * 0.8)
 	end
 	part.Color = color
-	part.CFrame = frame
+	setFrame(part, frame)
 	part.Size = full * 0.6
 	part.Transparency = SHOT.SPLAT_TRANSPARENCY
 	bolts[part] = nil

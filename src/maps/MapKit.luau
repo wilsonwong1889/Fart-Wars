@@ -172,14 +172,15 @@ function MapKit.cylinder(color: Color3, material: Enum.Material?): Props
 end
 
 -- Spawn pads at each `x` along z = `z` for the Stinkers, mirrored for the
--- Sharters (Pad1 at the same x on both sides), in Spawns/<team>.
+-- Sharters (Pad1 at the same x on both sides), in Spawns/<team>. Avatars
+-- start the way their pad faces, so both face the middle of the map.
 function MapKit.spawnPads(spawns: Instance, xs: { number }, z: number)
 	local stinkerPads = MapKit.folder("Stinkers", spawns)
 	local sharterPads = MapKit.folder("Sharters", spawns)
 	for i, x in xs do
 		local frame = CFrame.new(x, 0.5, z)
 		local props = { ClassName = "SpawnLocation", Material = Enum.Material.Neon, CanCollide = true }
-		MapKit.part(stinkerPads, `Pad{i}`, Vector3.new(6, 1, 6), frame, props).Color = TeamConfig.teams.Stinkers.color
+		MapKit.part(stinkerPads, `Pad{i}`, Vector3.new(6, 1, 6), frame * CFrame.Angles(0, math.pi, 0), props).Color = TeamConfig.teams.Stinkers.color
 		MapKit.part(sharterPads, `Pad{i}`, Vector3.new(6, 1, 6), MapKit.mirror(frame), props).Color = TeamConfig.teams.Sharters.color
 	end
 end
