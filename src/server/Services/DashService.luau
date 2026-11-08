@@ -1,11 +1,16 @@
 -- Fart Dash (Shift), by its AbilityConfig entry. The client moves its own
 -- avatar, as Roblox characters are client-driven, and tells the server
 -- (FartDash, with the direction). The server checks the player's state,
--- that they aren't exploding, and the cooldown; `checkSeconds` later it
--- checks that the avatar didn't travel further than a dash plus walking
--- allows, or through one of the map's walls, and puts back one that did
--- (a wall is flagged for review too). Refused dashes are logged. The
--- cooldown resets with each life. Everyone else sees the trail:
+-- that they aren't exploding, and the cooldown. For `checkSeconds` it
+-- follows the avatar (its middle, every frame), then checks that it
+-- didn't travel further than a dash plus walking allows, or through one
+-- of the map's walls, and puts back one that did (a wall is flagged for
+-- review too). A fair dash isn't taken for a wall: the path is judged as
+-- walked, so going round a corner, along a wall, up onto something or off
+-- a ledge is fine, and a gap in the server's view of it (lag) is filled
+-- by the shortest way round (see clippedThrough). Refused dashes are
+-- logged. The cooldown resets with each life. Everyone else sees the
+-- trail:
 --   CombatEvent { kind = "dash", player, from, direction }
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +31,14 @@ local GasService = require(script.Parent.GasService)
 local DASH = AbilityConfig.FartDash
 local CHECK_SECONDS = DASH.checkSeconds :: number
 local MAX_TRAVEL = DASH.maxTravelStuds :: number
+-- The check's own measures. A move shorter than SAMPLE_STUDS isn't a new
+-- point on the path. Going round a wall, an avatar's middle stays at
+-- least CLEARANCE studs from it. The travel allowance grows with the
+-- player's ping (the server's view of an avatar is that far behind, at
+-- either end of the check), up to MAX_LAG_SECONDS.
+local SAMPLE_STUDS = 0.5
+local CLEARANCE = 1
+local MAX_LAG_SECONDS = 0.5
 
 local DashService = {}
 
@@ -47,17 +60,193 @@ local function horizontal(v: Vector3): Vector3
 	return Vector3.new(v.X, 0, v.Z)
 end
 
--- Whether one of the map's walls stands between two points.
-function DashService.throughWall(from: Vector3, to: Vector3): boolean
+local function level(point: Vector3, height: number): Vector3
+	return Vector3.new(point.X, height, point.Z)
+end
+
+-- Rays that only meet the map's walls an avatar can't walk through.
+local function wallRays(): RaycastParams?
 	local map = MapService.current()
 	local walls = map and map:FindFirstChild("Walls")
-	if not walls or (to - from).Magnitude < 0.1 then
-		return false
+	if not walls then
+		return nil
 	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { walls }
-	return workspace:Raycast(from, to - from, params) ~= nil
+	params.RespectCanCollide = true
+	return params
+end
+
+-- The wall a level move at `height` from `from` to `to` runs into, unless
+-- the same move `jump` studs higher clears it (a wall low enough to jump).
+local function blocking(params: RaycastParams, from: Vector3, to: Vector3, height: number, jump: number): BasePart?
+	local a, b = level(from, height), level(to, height)
+	if (b - a).Magnitude < 0.1 then
+		return nil
+	end
+	local hit = workspace:Raycast(a, b - a, params)
+	if not hit then
+		return nil
+	end
+	if jump > 0 and not workspace:Raycast(a + Vector3.new(0, jump, 0), b - a, params) then
+		return nil
+	end
+	return hit.Instance :: BasePart
+end
+
+-- The points an avatar's middle passes going round `wall` (CLEARANCE out
+-- from each corner), at `height`, in order round it. An upright wall's own
+-- corners; anything tilted, the corners of the box it fits in.
+local function cornersOf(wall: BasePart, height: number): { Vector3 }
+	local frame, half = wall.CFrame, wall.Size / 2
+	local corners = {}
+	if math.abs(frame.UpVector.Y) > 0.99 then
+		local right = horizontal(frame.RightVector).Unit * (half.X + CLEARANCE)
+		local back = horizontal(frame.LookVector).Unit * (half.Z + CLEARANCE)
+		for _, sign in { { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } } do
+			table.insert(corners, level(frame.Position + right * sign[1] + back * sign[2], height))
+		end
+		return corners
+	end
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, x in { -1, 1 } do
+		for _, y in { -1, 1 } do
+			for _, z in { -1, 1 } do
+				local point = frame:PointToWorldSpace(half * Vector3.new(x, y, z))
+				lo, hi = lo:Min(point), hi:Max(point)
+			end
+		end
+	end
+	lo -= Vector3.new(CLEARANCE, 0, CLEARANCE)
+	hi += Vector3.new(CLEARANCE, 0, CLEARANCE)
+	for _, corner in { { lo.X, lo.Z }, { hi.X, lo.Z }, { hi.X, hi.Z }, { lo.X, hi.Z } } do
+		table.insert(corners, Vector3.new(corner[1], height, corner[2]))
+	end
+	return corners
+end
+
+local function routeLength(from: Vector3, via: { Vector3 }, to: Vector3): number
+	local length, last = 0, from
+	for _, point in via do
+		length += horizontal(point - last).Magnitude
+		last = point
+	end
+	return length + horizontal(to - last).Magnitude
+end
+
+-- How long the shortest clear way from `from` to `to` round `wall` is
+-- (past one of its corners, or two neighbouring ones), at `height`, if
+-- there's one no longer than `budget` studs; nil if not.
+local function around(params: RaycastParams, wall: BasePart, from: Vector3, to: Vector3, height: number, jump: number, budget: number): number?
+	local corners = cornersOf(wall, height)
+	local routes = {}
+	for i, corner in corners do
+		local nextCorner = corners[i % #corners + 1]
+		for _, via in { { corner }, { corner, nextCorner }, { nextCorner, corner } } do
+			table.insert(routes, { via = via, length = routeLength(from, via, to) })
+		end
+	end
+	table.sort(routes, function(a, b)
+		return a.length < b.length
+	end)
+	for _, route in routes do
+		if route.length > budget then
+			return nil
+		end
+		local clear, last = true, from
+		for _, point in route.via do
+			if blocking(params, last, point, height, jump) then
+				clear = false
+				break
+			end
+			last = point
+		end
+		if clear and not blocking(params, last, to, height, jump) then
+			return route.length
+		end
+	end
+	return nil
+end
+
+-- The wall standing between two points, or nil. The move is tested level
+-- at the higher point's height (so stepping up onto something or off a
+-- ledge is a move over what's below), and walls an avatar can walk
+-- through (CanCollide off) or jump over (`jump` studs) don't count.
+function DashService.throughWall(from: Vector3, to: Vector3, jump: number?): BasePart?
+	local params = wallRays()
+	if not params then
+		return nil
+	end
+	return blocking(params, from, to, math.max(from.Y, to.Y), jump or 0)
+end
+
+-- The wall an avatar went through on its way along `path` (its middle,
+-- oldest first), or nil. Only a path with a wall between its ends can
+-- have gone through one; then each step is tested as throughWall tests a
+-- move (never higher than a jump above both ends, so going over a wall
+-- the avatar couldn't have jumped is still through it), and a step that
+-- runs into a wall is fine if going round it (one corner, or both at an
+-- end) keeps the whole path within `allowance` studs along the ground:
+-- the server's view of an avatar comes in steps, and under lag a step can
+-- cut a corner the avatar really walked round.
+function DashService.clippedThrough(path: { Vector3 }, allowance: number, jump: number?): BasePart?
+	local params = wallRays()
+	if not params or #path < 2 then
+		return nil
+	end
+	local leap = jump or 0
+	local first, last = path[1], path[#path]
+	local ceiling = math.max(first.Y, last.Y) + leap
+	if not blocking(params, first, last, math.max(first.Y, last.Y), leap) then
+		return nil
+	end
+	local rest = 0
+	for i = 1, #path - 1 do
+		rest += horizontal(path[i + 1] - path[i]).Magnitude
+	end
+	local walked = 0
+	for i = 1, #path - 1 do
+		local a, b = path[i], path[i + 1]
+		local step = horizontal(b - a).Magnitude
+		rest -= step
+		local height = math.min(math.max(a.Y, b.Y), ceiling)
+		local wall = blocking(params, a, b, height, leap)
+		if wall then
+			local detour = around(params, wall, a, b, height, leap, allowance - walked - rest)
+			if not detour then
+				return wall
+			end
+			walked += detour
+		else
+			walked += step
+		end
+	end
+	return nil
+end
+
+-- The player's network ping in seconds (nil if Roblox can't say).
+-- Replaceable in tests.
+DashService.pingOf = function(player: Player): number?
+	local ok, ping = pcall(player.GetNetworkPing, player)
+	return if ok and type(ping) == "number" then ping else nil
+end
+
+-- How far along the ground an avatar can get between a dash and its
+-- check: the dash, walking the rest of the time, and walking for as long
+-- as the server's view of it can be behind (its ping, up to
+-- MAX_LAG_SECONDS).
+function DashService.allowance(player: Player): number
+	local lag = math.clamp(DashService.pingOf(player) or 0, 0, MAX_LAG_SECONDS)
+	return MAX_TRAVEL + GameConfig.WALK_SPEED * (CHECK_SECONDS + lag)
+end
+
+-- How high the avatar's jump goes.
+local function jumpOf(humanoid: Humanoid): number
+	if humanoid.UseJumpPower then
+		return humanoid.JumpPower ^ 2 / (2 * workspace.Gravity)
+	end
+	return humanoid.JumpHeight
 end
 
 function DashService.dash(player: Player, direction: unknown): boolean
@@ -109,18 +298,35 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		from = start.Position,
 		direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zero,
 	})
-	task.delay(CHECK_SECONDS, function()
-		if player.Character ~= character or not root.Parent then
-			return
+	task.spawn(function()
+		-- Follow the avatar until the check (a respawn or a death ends it).
+		local path = { start.Position }
+		local checkAt = now() + CHECK_SECONDS
+		repeat
+			task.wait()
+			if player.Character ~= character or not root.Parent or humanoid.Health <= 0 then
+				return
+			end
+			local here = root.Position
+			if (here - path[#path]).Magnitude >= SAMPLE_STUDS then
+				table.insert(path, here)
+			end
+		until now() >= checkAt
+		local finish = root.Position
+		if finish ~= path[#path] then
+			table.insert(path, finish)
 		end
-		local travelled = horizontal(root.Position - start.Position).Magnitude
-		local allowed = MAX_TRAVEL + GameConfig.WALK_SPEED * CHECK_SECONDS
+		local travelled = horizontal(finish - start.Position).Magnitude
+		local allowed = DashService.allowance(player)
 		if travelled > allowed then
 			reject(player, "tooFar")
 			character:PivotTo(start)
-		elseif DashService.throughWall(start.Position, root.Position) then
+			return
+		end
+		local wall = DashService.clippedThrough(path, allowed, jumpOf(humanoid))
+		if wall then
 			reject(player, "throughWall")
-			Telemetry.flag(player, "dashThroughWall")
+			Telemetry.flag(player, "dashThroughWall", `{wall.Name}, {math.floor(travelled + 0.5)} studs`)
 			character:PivotTo(start)
 		end
 	end)
