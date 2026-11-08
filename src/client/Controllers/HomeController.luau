@@ -993,19 +993,21 @@ local function renderPicker()
 	local selected = HomeController.selectedTeam
 	for _, team in TeamConfig.order do
 		local card = p.teamButtons[team]
-		local allowed = TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, team)
+		local allowed = TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, team, ClientState.bots)
 		card:SetAttribute("Enabled", allowed)
 		card.AutoButtonColor = allowed
 		card.Lock.Visible = not allowed
 		card.Count.Text = tostring(counts[team] or 0)
-		card.Max.Text = `/ {max}`
+		-- Bots never lock a team (one makes room), so say which are bots.
+		local bots = ClientState.bots[team] or 0
+		card.Max.Text = if bots > 0 then `/ {max} · 🤖 {bots} bot{if bots == 1 then "" else "s"}` else `/ {max}`
 		card.Border.Color = if team == selected then C.text else C.stroke
 		local friends = Players.LocalPlayer:GetAttribute(`Friends_{team}`)
 		card.Friends.Text = if type(friends) == "number" and friends > 0
 			then `👥 {friends} friend{if friends == 1 then "" else "s"} here`
 			else ""
 	end
-	if selected and not TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, selected) then
+	if selected and not TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, selected, ClientState.bots) then
 		-- The teams moved on; fall back to automatic rather than promise
 		-- a team PLAY can't give.
 		HomeController.choose(nil)
@@ -1077,7 +1079,7 @@ local function render()
 	local target = otherTeam(mine)
 	local canSwitch = mine ~= nil
 		and target ~= nil
-		and TeamBalance.canSwitch(ClientState.counts, TeamConfig.order, ClientState.maxTeamSize, mine, target :: string)
+		and TeamBalance.canSwitch(ClientState.counts, TeamConfig.order, ClientState.maxTeamSize, mine, target :: string, ClientState.bots)
 	UI.setEnabled(p.switch, canSwitch)
 	p.switch.Text = if canSwitch and target then `SWITCH TO {TeamConfig.teams[target].shortName}` else "SWITCH TEAM (only to even up)"
 	-- The long greyed-out label needs a smaller size to fit the button.
@@ -1092,7 +1094,7 @@ HomeController.render = render
 
 -- Picks a team for PLAY (nil = automatic) and tells the server.
 function HomeController.choose(team: string?)
-	if team ~= nil and not TeamBalance.preferenceAllowed(othersCounts(), TeamConfig.order, ClientState.maxTeamSize, team) then
+	if team ~= nil and not TeamBalance.preferenceAllowed(othersCounts(), TeamConfig.order, ClientState.maxTeamSize, team, ClientState.bots) then
 		return
 	end
 	if HomeController.selectedTeam ~= team then
@@ -1115,7 +1117,7 @@ end
 
 -- A team (nil: wherever needed) from the team screen: join the match.
 function HomeController.pick(team: string?)
-	if team ~= nil and not TeamBalance.preferenceAllowed(othersCounts(), TeamConfig.order, ClientState.maxTeamSize, team) then
+	if team ~= nil and not TeamBalance.preferenceAllowed(othersCounts(), TeamConfig.order, ClientState.maxTeamSize, team, ClientState.bots) then
 		return
 	end
 	HomeController.choose(team)

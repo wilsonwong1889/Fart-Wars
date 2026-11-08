@@ -9,6 +9,8 @@ export type Snapshot = {
 	phaseEndTime: number?,
 	scoresByTeam: { [string]: number },
 	activePlayersByTeam: { [string]: number },
+	-- How many of activePlayersByTeam are bots.
+	botsByTeam: { [string]: number }?,
 	result: { winner: string?, draw: boolean, scores: { [string]: number } }?,
 	mode: string,
 	modeName: string?,

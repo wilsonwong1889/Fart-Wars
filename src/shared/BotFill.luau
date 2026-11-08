@@ -6,8 +6,9 @@
 --     every human in the server, playing or not (at 4: 1 human, 3 bots;
 --     2, 2; 3, 1; 4 or more, none)
 --   * the teams' totals (humans + bots) stay level: a bot that has to go
---     comes from the bigger team, a new one joins the smaller, and a tie
---     goes by team order
+--     comes from the bigger team (level: the one with fewer humans, which
+--     is where TeamBalance sends the next human), a new one joins the
+--     smaller, and any tie left goes by team order
 --   * a team 2 or more ahead of another, with a bot on it, sends a bot
 --     across (when humans changed sides or stopped playing)
 -- The answer is the smallest change that gets there; applying it and
@@ -46,13 +47,17 @@ function BotFill.plan(humans: number, humanCounts: Counts, botCounts: Counts, or
 	local function total(team: string): number
 		return (humanCounts[team] or 0) + bots[team]
 	end
-	-- The biggest team with a bot on it, or the smallest team; the first in
-	-- order wins a tie.
+	-- The biggest team with a bot on it (level: the one with fewer humans),
+	-- or the smallest team; the first in order wins any tie left.
 	local function biggestWithBot(): string?
 		local best: string? = nil
 		for _, team in order do
-			if bots[team] > 0 and (best == nil or total(team) > total(best)) then
-				best = team
+			if bots[team] > 0 then
+				local bigger = best == nil or total(team) > total(best :: string)
+				local level = best ~= nil and total(team) == total(best :: string)
+				if bigger or (level and (humanCounts[team] or 0) < (humanCounts[best :: string] or 0)) then
+					best = team
+				end
 			end
 		end
 		return best

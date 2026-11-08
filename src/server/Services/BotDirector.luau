@@ -2,6 +2,8 @@
 -- BotConfig.FILL_TO people are in the server (everyone counts, playing or
 -- not, and only while at least one is), bots make up the difference,
 -- spread so the teams stay level; a human who joins takes a bot's place.
+-- So does a human who picks a team: a bot's slot never locks a team for
+-- them (TeamBalance), and the bot crosses over (or goes) once they're in.
 -- BotFill decides, a frame after any join, leave or team change, so a burst
 -- of changes (and the team changes the bots themselves make) is settled in
 -- one go.

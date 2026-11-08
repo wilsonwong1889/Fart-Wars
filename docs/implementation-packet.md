@@ -59,7 +59,7 @@ Services start in this order and never require one that starts later.
 | `DataService` | `start()`, `get(player) -> Profile?` (`{ data, temporary, dirty, lost }`), `isLoaded(player)`, `update(player, fn(data)) -> boolean`, `save(player) -> boolean`, `saveAll()` (shutdown), `defaults()`, `migrate(old) -> Data`, `probe() -> (ok, why)` (a scratch round trip), `setStore(store)` (specs), signal `Loaded(player, profile)` |
 | `MapService` | `load(mapId) -> Model` (errors on a broken map), `current()`, `spawns(teamId)`, `safeSpawn(teamId, enemyPositions)`, `cameraPoints()`, signal `Loaded(model, entry)` |
 | `MatchScoreService` | `reset()`, `open(mode, context, endsAt)`, `closeAt(t)`, `freeze()`, `isOpen()`, `getScores()`, `recordElimination(event) -> boolean`, `testAddElimination(team, n)`, signal `Changed` |
-| `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `areFriends(a, b)`, `testSetTeam(player, team)`, signal `Changed` |
+| `TeamService` | `start()`, `assign(player, preferred?) -> (team?, why)`, `release(player)`, `switch(player, to) -> boolean`, `counts()` (players and bots), `humanCounts()`, `botCounts()`, `activeCount()`, `teamOf(player)`, `members(team)`, `friendCounts(player)`, `areFriends(a, b)`, `testSetTeam(player, team)`, signal `Changed` |
 | `PlayerLifecycleService` | `start()`, `get(player) -> Runtime?`, `stateOf(player)`, `requestPlay(player, preferred?)`, `requestTeam(player, team?)`, `requestSpectate(player)`, `toSpectator(player, state)`, `respawn(player)`, `respawnAll()`, `isProtected(player)`, `endProtection(player)`, `beginRound(id)`, `accrue(seconds)`, `finishRound()`, signals `StateChanged(player, state?, previous?)`, `Spawned(player, character)`, `Died(player, character)`, `Leaving(player, character?)`, `Replacing(player, character)` |
 | `AFKService` | `start()`, `check(now)`, `markActive(player)` |
 | `EliminationService` | `start()`, `eliminate(victim, character, { killer?, killerTeam?, victimTeam?, assists?, cause, weapon? }) -> eventId?`, `streakOf(player)`, `bestStreakOf(player)`, `statsOf(player)`, signals `Eliminated({ event, victim, killer?, assists, cause, weapon?, counted })`, `Alpha(player, eventId)` |
@@ -89,7 +89,7 @@ Services start in this order and never require one that starts later.
 | `Health` | `start({ probe })`, `loop(name, seconds, tick)`, `check() -> Report`, `report()`, `probe()`, `clientReport(player, payload)`, `loopNames()`, `testSetBeat(name, at)`, `setProbe(fn)`; a report is `{ status, problems, version, channel, players, serverFps, memoryMb?, errorsPerMinute, saving, at }` |
 | `MapBase` | `validate(model, entry, teamIds) -> (ok, problems)`, `spawns(model, entry, teamId)`, `cameraPoints(model)`, `resolve(model, path)`, `isDefinition(value)` |
 | `GameModeBase` | `new(definition) -> GameMode`, `mostPointsWins(scores, teamIds)`; a mode has `id`, `displayName`, `roundSeconds`, `intermissionSeconds`, `validateScoreEvent`, `computeResult`, `onRoundStart`, `onRoundEnd` |
-| `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores? }) -> (team?, why)`, `bestTeams`, `preferenceAllowed`, `canSwitch`, `canStart`, `spread`, `spreadAfterJoin` |
+| `TeamBalance` | `choose(counts, order, max, { preferred?, friends?, scores?, bots? }) -> (team?, why)`, `bestTeams(counts, order, max, bots?)`, `preferenceAllowed(counts, order, max, team, bots?)`, `canSwitch(counts, order, max, from, to, bots?)`, `canStart`, `humans(counts, order, bots?)`, `spread`, `spreadAfterJoin`; given `bots`, the rules go by the players alone and a bot's slot is open to any player |
 
 ## Remotes and payloads
 
@@ -109,8 +109,8 @@ reason.
 | `RewardsRequest` | client → server (RemoteFunction) | `action: "status" \| "claimDaily" \| "spin"`; returns `{ ok, reason, message, ... }` (status: `day`, `ready`, `spins`, `giftsLeft`, `nextGiftSeconds`, `secondsToReset`, `saving`; a claim: `day`, `coins`, `spins?`, `cosmetic?`; a spin: `prize`, `label`, `coins`, `xp`, `cosmetic?`) |
 | `ShopRequest` | client → server (RemoteFunction) | `action: "buy" \| "equip" \| "profile"`, `kind: "weapon" \| "ability" \| "cosmetic" \| "all"`, `id: string?` (40 characters at most); returns `{ ok, reason, message, profile? }` |
 | `RoundSnapshot` | client → server (RemoteFunction) | none; returns the snapshot below |
-| `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
-| `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, maxTeamSize }` |
+| `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, botsByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
+| `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, bots = { Stinkers, Sharters }, maxTeamSize }` (`counts` includes the bots) |
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
 | `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
 | `PrestigeRequest` | client → server (RemoteFunction) | `action: "preview" \| "confirm"`, `token: string?` (from the preview); returns `{ ok, reason, message, preview?, token?, rank? }` |

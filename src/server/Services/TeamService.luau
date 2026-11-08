@@ -2,9 +2,11 @@
 -- spectators are neutral. Every join, leave, spectate and switch goes
 -- through here and is checked against TeamBalance, and the counts go to
 -- every client (TeamUpdate) whenever they change. Bots hold slots too
--- (BotService keeps their number per team here), so the counts, the
--- balance rules and the round's start include them; humanCounts() is the
--- players alone.
+-- (BotService keeps their number per team here), so the counts and the
+-- round's start include them; humanCounts() is the players alone. The
+-- balance rules are told which slots are bots': a player may take a bot's
+-- slot (BotDirector then moves the bot over or out), so bots never lock a
+-- team and the rules keep the players fair among themselves.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
@@ -46,6 +48,15 @@ function TeamService.humanCounts(): { [string]: number }
 	end
 	for _, team in teamOf do
 		counts[team] += 1
+	end
+	return counts
+end
+
+-- Bots on each team.
+function TeamService.botCounts(): { [string]: number }
+	local counts = {}
+	for _, team in TeamConfig.order do
+		counts[team] = botCounts[team] or 0
 	end
 	return counts
 end
@@ -131,8 +142,9 @@ local function setTeam(player: Player, team: string?)
 end
 
 -- Gives `player` a slot on the team the rules pick (their preference when
--- it doesn't unbalance anything). Returns the team and why, or nil and
--- "full" when every slot is taken.
+-- it doesn't unbalance the players). Returns the team and why, or nil and
+-- "full" when players hold every slot. A bot's slot counts as open: the
+-- player takes it and BotDirector moves the bot over or out a frame later.
 function TeamService.assign(player: Player, preferred: string?): (string?, TeamBalance.Why)
 	local current = teamOf[player]
 	if current then
@@ -142,6 +154,7 @@ function TeamService.assign(player: Player, preferred: string?): (string?, TeamB
 		preferred = preferred,
 		friends = TeamService.friendCounts(player),
 		scores = MatchScoreService.getScores(),
+		bots = TeamService.botCounts(),
 	})
 	if team then
 		setTeam(player, team)
@@ -156,10 +169,13 @@ function TeamService.release(player: Player)
 	end
 end
 
--- A voluntary move to `to`, allowed only when it evens the teams out.
+-- A voluntary move to `to`, allowed only when it evens the players out.
 function TeamService.switch(player: Player, to: string): boolean
 	local from = teamOf[player]
-	if not from or not TeamBalance.canSwitch(TeamService.counts(), TeamConfig.order, GameConfig.MAX_TEAM_SIZE, from, to) then
+	if
+		not from
+		or not TeamBalance.canSwitch(TeamService.counts(), TeamConfig.order, GameConfig.MAX_TEAM_SIZE, from, to, TeamService.botCounts())
+	then
 		return false
 	end
 	setTeam(player, to)
@@ -167,20 +183,22 @@ function TeamService.switch(player: Player, to: string): boolean
 end
 
 -- Test-only: moves an active player to `team` whatever the balance (but
--- never into a full team).
+-- never into a team players fill).
 function TeamService.testSetTeam(player: Player, team: string): boolean
 	if not GameConfig.TEST_CONTROLS.ENABLED or not teamOf[player] or not teamInstances[team] then
 		return false
 	end
-	if teamOf[player] ~= team and TeamService.counts()[team] >= GameConfig.MAX_TEAM_SIZE then
+	if teamOf[player] ~= team and TeamService.humanCounts()[team] >= GameConfig.MAX_TEAM_SIZE then
 		return false
 	end
 	setTeam(player, team)
 	return true
 end
 
-function TeamService.snapshot(): { counts: { [string]: number }, maxTeamSize: number }
-	return { counts = TeamService.counts(), maxTeamSize = GameConfig.MAX_TEAM_SIZE }
+-- What clients are told (TeamUpdate): everyone on each team, how many of
+-- them are bots, and the team size.
+function TeamService.snapshot(): { counts: { [string]: number }, bots: { [string]: number }, maxTeamSize: number }
+	return { counts = TeamService.counts(), bots = TeamService.botCounts(), maxTeamSize = GameConfig.MAX_TEAM_SIZE }
 end
 
 -- Each player's friends on each team, as Friends_<team> attributes (the
