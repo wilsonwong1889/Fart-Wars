@@ -37,6 +37,7 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local MouseLock = require(Client.MouseLock)
+local ChatSpace = require(Client.ChatSpace)
 local InputController = require(script.Parent.InputController)
 local HUDController = require(script.Parent.HUDController)
 local LockerController = require(script.Parent.LockerController)
@@ -54,6 +55,11 @@ local C = UIConfig.colors
 local Phase = States.Phase
 -- How many of today's cosmetics the lobby's daily card shows.
 local DAILY_CARD_ITEMS = 3
+-- The locker's page buttons down the left: where the column sits (its
+-- middle PAGES_Y below the screen's) and how wide it is; the level panel
+-- under it, bottom left.
+local PAGES_X, PAGES_Y, PAGES_WIDTH = 24, 40, 250
+local LEVEL_BOTTOM, LEVEL_HEIGHT = 12, 80
 
 local HomeController = {}
 
@@ -465,6 +471,57 @@ local function pageOffers(by: number)
 	renderOffers()
 end
 
+-- A panel's HUD size (UI's HudScale on it).
+local function hudScaleOf(panel: Instance): number
+	local scale = panel:FindFirstChild("HudScale")
+	return if scale and scale:IsA("UIScale") then scale.Scale else 1
+end
+
+-- The page column's top on the home screen (pixels from its top) as laid
+-- out, and the lowest it can go and still clear the level panel; its height.
+local function pagesSpan(): (number, number, number)
+	local p = HomeController.parts
+	local height = p.home.AbsoluteSize.Y
+	local column = p.pages.Size.Y.Offset * hudScaleOf(p.pages)
+	local top = height / 2 + PAGES_Y - column / 2
+	local levelTop = height - LEVEL_BOTTOM - LEVEL_HEIGHT * hudScaleOf(p.levelBox)
+	return top, math.max(top, levelTop - ChatSpace.MARGIN - column), column
+end
+
+-- The room Roblox's chat has on the home screen: the top left, down to
+-- where the page column can still fit under it (ChatSpace shrinks the chat
+-- only if it's taller than that).
+local function homeRoom(): (Vector2, Vector2)
+	local p = HomeController.parts
+	local origin, size = p.home.AbsolutePosition, p.home.AbsoluteSize
+	local _, lowest = pagesSpan()
+	return origin, origin + Vector2.new(size.X, lowest)
+end
+HomeController.CHAT_CLAIM = {
+	horizontal = Enum.HorizontalAlignment.Left,
+	vertical = Enum.VerticalAlignment.Top,
+	room = homeRoom,
+} :: ChatSpace.Claim
+
+-- Moves the page column down out from under Roblox's chat when the chat
+-- would cover it, never past the level panel.
+local function fitPages()
+	local p = HomeController.parts
+	if not p.pages then
+		return
+	end
+	local top, lowest = pagesSpan()
+	local origin = p.home.AbsolutePosition
+	local lo, hi = ChatSpace.bounds()
+	local push = 0
+	if lo and hi and lo.X - origin.X < PAGES_X + PAGES_WIDTH * hudScaleOf(p.pages) then
+		local below = hi.Y - origin.Y + ChatSpace.MARGIN
+		push = math.max(0, math.min(below, lowest) - top)
+	end
+	p.pages.Position = UDim2.new(0, PAGES_X, 0.5, PAGES_Y + push)
+end
+HomeController.fitPages = fitPages
+
 local function build()
 	local p = HomeController.parts
 
@@ -486,12 +543,14 @@ local function build()
 	local pages = UI.new("Frame", {
 		Name = "Pages",
 		AnchorPoint = Vector2.new(0, 0.5),
-		-- Lower than the middle: Roblox's chat box sits above.
-		Position = UDim2.new(0, 24, 0.5, 40),
-		Size = UDim2.new(0, 250, 0, #UIConfig.lobbyPages * 84),
+		-- Lower than the middle, and lower still while Roblox's chat (top
+		-- left) would cover it (fitPages).
+		Position = UDim2.new(0, PAGES_X, 0.5, PAGES_Y),
+		Size = UDim2.new(0, PAGES_WIDTH, 0, #UIConfig.lobbyPages * 84),
 		BackgroundTransparency = 1,
 		Parent = home,
 	})
+	p.pages = pages
 	p.pageButtons = {}
 	for i, entry in UIConfig.lobbyPages do
 		local page = UIConfig.pages[entry.page]
@@ -575,11 +634,12 @@ local function build()
 	local level = UI.new("Frame", {
 		Name = "Level",
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 24, 1, -12),
-		Size = UDim2.new(0, 300, 0, 80),
+		Position = UDim2.new(0, 24, 1, -LEVEL_BOTTOM),
+		Size = UDim2.new(0, 300, 0, LEVEL_HEIGHT),
 		BackgroundTransparency = 1,
 		Parent = home,
 	})
+	p.levelBox = level
 	UI.label("⭐", 32, { Name = "Star", Size = UDim2.new(0, 44, 0, 40), Parent = level })
 	p.level = UI.label("LEVEL 1", 28, {
 		Name = "Level",
@@ -1060,6 +1120,8 @@ local function render()
 	local active = ClientState.isActive()
 	p.home.Enabled = not active
 	MouseLock.setFree("HomeScreen", not active)
+	ChatSpace.claim("HomeScreen", if active then nil else HomeController.CHAT_CLAIM)
+	fitPages()
 	blur(not active)
 	if active then
 		p.teamSelect.Enabled = false
@@ -1182,9 +1244,28 @@ function HomeController.start()
 	end
 	started = true
 	build()
+	ChatSpace.start()
 	render()
 	renderWallet()
 	renderOffers()
+	-- The page column follows the chat, the screen's size and the HUD size.
+	ChatSpace.Changed:Connect(fitPages)
+	HomeController.parts.home:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		fitPages()
+		ChatSpace.refit()
+	end)
+	task.defer(function()
+		for _, panel in { HomeController.parts.pages, HomeController.parts.levelBox } do
+			local scale = panel:FindFirstChild("HudScale")
+			if scale then
+				scale:GetPropertyChangedSignal("Scale"):Connect(function()
+					fitPages()
+					ChatSpace.refit()
+				end)
+			end
+		end
+		fitPages()
+	end)
 	for _, name in { "Coins", "Level", "XP", "XPToNext", "Spins", "DailyReady" } do
 		Players.LocalPlayer:GetAttributeChangedSignal(name):Connect(renderWallet)
 	end

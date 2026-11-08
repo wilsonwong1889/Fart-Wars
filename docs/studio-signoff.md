@@ -23,6 +23,13 @@ the Output window help).
 ## 1. Solo (Play)
 
 - [ ] The Output shows `[Fart Wars] server ready` and no red errors.
+      One load error isn't the game's: `rbxassetid://203785492 failed due
+      to: Asset type does not match requested type` comes from the Rojo
+      Studio plugin (7.7.1, the latest). Its `Assets` table lists that
+      sound ("Pop Close Sound", its notification), and it preloads every
+      ID in the table as an image when Studio or a Play session starts.
+      It only happens in Studio, and goes away when the plugin is
+      disabled; nothing in the place or this repository asks for it.
 - [ ] Chat `/fw selftest`. Expected: **0 failures**. Warnings for test
       controls, the admin code, store IDs and art not yet imported or
       uploaded are normal. If the command does
@@ -98,6 +105,10 @@ the Output window help).
       moment later, back after 20 seconds. Nothing through walls.
 - [ ] Fart Dash never goes through a wall (try dashing into the spawn
       room's front wall from outside).
+- [ ] A fair dash is never put back or flagged (no `dashThroughWall` in
+      the Output): out of a spawn door turning into the corridor, through
+      a divider's gap turning behind its end, along a wall, and the same
+      with Incoming Replication Lag at 0.25.
 - [ ] Weapons (`/fw weapon spritzer`, `thunderclapper`, `stinklobber`):
       the Spritzer stops at 90 studs and does less past 45; a Gas Blaster
       body hit adds 20% close up and about 10% from 250 studs down a side
@@ -138,6 +149,11 @@ the Output window help).
 - [ ] At 1366×768 and 1920×1080 (Studio's device emulator or a resized
       window): home screen, HUD, locker, results and scoreboard are
       readable with nothing overlapping.
+- [ ] Same sizes, Roblox's chat open: on the home screen it stays top
+      left and the LOADOUT / SHOP / LEVELS buttons sit below it, above the
+      level panel; LOADOUT opens with the chat in the bottom right corner
+      (shrunk if it must be), clear of the weapons and the emotes; BACK puts
+      it top left again; in a match it's top left at its normal size.
 - [ ] Roblox graphics quality 1: effects thin out, the game stays smooth.
       Settings → Reduced effects does the same at any quality.
 - [ ] Settings → Sound effects off: silence; turning the volume down

@@ -11,6 +11,9 @@
 --           Dash and boom look: pick from what you own
 --   right   your emotes around E: pick the one E plays; empty spots go to
 --           the daily shop
+--   bottom right  nothing: Roblox's chat moves there while the loadout is
+--           open (its top-left place would cover the weapons), shrunk to
+--           fit if it must (ChatSpace), and goes back when it closes
 -- Every button only asks (LockerController.request: ShopRequest); the
 -- answer shows on the status line. BACK, pressing PLAY, spectating or going
 -- AFK closes it. The mouse is free while it's open (MouseLock "Loadout").
@@ -27,12 +30,16 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local MouseLock = require(Client.MouseLock)
+local ChatSpace = require(Client.ChatSpace)
 local Settings = require(Client.Settings)
 local WeaponView = require(Client.WeaponView)
 local LockerController = require(script.Parent.LockerController)
 
 local C = UIConfig.colors
 local STAGE = Vector2.new(1280, 720)
+-- The stage's empty bottom right, kept for Roblox's chat (on to the
+-- screen's corner, past the stage's edge when the screen isn't 16:9).
+local CHAT_SPOT = { min = Vector2.new(900, 500), max = STAGE }
 -- The Q abilities, and each one's icon and colour.
 local Q_ABILITIES = { "RecoveryBurst", "GasPulse" }
 local ABILITY_LOOK = {
@@ -327,6 +334,22 @@ local function toShop(section: string)
 	LockerController.open("Weapons", section)
 end
 
+-- The room Roblox's chat has while the loadout is open: from the chat
+-- spot's top left (the stage scaled to fit and centred, as it's drawn) to
+-- the screen's bottom right.
+local function chatRoom(): (Vector2, Vector2)
+	local screen = LoadoutController.parts.screen
+	local origin, size = screen.AbsolutePosition, screen.AbsoluteSize
+	local scale = math.min(size.X / STAGE.X, size.Y / STAGE.Y)
+	local stageOrigin = origin + (size - STAGE * scale) / 2
+	return stageOrigin + CHAT_SPOT.min * scale, origin + size
+end
+LoadoutController.CHAT_CLAIM = {
+	horizontal = Enum.HorizontalAlignment.Right,
+	vertical = Enum.VerticalAlignment.Bottom,
+	room = chatRoom,
+} :: ChatSpace.Claim
+
 local function build()
 	local p = LoadoutController.parts
 	local screen = UI.screen("Loadout", 16)
@@ -361,9 +384,19 @@ local function build()
 		if size.X > 0 and size.Y > 0 then
 			fit.Scale = math.min(size.X / STAGE.X, size.Y / STAGE.Y)
 		end
+		ChatSpace.refit()
 	end
 	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
 	refit()
+	-- Where the chat goes while the loadout is open; nothing else is put
+	-- there (the Loadout spec checks).
+	p.chatSpot = UI.new("Frame", {
+		Name = "ChatSpot",
+		Position = UDim2.fromOffset(CHAT_SPOT.min.X, CHAT_SPOT.min.Y),
+		Size = UDim2.fromOffset(CHAT_SPOT.max.X - CHAT_SPOT.min.X, CHAT_SPOT.max.Y - CHAT_SPOT.min.Y),
+		BackgroundTransparency = 1,
+		Parent = stage,
+	})
 
 	label("LOADOUT", 46, {
 		Name = "Title",
@@ -933,6 +966,7 @@ function LoadoutController.open()
 	LoadoutController.isOpen = true
 	p.screen.Enabled = true
 	MouseLock.setFree("Loadout", true)
+	ChatSpace.claim("Loadout", LoadoutController.CHAT_CLAIM)
 	render()
 end
 
@@ -944,6 +978,7 @@ function LoadoutController.close()
 		p.screen.Enabled = false
 	end
 	MouseLock.setFree("Loadout", false)
+	ChatSpace.claim("Loadout", nil)
 end
 
 function LoadoutController.start()
