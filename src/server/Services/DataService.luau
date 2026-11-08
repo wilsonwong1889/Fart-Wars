@@ -312,6 +312,14 @@ function DataService.isLoaded(player: Player): boolean
 	return profiles[player] ~= nil
 end
 
+-- Whether this server is done with the player's profile: not loading it,
+-- not holding it and not writing it. On shutdown, once saveAll has let go
+-- of everyone, that's when their last save is written (or has failed for
+-- good); the soft shutdown moves no one before then.
+function DataService.isSettled(player: Player): boolean
+	return not loading[player] and profiles[player] == nil and releasing[player.UserId] == nil
+end
+
 -- Changes the profile through `change` and marks it for saving.
 function DataService.update(player: Player, change: (Data) -> ()): boolean
 	local profile = profiles[player]

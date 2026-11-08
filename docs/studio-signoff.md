@@ -134,6 +134,15 @@ the Output window help).
 - [ ] Turn API access off, Play: the panel says "Progress isn't saving
       this session", the shop says it's closed, nothing errors. Turn it
       back on.
+- [ ] Stop a test: the Output shows `[FW] SoftShutdown skipped why=Studio`
+      (the soft shutdown never runs in Studio, which has no teleports;
+      staging tries it, [`release.md`](release.md)). `/fw selftest` says
+      `Soft shutdown: on, but never in Studio`.
+- [ ] During a test, in the server command bar:
+      `workspace:SetAttribute("SoftShutdown", "update")`. Every client
+      shows "FART WARS JUST GOT AN UPDATE!" and "Moving you to a fresh
+      server..." over everything, the words fitting the window; then
+      `workspace:SetAttribute("SoftShutdown", nil)` takes it away.
 
 ## 4. Six or more players (Clients and Servers, 6-8)
 
