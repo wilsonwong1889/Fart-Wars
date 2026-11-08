@@ -929,6 +929,14 @@ function BotBrain.holding(self: Brain, at: number): boolean
 end
 
 function BotBrain.travel(self: Brain, at: number)
+	-- A launch pad threw it (LaunchPadService marks the avatar): the rest
+	-- of its path is behind it now, so it plans again once it's down.
+	local landsAt = self.character:GetAttribute("LandsAt")
+	if type(landsAt) == "number" then
+		self.character:SetAttribute("LandsAt", nil)
+		self.waypoints = {}
+		self.repathAt = landsAt
+	end
 	if self:holding(at) then
 		self:moveTo(self.root.Position, at)
 		return

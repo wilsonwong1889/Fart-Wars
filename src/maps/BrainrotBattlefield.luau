@@ -25,12 +25,16 @@
 -- everyone's reach: its name on a sign that reads both ways, in its own
 -- colours and light, under a landmark (a bean can, a toilet roll, a gas
 -- vent), so you know where you are on a field this big.
--- The pieces (mirroring, pads, barrels, markers, the control zone, signs)
--- come from MapKit, so the next arena is built the same way.
+-- Launch pads (FeatureFlags.LAUNCH_PADS) fart you forward and up, so a
+-- fight comes sooner without the map shrinking: four a half, at the start
+-- of each side lane and at the spawn room's front corners.
+-- The pieces (mirroring, pads, barrels, launch pads, markers, the control
+-- zone, signs) come from MapKit, so the next arena is built the same way.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local MapConfig = require(Shared.Config.MapConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 
 local HALF = 80 -- half the arena's width and length
 local BOUNDARY_HEIGHT = 24
@@ -185,6 +189,25 @@ local function build(entry: MapConfig.MapEntry): Model
 		Vector3.new(36, 0, -28),
 	} do
 		MapKit.gasBarrels(barrels, spot, theme)
+	end
+
+	-- Launch pads: giant whoopee cushions that fart whoever steps on one
+	-- along a fixed arc to its landing spot (LaunchPads), each half's
+	-- mirrored onto the other. Two catch players coming out of the spawn
+	-- corridor up a side lane, at its start beside the spawn room, and
+	-- throw them up the lane to just short of its gap into the plaza; two
+	-- sit in front of the spawn room at its corners, where the walk from
+	-- the corridors comes round, and throw them into Porcelain Plaza short
+	-- of the throne. The side lanes' stand off the spawn room's side walls,
+	-- so the walk round to the plaza pads passes them by. Every arc stays
+	-- on its own half, under the gates, clear of the walls and cover, and
+	-- lands on open ground (the Map spec flies them all).
+	if FeatureFlags.LAUNCH_PADS then
+		local pads = folder("LaunchPads", model)
+		MapKit.launchPad(pads, "Alley", Vector3.new(-34, 0, -62), Vector3.new(-33, 0, -22), 10)
+		MapKit.launchPad(pads, "Gutter", Vector3.new(34, 0, -62), Vector3.new(30, 0, -22), 10)
+		MapKit.launchPad(pads, "PlazaLeft", Vector3.new(-21, 0, -51), Vector3.new(-4, 0, -26), 9)
+		MapKit.launchPad(pads, "PlazaRight", Vector3.new(21, 0, -51), Vector3.new(4, 0, -26), 9)
 	end
 
 	-- Lane gates (Landmarks): one across each half's lane entrances at

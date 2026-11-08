@@ -27,6 +27,7 @@ local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
+local LaunchPadService = require(script.Parent.LaunchPadService)
 
 local DASH = AbilityConfig.FartDash
 local CHECK_SECONDS = DASH.checkSeconds :: number
@@ -249,6 +250,14 @@ local function jumpOf(humanoid: Humanoid): number
 	return humanoid.JumpHeight
 end
 
+-- Whether a launch pad threw the player between two server times
+-- (LaunchPadService knows every launch it took). A dash's check leaves
+-- that travel to the launch's own allowance, so a dash onto a pad is
+-- neither put back nor flagged.
+function DashService.launchedDuring(player: Player, from: number, to: number): boolean
+	return LaunchPadService.allowance(player, from, to) > 0
+end
+
 function DashService.dash(player: Player, direction: unknown): boolean
 	if not FeatureFlags.FART_DASH then
 		reject(player, "disabled")
@@ -315,6 +324,10 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		local finish = root.Position
 		if finish ~= path[#path] then
 			table.insert(path, finish)
+		end
+		-- A launch pad threw it during the check: the flight isn't the dash.
+		if DashService.launchedDuring(player, at, now()) then
+			return
 		end
 		local travelled = horizontal(finish - start.Position).Magnitude
 		local allowed = DashService.allowance(player)

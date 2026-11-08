@@ -40,6 +40,9 @@
         "FartDash": {
           "$className": "RemoteEvent"
         },
+        "LaunchPad": {
+          "$className": "RemoteEvent"
+        },
         "CombatEvent": {
           "$className": "RemoteEvent"
         },

@@ -10,6 +10,7 @@
 --   EliminationService    each death credited once; streaks; the alpha call
 --   GasService            the gas meter, recovery, countdowns, explosions
 --   BotService            bots: their slots, gas meters and credit
+--   LaunchPadService      launch pads: launches checked and allowed for, bots thrown
 --   CombatService         the Gas Blaster: shots and hits
 --   ExplosionService      blasts and chain reactions
 --   BarrelService         gas barrels
@@ -55,6 +56,7 @@ local ExperimentService = require(Services.ExperimentService)
 local EliminationService = require(Services.EliminationService)
 local GasService = require(Services.GasService)
 local BotService = require(Services.BotService)
+local LaunchPadService = require(Services.LaunchPadService)
 local CombatService = require(Services.CombatService)
 local ExplosionService = require(Services.ExplosionService)
 local BarrelService = require(Services.BarrelService)
@@ -91,6 +93,7 @@ ExperimentService.start()
 EliminationService.start()
 GasService.start()
 BotService.start()
+LaunchPadService.start()
 CombatService.start()
 ExplosionService.start()
 BarrelService.start()

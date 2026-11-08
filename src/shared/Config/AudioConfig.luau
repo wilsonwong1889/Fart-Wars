@@ -24,6 +24,9 @@ return table.freeze({
 	critical = "rbxassetid://9113438365", -- your gas reached the critical stage (Bike Horn Squeeze 2, PSE)
 	explosion = "rbxassetid://9125360550", -- someone exploded (Wet Farty Bursts Low, PSE)
 	dash = "rbxassetid://9113150517", -- Fart Dash (Arm Farts Squeezing Repeatedly 4, PSE)
+	-- A launch pad's fart: Fart Dash's sound, pitched down and carrying
+	-- further, until a whoopee cushion of its own is chosen.
+	launch = "rbxassetid://9113150517",
 	alpha = "rbxassetid://9114898840", -- BRO IS THE ALPHA FART! (Kazoo Fanfare 9, PSE)
 	barrel = "rbxassetid://3149249837", -- a gas barrel exploding (Cannon_Explode, Roblox)
 	spritzer = "rbxassetid://9113047432", -- the Spritzer firing (Aerosol Spray Can 15, PSE)
@@ -60,6 +63,8 @@ return table.freeze({
 		vent = table.freeze({ volume = 0.45, pitch = NumberRange.new(0.95, 1.05), range = "area" }),
 		pulse = table.freeze({ volume = 0.55, range = "area" }),
 		dash = table.freeze({ volume = 0.45, pitch = NumberRange.new(0.9, 1.1), range = "near" }),
+		-- Deeper and louder than a dash, heard across a lane.
+		launch = table.freeze({ volume = 0.6, pitch = NumberRange.new(0.8, 0.88), range = "area" }),
 		emote = table.freeze({ volume = 0.5, pitch = NumberRange.new(0.95, 1.08), range = "near" }),
 		-- Your own warnings: piercing on purpose, so not too loud.
 		inflate = table.freeze({ volume = 0.4 }),
@@ -82,7 +87,8 @@ return table.freeze({
 		shot = table.freeze({ min = 12, max = 250 }),
 		-- Explosions and barrels: the loudest things, heard nearly map-wide.
 		blast = table.freeze({ min = 30, max = 400 }),
-		-- A stink bomb landing, Recovery Burst, Gas Pulse: gas nearby.
+		-- A stink bomb landing, Recovery Burst, Gas Pulse, a launch pad: gas
+		-- nearby.
 		area = table.freeze({ min = 14, max = 220 }),
 		-- Fart Dash puffs and emotes: close by.
 		near = table.freeze({ min = 12, max = 140 }),

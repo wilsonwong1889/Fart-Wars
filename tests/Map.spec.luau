@@ -21,6 +21,14 @@
 --     doesn't count on them; a few dozen parts
 --   * gas barrels (plain models; the server makes them explosive) sit in
 --     the contested middle, well away from both spawns
+--   * launch pads (behind their flag): four a half, each the other half's
+--     mirror; cushions flat on the ground in a lane on their own half, out
+--     of the spawn zones, nothing on them; every arc, flown from the
+--     cushion's middle and all round its edge with an avatar's box, clears
+--     every wall and piece of cover, peaks under the dividers' tops and
+--     the gates, stays on its own half and comes down in about a second on
+--     open ground well inside the walls, nearer the middle, far from the
+--     other team's spawn and on no other pad, with room to run on
 --   * reloading swaps the map cleanly and spawn lookups follow the new one
 local ServerStorage = game:GetService("ServerStorage")
 local shared = game.ReplicatedStorage.Shared
@@ -378,6 +386,181 @@ for _, gasBarrel in map.Barrels:GetChildren() do
 	end
 end
 check(barrels == 12, "six barrels a half")
+
+-- Launch pads.
+local FeatureFlags = require(shared.Config.FeatureFlags)
+local LaunchPadConfig = require(shared.Config.LaunchPadConfig)
+local LaunchPads = require(shared.LaunchPads)
+local launchPads = LaunchPads.list(map)
+local flown = 0
+if not FeatureFlags.LAUNCH_PADS then
+	check(#launchPads == 0 and map:FindFirstChild("LaunchPads") == nil, "launch pads off: the map has none")
+else
+	check(#launchPads == 8, `four launch pads a half ({#launchPads})`)
+	-- What an arc can run into: everything solid but the floors, the spawn
+	-- pads and the launch pads' cushions (flat on the ground, and where
+	-- every arc starts).
+	local obstacles = {}
+	for _, part in parts do
+		local cushion = part.Name == "Pad" and part.Parent and part.Parent.Parent == map.LaunchPads
+		if part.CanCollide and part.Name ~= "Ground" and not string.find(part.Name, "Floor") and not part:IsA("SpawnLocation") and not cushion then
+			local lo, hi = bounds(part)
+			table.insert(obstacles, { lo = lo, hi = hi, name = part:GetFullName() })
+		end
+	end
+	-- An avatar's box, feet at `feet`: 3 studs across, 5.5 tall.
+	local RADIUS, HEIGHT = 1.5, 5.5
+	-- The gap between the avatar's box and the nearest obstacle's
+	-- (negative: they overlap), and which obstacle.
+	local function clearance(feet: Vector3): (number, string)
+		local alo = feet - Vector3.new(RADIUS, 0, RADIUS)
+		local ahi = feet + Vector3.new(RADIUS, HEIGHT, RADIUS)
+		local best, who = math.huge, "nothing"
+		for _, box in obstacles do
+			local gap = math.max(box.lo.X - ahi.X, alo.X - box.hi.X, box.lo.Y - ahi.Y, alo.Y - box.hi.Y, box.lo.Z - ahi.Z, alo.Z - box.hi.Z)
+			if gap < best then
+				best, who = gap, box.name
+			end
+		end
+		return best, who
+	end
+	local zones = {}
+	for _, zone in map.Zones:GetChildren() do
+		zones[zone] = { bounds(zone) }
+	end
+	local function within(point: Vector3, zone: BasePart, margin: number): boolean
+		local lo, hi = zones[zone][1], zones[zone][2]
+		return point.X >= lo.X - margin and point.X <= hi.X + margin and point.Z >= lo.Z - margin and point.Z <= hi.Z + margin
+	end
+	local spawnZones = {}
+	for _, zone in map.Zones:GetChildren() do
+		if zone.Name == "SpawnZone" then
+			table.insert(spawnZones, zone)
+		end
+	end
+	check(#spawnZones == 2, "a spawn zone each")
+	local lanes = { map.Zones.LaneLeft, map.Zones.LaneCenter, map.Zones.LaneRight }
+	local bound = map.Bounds
+	local edgeLo, edgeHi = bound.Position - bound.Size / 2, bound.Position + bound.Size / 2
+	local gateBottom = math.huge
+	for _, item in landmarks:GetDescendants() do
+		if item:IsA("BasePart") then
+			gateBottom = math.min(gateBottom, (bounds(item)).Y)
+		end
+	end
+	local LIFT = 3 -- a standing avatar's root over its feet
+	local CLEAR = 1 -- the least room an arc leaves round the avatar
+	local RUNOUT = 12 -- open ground past the landing, to run on after it
+	local byName = {}
+	for _, pad in launchPads do
+		byName[pad.Name] = pad
+		local half = pad:GetAttribute("Half")
+		local side = if half == "Stinkers" then -1 else 1
+		check((half == "Stinkers" or half == "Sharters") and string.sub(pad.Name, 1, #half) == half, `{pad.Name} says which half it's on`)
+		-- Placement: a walkable cushion flat on the ground, in a lane on
+		-- its own half, clear of both spawn zones and of every solid thing.
+		local cushion = pad.Pad :: BasePart
+		local top, radius = LaunchPads.cushion(pad)
+		local lo, hi = bounds(cushion)
+		check(cushion.CanCollide and cushion.Transparency == 0 and math.abs(lo.Y) < 1e-3 and hi.Y <= 1, `{pad.Name}'s cushion lies on the ground, to walk on`)
+		check(radius >= 6 and top.Z * side > 40 * S, `{pad.Name} is a big cushion on its own half (radius {radius}, at {top})`)
+		for _, item in pad:GetDescendants() do
+			if item:IsA("BasePart") and item ~= cushion then
+				local itemLo, itemHi = bounds(item)
+				check(not item.CanCollide and not item.CanQuery and not item.CanTouch, `{item:GetFullName()} is never in the way`)
+				check(item.Name == "Target" or (math.abs(itemLo.Y) < 1e-3 and itemHi.Y <= 1), `{item:GetFullName()} lies flat with the cushion`)
+			end
+		end
+		check((pad.Target :: BasePart).Transparency == 1, `{pad.Name}'s landing marker is invisible`)
+		local inLane = false
+		for _, lane in lanes do
+			inLane = inLane or within(top, lane, -radius)
+		end
+		check(inLane, `{pad.Name} stands in a lane`)
+		for _, zone in spawnZones do
+			check(not within(top, zone, radius + 3), `{pad.Name} is out of the spawn zones`)
+		end
+		local footprint = clearance(top - Vector3.new(0, 0.8, 0))
+		check(footprint > radius - RADIUS + 2, `nothing stands on {pad.Name} or crowds it ({footprint})`)
+		for _, other in launchPads do
+			if other ~= pad then
+				local otherTop, otherRadius = LaunchPads.cushion(other)
+				check((otherTop - top).Magnitude > radius + otherRadius + 30, `{pad.Name} is well apart from {other.Name}`)
+			end
+		end
+		-- The landing: on open ground on the pad's own half, nearer the
+		-- middle than the pad, well inside the walls, out of both spawn
+		-- zones, far from the other team's spawn pads, on no other pad.
+		local landing, apex = LaunchPads.landing(pad)
+		local direction = LaunchPads.direction(pad)
+		check(math.abs(landing.Y) < 0.25, `{pad.Name} lands on the ground ({landing.Y})`)
+		check(landing.Z * side > 0 and math.abs(landing.Z) < math.abs(top.Z) - 60, `{pad.Name} throws toward the middle and stays on its own half ({landing})`)
+		check(landing.X > edgeLo.X + 30 and landing.X < edgeHi.X - 30 and landing.Z > edgeLo.Z + 30 and landing.Z < edgeHi.Z - 30, `{pad.Name} lands well inside the walls`)
+		for _, zone in spawnZones do
+			check(not within(landing, zone, 40), `{pad.Name} lands nowhere near a spawn zone`)
+		end
+		for team, list in pads do
+			for _, spawn in list do
+				local far = (spawn.Position - landing).Magnitude
+				check(far > (if team == half then 60 else 150), `{pad.Name} lands {math.floor(far)} studs from {team}' {spawn.Name}`)
+			end
+		end
+		for _, other in launchPads do
+			local otherTop, otherRadius = LaunchPads.cushion(other)
+			check(Vector3.new(landing.X - otherTop.X, 0, landing.Z - otherTop.Z).Magnitude > otherRadius + RUNOUT, `{pad.Name} doesn't land on {other.Name}`)
+		end
+		for step = 0, RUNOUT, 2 do
+			local spot = landing + direction * step + Vector3.new(0, 0.2, 0)
+			local room, who = clearance(spot)
+			check(room > 2, `{pad.Name}: open ground {step} studs past the landing ({room} from {who})`)
+		end
+		-- The arc, from the cushion's middle and all round its edge: clear of
+		-- every wall and piece of cover, under the gates, never as high as a
+		-- divider's top (so nobody comes down on one), back down in about a
+		-- second, and on its own half all the way.
+		check(apex + HEIGHT < dividerTop - 1 and apex + HEIGHT < gateBottom - 4, `{pad.Name} peaks at {apex}: below the dividers' tops and the gates`)
+		local starts = { top }
+		for k = 0, 7 do
+			local angle = k * math.pi / 4
+			table.insert(starts, top + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (radius - 0.5))
+		end
+		for _, start in starts do
+			local arc = LaunchPads.arc(pad, start + Vector3.new(0, LIFT, 0), LIFT, LaunchPads.GRAVITY)
+			check(arc.seconds > 0.6 and arc.seconds < 1.4 and Vector3.new(arc.velocity.X, 0, arc.velocity.Z).Magnitude < 150, `{pad.Name}: a flight of {arc.seconds} s`)
+			local least, nearest, at = math.huge, "nothing", start
+			local samples = math.ceil(arc.seconds / 0.01)
+			local onHalf = true
+			for i = 1, samples do
+				local feet = LaunchPads.at(arc, arc.seconds * i / samples) - Vector3.new(0, LIFT, 0)
+				local room, who = clearance(feet)
+				if room < least then
+					least, nearest, at = room, who, feet
+				end
+				onHalf = onHalf and feet.Z * side > 0
+			end
+			check(least >= CLEAR, `{pad.Name}'s arc from {start} comes within {least} of {nearest} at {at}`)
+			check(onHalf, `{pad.Name}'s arc from {start} stays on its own half`)
+			local down = LaunchPads.at(arc, arc.seconds) - Vector3.new(0, LIFT, 0)
+			check((down - landing).Magnitude < 0.05, `{pad.Name}'s arc from {start} comes down on its landing spot`)
+			flown += 1
+		end
+	end
+	-- Each half's pads are the other's mirror image: cushion, landing, peak.
+	for _, pad in launchPads do
+		if pad:GetAttribute("Half") == "Stinkers" then
+			local twin = byName["Sharters" .. string.sub(pad.Name, #"Stinkers" + 1)]
+			check(twin, `{pad.Name} has a twin on the Sharters' half`)
+			local top, landing, apex = LaunchPads.cushion(pad), LaunchPads.landing(pad)
+			local twinTop, twinLanding, twinApex = LaunchPads.cushion(twin), LaunchPads.landing(twin)
+			local function mirrored(a: Vector3, b: Vector3): boolean
+				return (Vector3.new(a.X, a.Y, -a.Z) - b).Magnitude < 1e-3
+			end
+			check(mirrored(top, twinTop) and mirrored(landing, twinLanding) and math.abs(apex - twinApex) < 1e-3, `{twin.Name} mirrors {pad.Name}`)
+		end
+	end
+	check(flown == 72, `every arc flown ({flown})`)
+	check(LaunchPadConfig.COOLDOWN_SECONDS > 0, "a cooldown between launches")
+end
 
 -- Reload.
 local oldPad = pads.Stinkers[1]

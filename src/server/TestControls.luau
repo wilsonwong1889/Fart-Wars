@@ -54,6 +54,7 @@ local MeshBuilder = require(Shared.MeshBuilder)
 local PropArt = require(Shared.Config.PropArt)
 local ShotArt = require(Shared.Config.ShotArt)
 local MapDressing = require(Shared.MapDressing)
+local LaunchPads = require(Shared.LaunchPads)
 local Messages = require(script.Parent.Messages)
 local AdminCode = require(script.Parent.AdminCode)
 local Health = require(script.Parent.Health)
@@ -331,6 +332,7 @@ local REMOTES = {
 	UIMessage = "RemoteEvent",
 	FireWeapon = "RemoteEvent",
 	FartDash = "RemoteEvent",
+	LaunchPad = "RemoteEvent",
 	CombatEvent = "RemoteEvent",
 	ProgressEvent = "RemoteEvent",
 	UseAbility = "RemoteEvent",
@@ -404,6 +406,8 @@ function TestControls.selftest(player: Player?): (boolean, string)
 	end
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
 	report("OK", "Bots", if FeatureFlags.BOTS then `on: up to {BotConfig.FILL_TO} in the server at skill {BotConfig.DIFFICULTY}` else "off")
+	local launchPads = #LaunchPads.list(map)
+	expect(not FeatureFlags.LAUNCH_PADS or launchPads > 0, "Launch pads", if FeatureFlags.LAUNCH_PADS then `on: {launchPads} on the map` else "off", "on, but the map has none", "WARN")
 	report("WARN", "Release", `test controls on (allow-list: {#GameConfig.TEST_CONTROLS.USER_IDS}); turn GameConfig.TEST_CONTROLS.ENABLED off before a public release`)
 	if AdminCode.on() then
 		report("WARN", "Admin code", "on here: anyone with the code gets everything. It's off on the live place (ReleaseConfig.LIVE_PLACE_ID); AdminCode.ENABLED turns it off everywhere")
