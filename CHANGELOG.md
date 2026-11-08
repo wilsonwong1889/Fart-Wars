@@ -150,8 +150,22 @@
   a yellow progress bar and what it's waiting for (the battlefield, your
   profile, the lobby). A slow server can't keep you there: each step
   gives up after 15 seconds.
+- The lobby has big buttons over the blurred battlefield: LOADOUT, SHOP
+  and LEVELS down the left; DAILY, SPIN, SEASON (while one is on),
+  PLAYERS, TOP and SETTINGS down the right; your coins top right (+ opens
+  the coin packs), your level and XP bottom left, and PLAY in the middle
+  (or press Space or F). Red badges count what's waiting: things you can
+  buy on SHOP (today's cosmetics too), new abilities on LOADOUT, a daily
+  reward and free spins.
+- The lobby's TODAY IN THE SHOP panel leads with a card of up to three
+  of today's cosmetics you don't own and the time left (click it for the
+  daily shop), then the Starter Pack, your next gun, the daily reward,
+  free spins and the season, as they apply, two at a time with arrows
+  for more.
 - The shop is one scrolling page, with a rail beside it that jumps to
-  each part: FEATURED, WEAPONS, DAILY and COINS. DAILY sells five
+  each part: FEATURED, WEAPONS, DAILY and COINS. Each gun's card shows
+  its gas, range and fire rate as bars, and spending coins asks
+  "Buy it?" first, with what you'll have left. DAILY sells five
   cosmetics a day for 200 to 1,800 coins each: the same in every server,
   new at midnight UTC, with a countdown. Click one to preview it on your
   own gun, bought or not; if you can't buy it yet, it says why.
@@ -160,12 +174,6 @@
   and your coins buy it for them to keep. They get a banner saying who
   it's from. A gift needs both players' progress to be saving, and
   Roblox to allow both accounts to trade items bought with coins.
-- The lobby's TODAY IN THE SHOP panel leads with a card of up to three
-  of today's cosmetics you don't own and the time left (click it for the
-  daily shop), then the Starter Pack, your next gun, the daily reward,
-  free spins and the season, as they apply, two at a time with arrows
-  for more. The Shop button's red badge counts what you can buy now,
-  today's cosmetics included.
 - LOADOUT is its own screen (from the lobby, the M menu or the shop's
   tabs): your guns with their keys, the picked one's gas, range and fire
   rate against the shop's best, Fart Dash, your pick of Q ability, and
