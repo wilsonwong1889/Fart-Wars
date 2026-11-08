@@ -1,7 +1,7 @@
 -- The client shell against the real server, in one stand-in world (the
 -- harness loops remotes back, so this is one client talking to it):
 --   * joining shows the home screen over the live battlefield (fixed views)
---   * Coming Soon sections open and close
+--   * TOP opens the weekly leaderboard; switched off, it says Coming Soon
 --   * PLAY asks for a team (each card with its count, locked when unfair);
 --     picking one joins it: the home screen goes, the HUD shows your team,
 --     the hotbar your weapon, the top right your coins and the menu, the
@@ -113,11 +113,18 @@ end
 check(onView, "from one of the map's fixed views")
 check(me.Character == nil, "no avatar on the home screen")
 
-local leaderboard = home.home:FindFirstChild("Leaderboard", true) :: TextButton
-click(leaderboard)
-check(home.comingSoon.Enabled and home.soonTitle.Text == "LEADERBOARD", "Leaderboard: Coming Soon")
+local Leaderboard = require(client.Controllers.LeaderboardController)
+local top = home.home:FindFirstChild("Leaderboard", true) :: TextButton
+click(top)
+check(Leaderboard.isOpen and gui.Leaderboard.Enabled and not home.comingSoon.Enabled, "TOP: this week's leaderboard")
+click(Leaderboard.parts.screen:FindFirstChild("Close", true))
+check(not Leaderboard.isOpen and not gui.Leaderboard.Enabled, "and closes")
+Leaderboard.testEnable(false)
+click(top)
+check(home.comingSoon.Enabled and home.soonTitle.Text == "LEADERBOARD", "switched off: Coming Soon")
 click(home.comingSoon:FindFirstChild("Close", true))
 check(not home.comingSoon.Enabled, "and closes")
+Leaderboard.testEnable(nil)
 
 -- The lobby: the battlefield blurred, LOADOUT, SHOP and LEVELS, today's
 -- cosmetics and the other offers two at a time, the bubble for a

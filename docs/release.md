@@ -164,7 +164,7 @@ Each of these also covers:
 | --- | --- | --- |
 | Join and leave churn | Lifecycle, Soak | players leaving mid-countdown, mid-purchase |
 | Lag | Combat (refused shots, cadence) | Studio's network simulation (incoming replication lag) |
-| DataStore failure | Data (outages, locks), Store, Release | Studio without API access: temporary profiles, health DEGRADED |
+| DataStore failure | Data (outages, locks), Store, Release, Leaderboard | Studio without API access: temporary profiles, health DEGRADED, the leaderboard napping |
 | Low-end graphics | Effects (quality 1-3 thins effects) | graphics quality 1, reduced effects on |
 | Exploit attempts | Combat, Dodges, Shop, Store, Release (junk payloads) | a client sending junk through every remote |
 | Simultaneous explosions | Chaos (budget, chain depth) | six barrels and three players exploding at once |

@@ -31,8 +31,8 @@ the Output window help).
       arrive. (Not `require(...).selftest()`: the command bar's `require`
       gets a fresh copy of the module, which sees no map and no players.)
 - [ ] Home screen over the live battlefield: title, team picker, PLAY,
-      Weapons / Abilities / Progression / Settings, Rewards and
-      Leaderboard (Coming Soon).
+      Weapons / Abilities / Progression / Settings, Rewards and TOP
+      (this week's leaderboard).
 - [ ] Open each locker tab from the home screen. Nothing overlaps or runs
       off its card. Close it.
 - [ ] PLAY opens "Choose a Team" (two cards with counts; a lock on a team
@@ -57,9 +57,10 @@ the Output window help).
       closes it. Roblox's Esc menu has no Reset Character button.
 - [ ] Every screen with buttons frees the mouse while it's open and locks
       it again when it closes, however it closes (its button, M, PLAY,
-      spectating): the M menu, each locker tab (top right buttons), Coming
-      Soon, Players, Daily Rewards, the free spin, Season and Prestige. With
-      two open (the menu, then a locker tab), closing one keeps it free.
+      spectating): the M menu, each locker tab (top right buttons), the
+      leaderboard (TOP), Players, Daily Rewards, the free spin, Season and
+      Prestige. With two open (the menu, then a locker tab), closing one
+      keeps it free.
 - [ ] Hold Tab: the scoreboard (not Roblox's player list).
 - [ ] Shift: a Fart Dash along the ground; not again for 3 seconds.
 - [ ] Stand still 45 seconds: "BRO FELL ASLEEP MID-FART!"; at 60 you're
@@ -173,6 +174,21 @@ Rewards and the store:
       E shows the emote.
 - [ ] A friend's account (a real Roblox friend) on your team for ten
       minutes: both get the squad bonus line.
+
+The weekly leaderboard (TOP):
+
+- [ ] Without API access: TOP says LEADERBOARD IS TAKING A NAP, the game
+      plays on, and the Output has no leaderboard warnings or errors.
+- [ ] With API access, in solo Play (Studio's test clients have negative
+      user IDs, which never count, so nothing from a two-client test
+      reaches the board; bots never count either): put some counts on
+      the board from the server command bar (its `require` gets a fresh
+      copy of the service, but the store it writes to is the real one):
+      `local LB = require(game.ServerScriptService.Server.Services.LeaderboardService) local p = game.Players:GetPlayers()[1] LB.add(p, "Eliminations", 5) LB.add(p, "Wins", 2) print(LB.flush())`
+      (prints 2). A minute later TOP shows you first in ELIMINATIONS
+      with 5 and in ROUND WINS with 2, your avatar on the row, your line
+      under the board, and the countdown to Monday 00:00 UTC. Nothing
+      overlaps or runs off the window; a long name ends in "...".
 
 Launch tooling:
 

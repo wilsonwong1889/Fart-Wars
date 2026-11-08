@@ -148,6 +148,9 @@ if Rewards.parts.daily.Enabled then
 	click(Rewards.parts.daily:FindFirstChild("Close", true))
 end
 only("the home screen", { "HomeScreen" })
+-- TOP's Coming Soon card stands in for a section still to come (with the
+-- leaderboard switched off; Leaderboard.spec checks its own screen).
+require(Controllers.LeaderboardController).testEnable(false)
 click(home.home:FindFirstChild("Leaderboard", true))
 only("Coming Soon from home", { "HomeScreen", "ComingSoon" })
 click(home.comingSoon:FindFirstChild("Close", true))

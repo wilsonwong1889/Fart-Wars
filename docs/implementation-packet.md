@@ -253,6 +253,12 @@ A new field gets a default in `DataService.defaults()`; `migrate` fills it
 in for older saves. Bump `VERSION` only for a change `migrate` must handle
 specially; an older server never writes a newer save.
 
+The weekly leaderboard keeps its own OrderedDataStores, not the profile:
+one per board and week, named for the week's Monday
+(`FartWarsTop_Eliminations_2026-11-09`, `FartWarsTop_Wins_2026-11-09`),
+key the user ID, value that week's count. Nothing clears them; a new week
+writes to new stores.
+
 ## Rules worth knowing when changing combat or saving
 
 - **Rates:** shots, Fart Dash and Q go through `Cadence`: a bucket that
