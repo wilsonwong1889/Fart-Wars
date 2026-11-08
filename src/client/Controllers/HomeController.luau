@@ -914,6 +914,19 @@ local function build()
 	UI.onClick(close, function()
 		teamScreen.Enabled = false
 	end)
+	-- The cards, VS, AUTO and the hint, in one frame (the cards' row, AUTO
+	-- and the hint hanging under it) so the HUD size grows them together
+	-- round the screen's middle, gaps and all: each one growing round its
+	-- own anchor, at 125% AUTO ran 10 px into the hint and the cards 7 px
+	-- under AUTO.
+	local teams = UI.new("Frame", {
+		Name = "Teams",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Size = UDim2.new(0, 660, 0, 280),
+		BackgroundTransparency = 1,
+		Parent = teamScreen,
+	})
 	p.teamButtons = {}
 	for i, team in TeamConfig.order do
 		local config = TeamConfig.teams[team]
@@ -925,7 +938,7 @@ local function build()
 			BackgroundColor3 = Color3.new(1, 1, 1),
 			AutoButtonColor = true,
 			Text = "",
-			Parent = teamScreen,
+			Parent = teams,
 		}, {
 			UI.corner(26),
 			UI.stroke(Color3.new(1, 1, 1), 6),
@@ -956,7 +969,7 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 100, 0, 70),
 		Rotation = -6,
-		Parent = teamScreen,
+		Parent = teams,
 	})
 	local autoSlot = UI.new("Frame", {
 		Name = "AutoSlot",
@@ -964,7 +977,7 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 168),
 		Size = UDim2.new(0, 400, 0, 56),
 		BackgroundTransparency = 1,
-		Parent = teamScreen,
+		Parent = teams,
 	})
 	local auto = UI.chunky("AUTO: WHERE I'M NEEDED", Color3.fromRGB(45, 155, 245), "🎲", {
 		Name = "Auto",
@@ -985,7 +998,7 @@ local function build()
 		AutomaticSize = Enum.AutomaticSize.Y,
 		Font = UIConfig.bodyFont,
 		TextWrapped = true,
-		Parent = teamScreen,
+		Parent = teams,
 	})
 
 	-- M menu

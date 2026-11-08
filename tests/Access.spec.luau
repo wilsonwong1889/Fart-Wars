@@ -257,6 +257,26 @@ eachLayout(function(screen, label)
 	local feed = rect(CombatUI.parts.feed, screen)
 	check(feed.Y >= corner.Y and feed.Y >= claims.Y, `{label}: the kill feed starts under the SPIN / DAILY row ({feed.Y} vs {claims.Y})`)
 end)
+-- Choose a Team: the cards, AUTO under them and the hint under that never
+-- run into each other, and the hint ends on the screen.
+eachLayout(function(screen, label)
+	local autoLo, autoHi = rect(home.teamButtons.Auto, screen)
+	local hintLo, hintHi, k = rect(home.teamHint, screen)
+	-- (It grows down to fit its two lines; the stand-ins don't.)
+	hintHi = Vector2.new(hintHi.X, math.max(hintHi.Y, hintLo.Y + 2 * home.teamHint.TextSize * k))
+	local function apart(aLo: Vector2, aHi: Vector2, bLo: Vector2, bHi: Vector2): boolean
+		return aHi.X <= bLo.X or bHi.X <= aLo.X or aHi.Y <= bLo.Y or bHi.Y <= aLo.Y
+	end
+	for name, card in home.teamButtons do
+		if name ~= "Auto" then
+			local cardLo, cardHi = rect(card, screen)
+			check(apart(cardLo, cardHi, autoLo, autoHi), `{label}: the {name} card clears AUTO ({cardHi.Y} vs {autoLo.Y})`)
+			check(apart(cardLo, cardHi, hintLo, hintHi), `{label}: and the hint`)
+		end
+	end
+	check(apart(autoLo, autoHi, hintLo, hintHi), `{label}: AUTO clears the hint ({autoHi.Y} vs {hintLo.Y})`)
+	check(hintHi.Y <= screen.Y, `{label}: the hint ends on the screen ({hintHi.Y})`)
+end)
 
 -- Reduce motion.
 Locker.parts.content.Settings.ReduceMotionRow.ReduceMotion.Activated:Fire()
