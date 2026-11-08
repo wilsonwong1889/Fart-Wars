@@ -1,5 +1,95 @@
 # Changelog
 
+## 0.14.0: bots with every gun, launch pads, a compass, daily challenges and round awards
+
+- Bots fight with the whole arsenal. Each life picks a Gas Blaster,
+  Spritzer, Thunderclapper or Stink Lobber (teammates mix it up) and plays
+  it at its range: Spritzer bots rush in, Thunderclapper bots hang back on
+  the long lines, Stink Lobber bots lob over cover. They Fart Dash in and
+  out, vent with Recovery Burst and use Gas Pulse up close, on the same
+  cooldowns as players. The gun in a bot's hands, its shots and its sound
+  are the gun it really fires.
+- Bots never lock a team. Alone with bots, pick either side: you take a
+  bot's place and a bot crosses over to keep the teams level, even on a
+  team of ten bots. The team cards say how many on each side are bots, and
+  the lock and SWITCH TEAM count only real players, so the teams stay fair
+  between people. Two players in a quiet server are now split, one on each
+  side with bots, instead of being put together against the bots.
+- Launch pads: four giant whoopee cushions on each half throw you along a
+  fixed arc, up the side lanes or into Porcelain Plaza, with a fart, a puff
+  and a green cloud. The run from the spawn to the plaza drops from about
+  16 seconds to about 11.5. A launch keeps your spawn protection, like Fart
+  Dash, and the cheat checks allow for the flight. Bots use them too. The
+  sound is Fart Dash's, pitched down, until a whoopee cushion sound is
+  picked.
+- A compass along the top shows the directions, the lanes and the plaza.
+  Teammates too far away to pick out get a marker, and one fighting or
+  about to blow up off the screen gets an arrow at its edge. Z (or the
+  middle mouse button) pings the spot under your crosshair for your team
+  only, one every 1.2 seconds at most.
+- Your hits show the gas they put in where they land ("+20%", bigger and
+  gold for a headshot); only you see them. A chain reaction you set off
+  counts up above the crosshair ("CHAIN x2!", "CHAIN x3!") with a sting and
+  a small camera kick, and players near someone else's chain see a smaller
+  line saying whose it is. Every player, bot and barrel the chain sets off
+  adds one. Reduce motion and Reduced effects tone them down.
+- Award cards at the end of each round: Top Fragger (most eliminations),
+  Chain Master (the biggest chain reaction), Barrel Buster (most barrels
+  set off) and Team Player (most assists), with the winner's headshot,
+  name, number and a line to match. Bots can win them, with a robot for a
+  face. Nobody wins one with 0, and someone who left before the end can't
+  win.
+- Daily challenges: three a day on the DAILY screen (play or win rounds,
+  play for 15 minutes, Fart Dash, blow up barrels, start a barrel chain
+  reaction), different for each player and new at 00:00 UTC. Each pays 40
+  coins and 75 XP the moment it's done, with nothing to claim, so a reward
+  never runs out unclaimed at midnight. Progress carries over between
+  servers that day, and one player alone with bots can do them all;
+  nothing a bot does counts. Why the XP: in the economy model a casual
+  player's longest wait holding a gun's coins but not its level drops from
+  2.6 hours to 10 minutes, and an average player reaches level 50 on day
+  40 (was 47). `docs/economy.md` has the numbers.
+- The home screen's TOP button is a weekly leaderboard: this week's top 10
+  for eliminations and for round wins, with avatars, your own rank
+  underneath and a countdown to the reset every Monday 00:00 UTC. Only
+  players count, never bots or eliminations of or by bots. The M menu's
+  LEADERBOARD opens it too. If the boards can't be reached, it says it's
+  taking a nap and the game carries on.
+- Badges: Beta Tester, with the OG Beta Boom explosion that only beta
+  players get, plus First Gassing, Chain Reaction, Level 10 Tooter, Level
+  25 Stink Veteran and Level 50 Alpha Farter. You earn them in the game,
+  and Roblox awards them once they exist on the experience (retried until
+  then). After your first round win the game asks once whether you'd like
+  to favorite it, never mid-fight, and the Players screen has an INVITE
+  button.
+- Gas Control is ready for the big map (mode rotation is still off): the
+  plaza zone is the circle on the floor around the throne. A team alone in
+  it takes it in 6 seconds (4 with two players, 3 with three or more), then
+  scores a point a second while it has the plaza to itself, and keeps it
+  through a contest. A bar shows the capture, a 🚽 PLAZA marker shows the
+  zone through walls, the results say it was Gas Control, and bots spread
+  out round the throne instead of walking into it.
+- Your settings are saved: everything on the Settings page comes back the
+  next time you play (it used to reset every visit). New in Settings: field
+  of view (60 to 110, first and third person), mouse sensitivity (0.2x to
+  3x, on top of Roblox's own camera sensitivity), and the crosshair's size
+  and colour.
+- FEEDBACK in the M menu sends a bug report, an idea or anything else (up
+  to 300 characters) to the developer, with the game version, your ping and
+  frame rate, and never your name. One every two minutes, five a day.
+- A server update no longer kicks you: when the servers restart, you see
+  "FART WARS JUST GOT AN UPDATE!" and move to a fresh server once your
+  progress is saved.
+- Fart Dash no longer flags you for going through a wall when you dash
+  round a corner, along a wall, off a ledge or on a laggy connection; a
+  dash through a wall is still put back. Roblox's chat no longer covers the
+  LOADOUT button or your weapon list: the home screen's buttons sit below
+  it, and it moves to the bottom right while the Loadout is open.
+- Specs: `TeamPick`, `BotArsenal`, `LaunchPads`, `Compass`, `CompassOff`,
+  `GasNumbers`, `ChainCallouts`, `Awards`, `Challenges`, `Leaderboard`,
+  `Badges`, `Settings`, `Feedback`, `SoftShutdown`, `DashCheck` and
+  `ChatSpace` are new (63 in all).
+
 ## 0.13.0: a bigger battlefield, mouse aim, sound in the world, a range for every gun
 
 - Brainrot Battlefield is three times bigger (480 × 480 studs), with room
