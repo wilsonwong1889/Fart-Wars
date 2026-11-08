@@ -3,8 +3,10 @@
 -- and XP_PER_CHALLENGE per weekly challenge done) and is paid each tier
 -- they reach, once (grant IDs carry the season and tier). This week's
 -- challenges count eliminations, assists, Fart Dashes, barrels, minutes
--- of play, streaks and zone time. A new week starts the challenge counts
--- again; a new season starts the track again (what was earned stays).
+-- of play, streaks and zone time, as PlayStatsService counts them (the
+-- daily challenges use the same counts). A new week starts the challenge
+-- counts again; a new season starts the track again (what was earned
+-- stays).
 -- Clients hear about it through ProgressEvent { kind = "season", ... } and
 -- the SeasonTier / SeasonXP attributes; Workspace's SeasonActive says
 -- whether a season is on.
@@ -14,25 +16,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local SeasonConfig = require(Shared.Config.SeasonConfig)
-local States = require(Shared.States)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
 local DataService = require(script.Parent.DataService)
 local EconomyService = require(script.Parent.EconomyService)
 local LoadoutService = require(script.Parent.LoadoutService)
-local EliminationService = require(script.Parent.EliminationService)
-local DashService = require(script.Parent.DashService)
-local BarrelService = require(script.Parent.BarrelService)
-local ZoneService = require(script.Parent.ZoneService)
-local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
+local PlayStatsService = require(script.Parent.PlayStatsService)
 
 local SeasonService = {}
 
 local seasons = SeasonConfig.seasons
 local enabledOverride: boolean? = nil
 local clock: (() -> number) = os.time
-local activeSeconds: { [Player]: number } = {}
 local started = false
 
 -- Test seams: other seasons, a clock, and on/off whatever the flag says.
@@ -224,22 +220,6 @@ function SeasonService.count(player: Player, stat: string, amount: number?)
 	end
 end
 
-function SeasonService.tick(dt: number)
-	if not SeasonService.current() then
-		return
-	end
-	for _, player in Players:GetPlayers() do
-		if PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE then
-			local seconds = (activeSeconds[player] or 0) + dt
-			if seconds >= 60 then
-				seconds -= 60
-				SeasonService.count(player, "minutes", 1)
-			end
-			activeSeconds[player] = seconds
-		end
-	end
-end
-
 function SeasonService.start()
 	if started then
 		return
@@ -251,39 +231,11 @@ function SeasonService.start()
 			SeasonService.addXP(player, xp * SeasonConfig.XP_SHARE)
 		end
 	end)
-	EliminationService.Eliminated:Connect(function(elimination)
-		if not elimination.counted then
-			return
-		end
-		if elimination.killer and elimination.killer ~= elimination.victim then
-			SeasonService.count(elimination.killer, "eliminations", 1)
-		end
-		for _, helper in elimination.assists do
-			SeasonService.count(helper, "assists", 1)
-		end
-	end)
-	EliminationService.Alpha:Connect(function(player)
-		SeasonService.count(player, "streaks", 1)
-	end)
-	DashService.Dashed:Connect(function(player)
-		SeasonService.count(player, "dashes", 1)
-	end)
-	BarrelService.Exploded:Connect(function(owner)
-		if owner and owner.Parent == Players then
-			SeasonService.count(owner, "barrels", 1)
-		end
-	end)
-	ZoneService.Held:Connect(function(player, seconds)
-		SeasonService.count(player, "zoneSeconds", seconds)
-	end)
+	PlayStatsService.Counted:Connect(SeasonService.count)
 	DataService.Loaded:Connect(function(player)
 		push(player)
 	end)
-	Players.PlayerRemoving:Connect(function(player)
-		activeSeconds[player] = nil
-	end)
-	Health.loop("Season", 1, function(dt)
-		SeasonService.tick(dt)
+	Health.loop("Season", 1, function()
 		workspace:SetAttribute("SeasonActive", SeasonService.current() ~= nil)
 	end)
 end

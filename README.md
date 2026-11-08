@@ -70,6 +70,7 @@ repository holds credentials or API keys, and nothing should.
 | Mastery | 25 / 75 / 150 / 300 eliminations with a weapon: a badge and 100 / 250 / 500 / 1,000 coins each, once |
 | Saving | profiles in a DataStore, locked to one server at a time, autosaved every minute and on leaving or shutdown |
 | Daily rewards | a 7-day track (100 to 500 coins, a free spin on days 3 and 6, the Stink Sparkle tracer on day 7), one claim per UTC day; it loops, and a missed day doesn't reset it |
+| Daily challenges | three a day for each player on the DAILY screen (play or win rounds, Fart Dash, blow up barrels, start a barrel chain reaction), new at 00:00 UTC; each pays 40 coins and 75 XP the moment it's done, once. Nothing bots do counts, and all of them can be done alone with bots (`FeatureFlags.CHALLENGES`, `ChallengeConfig`) |
 | Free spins | one for every 10 minutes of active play (6 a day, banked up to 10), plus the daily ones; every prize's chance is on the spin screen |
 | Cosmetics | tracers (your shots' colour), Fart Dash trails and emotes (E, over your head); from levels, the daily track, the spin and the store. None changes combat |
 | Store | the Starter Pack (a tracer, a trail, an emote, 500 coins once) and coin packs; nothing for sale changes combat. Set the IDs in `MonetizationConfig` to sell them; until then the store shows them as unavailable |
@@ -153,7 +154,9 @@ else.
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
 | `MonetizationService` | the store: coin-pack receipts (paid once, saved before "granted", retried when they can't be), passes (given once when owned) |
 | `PrestigeService` | `PrestigeRequest` (behind `FeatureFlags.PRESTIGE`): an exact preview with a confirmation token, then the reset, saved before it's confirmed and undone if the save fails; cosmetic rewards only |
+| `PlayStatsService` | what players do, counted by name for the season's and the daily challenges (rounds played and won, minutes, dashes, barrels and chains, eliminations, assists, streaks, zone time); kills of or by bots count nothing |
 | `SeasonService` | the free seasonal track (behind `FeatureFlags.SEASONS`): season XP, tiers paid once, weekly challenges from real play, new weeks and seasons |
+| `ChallengeService` | daily challenges (behind `FeatureFlags.CHALLENGES`): each player's three for the UTC day, progress saved, each paid once when done (marked before the grant, one grant ID per challenge per day), the DAILY screen's view |
 | `EventService` | live events (behind `FeatureFlags.EVENTS`): Bean Rain, announced, on the lanes only, capped, beans paying coins and a Fart Dash |
 | `ZoneService` | Gas Control's zone: who's in it, who holds it, a point a second for a team alone in it, holders' rewards; the HUD's zone line and the floor ring |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
@@ -259,6 +262,8 @@ Chat (`/fw` or `!fw`):
 /fw profile              your saved progress, and whether it's saving
 /fw selftest             checks this server: settings, map, remotes, teams, DataStores, chat
 /fw daily                today's daily reward claimable again
+/fw challenges           today's daily challenges and their progress
+                         (done: finish and pay them; reset: start them again)
 /fw spins 3              free spins
 /fw stats                shots, hits, eliminations a minute, barrel and chain kills,
                          spawn deaths, dashes, gas recovered, coins and XP granted,
@@ -305,6 +310,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws, the jackpot's tracer or coins once it's owned), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
 | `Access` | team symbols (score boxes, cards, kill feed, Players screen, over teammates, off), HUD size (panels scale, backdrops don't, the limits), reduce motion, friends on the team cards |
+| `Challenges` | on as shipped; three a day per player (never two of a kind, the same all day, different for others and other days, only doable ones); nothing bots feed counts (a bot's kill or death, a bot's barrel); a round alone with bots played and won; no switching onto the winners; real dashes, barrels and chains; minutes on the battlefield, not the home screen; paid once (more of it, the grant again, a new session); midnight UTC; saved across sessions, unsaved sessions paused, damaged saves; the DAILY screen's cards; `/fw challenges`; off |
 | `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |
 | `Events` | Bean Rain: off as shipped; booked by about half of rounds; the warning, the rings, never in a spawn room, the part cap; pickups (coins capped, the dash refilled on both sides), nobody gassed; ending by itself and with the round |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
@@ -479,9 +485,10 @@ Where the plans left room, or disagreed, Phase 1 does this:
 
 ## Phase 4 decisions
 
-- **Days are UTC days.** The daily claim, gifts, squad bonuses and
-  welcomes all reset at 00:00 UTC, the same moment for everyone; the
-  daily screen counts down to it exactly.
+- **Days are UTC days.** The daily claim, gifts, squad bonuses,
+  welcomes, the daily shop and the daily challenges all reset at 00:00
+  UTC, the same moment for everyone; the daily screen counts down to it
+  exactly.
 - **A missed day doesn't reset the daily track**; it waits on the next day.
 - **Gifts are for active play only**, capped per day and banked up to a
   limit, so leaving the game open earns nothing.
@@ -559,6 +566,11 @@ changes how the map plays.
   safe way (no power, nothing bought with Robux lost, an exact preview
   and two confirmations) and stays off until you decide; the +10% power
   proposal isn't built.
+- **Daily challenges can't be farmed off bots.** They count rounds
+  played and won, minutes, Fart Dashes and barrels, never kills or gas,
+  so one player alone with bots can do them all and nothing a bot does
+  or suffers counts. Each pays once, when done, with nothing to claim by
+  hand and nothing earned lost at the reset.
 - **Seasons and events are free and fair.** The seasonal track is earned
   by playing (no premium track yet), its challenges are always ones the
   current modes allow, and its rewards are coins and cosmetics. Bean Rain

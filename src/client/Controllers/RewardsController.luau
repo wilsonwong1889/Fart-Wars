@@ -3,6 +3,11 @@
 --                 claimed ticked, today's lit up, CLAIM when it's open,
 --                 and the exact time to the next reset. Opens by itself on
 --                 the home screen when a claim is waiting (once a session).
+--                 Under it, today's three daily challenges
+--                 (FeatureFlags.CHALLENGES): each one's progress bar, its
+--                 reward, CLAIMED once it's done (they pay by themselves),
+--                 and the time to new ones (ProgressEvent "challenges", and
+--                 the status when the screen opens).
 --   SpinWheel     free spins: a prize wheel (SpinWheel) with every prize's
 --                 exact chance, SPIN, the wheel winding up, spinning and
 --                 landing on what the server drew, the win, and how long
@@ -14,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local RewardsConfig = require(Shared.Config.RewardsConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
@@ -29,16 +35,21 @@ local C = UIConfig.colors
 local GOLD = Color3.fromRGB(255, 205, 50)
 local MONEY = Color3.fromRGB(90, 210, 70)
 local WHEEL_RADIUS = 175
+-- Each challenge kind's icon (ChallengeConfig).
+local CHALLENGE_ICONS = { time = "⏱️", win = "🏆", dash = "💨", barrels = "🛢️", chain = "💥" }
 
 local RewardsController = {}
 
 RewardsController.parts = {} :: { [string]: any }
 -- The latest status from the server.
 RewardsController.status = nil :: { [string]: any }?
+-- Today's daily challenges, as the server last said.
+RewardsController.challenges = nil :: { [string]: any }?
 RewardsController.busy = false
 
 local player = Players.LocalPlayer
 local resetAt = 0 -- os.clock() when the daily resets
+local challengesResetAt = 0 -- os.clock() when the challenges do
 local shownToday = false
 local started = false
 
@@ -82,14 +93,132 @@ local function panel(screen: Instance, name: string, size: UDim2): Frame
 	}, { UI.corner(18), UI.stroke(Color3.fromRGB(70, 66, 84), 4) })
 end
 
+-- The daily challenges: a header with the time to new ones, and a card
+-- each (icon, what to do, a tip, the progress bar, the reward or CLAIMED).
+local function buildChallenges(box: Instance)
+	local p = RewardsController.parts
+	local section = UI.new("Frame", {
+		Name = "Challenges",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 406),
+		Size = UDim2.new(1, -40, 0, 204),
+		BackgroundTransparency = 1,
+		Parent = box,
+	})
+	p.challengeSection = section
+	UI.new("Frame", {
+		Name = "Divider",
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = Color3.fromRGB(70, 66, 84),
+		BorderSizePixel = 0,
+		Parent = section,
+	})
+	UI.label("🎯 DAILY CHALLENGES", 26, {
+		Name = "Title",
+		Position = UDim2.new(0, 4, 0, 10),
+		Size = UDim2.new(0.5, 0, 0, 30),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = section,
+	})
+	p.challengeNote = UI.label("", 16, {
+		Name = "Note",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -4, 0, 14),
+		Size = UDim2.new(0.5, 0, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = C.muted,
+		Font = UIConfig.bodyFont,
+		Parent = section,
+	})
+	local row = UI.new("Frame", {
+		Name = "Cards",
+		Position = UDim2.new(0, 0, 0, 48),
+		Size = UDim2.new(1, 0, 0, 156),
+		BackgroundTransparency = 1,
+		Parent = section,
+	}, { UI.list(Enum.FillDirection.Horizontal, 14, Enum.HorizontalAlignment.Center) })
+	p.challengeCards = {}
+	for i = 1, 3 do
+		local card = UI.new("Frame", {
+			Name = `Challenge{i}`,
+			LayoutOrder = i,
+			Size = UDim2.new(0, 264, 1, 0),
+			BackgroundColor3 = Color3.fromRGB(40, 36, 52),
+			Visible = false,
+			Parent = row,
+		}, { UI.corner(12), UI.stroke(C.stroke, 3) })
+		local icon = UI.label("🎯", 30, {
+			Name = "Icon",
+			Position = UDim2.new(0, 8, 0, 8),
+			Size = UDim2.new(0, 40, 0, 40),
+			Parent = card,
+		})
+		local title = UI.label("", 18, {
+			Name = "Text",
+			Position = UDim2.new(0, 52, 0, 8),
+			Size = UDim2.new(1, -62, 0, 40),
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		})
+		local hint = UI.label("", 13, {
+			Name = "Hint",
+			Position = UDim2.new(0, 12, 0, 52),
+			Size = UDim2.new(1, -24, 0, 32),
+			TextWrapped = true,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextColor3 = C.muted,
+			Font = UIConfig.bodyFont,
+			Parent = card,
+		})
+		local bar = UI.new("Frame", {
+			Name = "Bar",
+			Position = UDim2.new(0, 12, 0, 88),
+			Size = UDim2.new(1, -24, 0, 22),
+			BackgroundColor3 = Color3.fromRGB(24, 20, 34),
+			Parent = card,
+		}, { UI.corner(8), UI.stroke(C.stroke, 2) })
+		local fill = UI.new("Frame", {
+			Name = "Fill",
+			Size = UDim2.new(0, 0, 1, 0),
+			BackgroundColor3 = MONEY,
+			BorderSizePixel = 0,
+			Parent = bar,
+		}, { UI.corner(8) })
+		local count = UI.label("", 15, {
+			Name = "Count",
+			Size = UDim2.new(1, 0, 1, 0),
+			ZIndex = 3,
+			Parent = bar,
+		})
+		local reward = UI.label("", 17, {
+			Name = "Reward",
+			Position = UDim2.new(0, 12, 0, 118),
+			Size = UDim2.new(1, -24, 0, 28),
+			TextColor3 = GOLD,
+			Parent = card,
+		})
+		local claimed = UI.label("✓ CLAIMED!", 22, {
+			Name = "Claimed",
+			Position = UDim2.new(0, 12, 0, 116),
+			Size = UDim2.new(1, -24, 0, 30),
+			TextColor3 = C.accent,
+			Visible = false,
+			Parent = card,
+		})
+		p.challengeCards[i] = { card = card, icon = icon, text = title, hint = hint, fill = fill, count = count, reward = reward, claimed = claimed }
+	end
+end
+
 local function build()
 	local p = RewardsController.parts
 
-	-- Daily rewards
+	-- Daily rewards (and, under them, the daily challenges)
 	local daily = UI.screen("DailyRewards", 16)
 	daily.Enabled = false
 	p.daily = daily
-	local box = panel(daily, "Panel", UDim2.new(0, 860, 0, 420))
+	local box = panel(daily, "Panel", UDim2.new(0, 860, 0, if FeatureFlags.CHALLENGES then 624 else 420))
 	UI.label("🎁 DAILY REWARDS!", 50, { Name = "Title", Position = UDim2.new(0, 0, 0, 18), Size = UDim2.new(1, 0, 0, 56), Parent = box })
 	UI.label("Come back every day for a bigger reward! Missing a day doesn't reset your track.", 17, {
 		Name = "Subtitle",
@@ -168,6 +297,9 @@ local function build()
 		Size = UDim2.new(1, -40, 0, 28),
 		Parent = box,
 	})
+	if FeatureFlags.CHALLENGES then
+		buildChallenges(box)
+	end
 
 	-- The free spin: the wheel, SPIN under it, and a note.
 	local wheel = UI.screen("SpinWheel", 16)
@@ -220,8 +352,56 @@ local function renderDaily()
 	p.claim.Text = if ready then "CLAIM!" else "CLAIMED"
 	local left = resetAt - os.clock()
 	p.dailyNote.Text = if ready then `Day {day} is waiting for you!` else `Next reward in {clockText(left)}`
+	RewardsController.renderChallenges()
 end
 RewardsController.renderDaily = renderDaily
+
+-- The daily challenges: each card's progress, reward or CLAIMED, and the
+-- time to new ones.
+function RewardsController.renderChallenges()
+	local p = RewardsController.parts
+	if not p.challengeCards then
+		return
+	end
+	local view = RewardsController.challenges
+	local list = if view and type(view.challenges) == "table" then view.challenges else {}
+	local done = 0
+	for i, card in p.challengeCards do
+		local entry = list[i]
+		card.card.Visible = entry ~= nil
+		if entry then
+			local goal = math.max(1, tonumber(entry.goal) or 1)
+			local progress = math.clamp(tonumber(entry.progress) or 0, 0, goal)
+			local claimed = entry.claimed == true
+			done += if claimed then 1 else 0
+			card.icon.Text = CHALLENGE_ICONS[entry.kind] or "🎯"
+			card.text.Text = tostring(entry.text)
+			card.hint.Text = tostring(entry.hint or "")
+			card.fill.Size = UDim2.new(progress / goal, 0, 1, 0)
+			card.fill.BackgroundColor3 = if claimed then C.accent else MONEY
+			card.count.Text = `{UI.commas(progress)} / {UI.commas(goal)}`
+			card.reward.Text = `+{UI.commas(tonumber(entry.coins) or 0)} 💰   +{UI.commas(tonumber(entry.xp) or 0)} XP`
+			card.reward.Visible = not claimed
+			card.claimed.Visible = claimed
+			card.card.Border.Color = if claimed then C.accent else C.stroke
+		end
+	end
+	p.challengeNote.Text = if not view then ""
+		elseif view.loading then "Loading your challenges..."
+		elseif view.saving == false then "Progress isn't saving this session, so challenges are paused."
+		elseif #list > 0 and done == #list then `ALL DONE! New ones in {clockText(challengesResetAt - os.clock())}`
+		else `New ones in {clockText(challengesResetAt - os.clock())}`
+end
+
+-- A new view of today's challenges (from the status or a ProgressEvent).
+local function setChallenges(view: any)
+	if type(view) ~= "table" then
+		return
+	end
+	RewardsController.challenges = view
+	challengesResetAt = os.clock() + (tonumber(view.secondsToReset) or 0)
+	RewardsController.renderChallenges()
+end
 
 local function renderSpin()
 	local p = RewardsController.parts
@@ -244,6 +424,7 @@ local function refreshStatus()
 	if status and status.ok then
 		RewardsController.status = status
 		resetAt = os.clock() + (tonumber(status.secondsToReset) or 0)
+		setChallenges(status.challenges)
 	end
 end
 
@@ -354,6 +535,13 @@ function RewardsController.start()
 	for _, name in { "Spins", "NextGiftSeconds" } do
 		player:GetAttributeChangedSignal(name):Connect(renderSpin)
 	end
+	-- The daily challenges, whenever they change (and at midnight).
+	local progressEvent = ClientState.remote("ProgressEvent") :: RemoteEvent
+	progressEvent.OnClientEvent:Connect(function(event)
+		if type(event) == "table" and event.kind == "challenges" then
+			setChallenges(event)
+		end
+	end)
 	-- PLAY closes them. A spin still lands out of sight, and the wallet
 	-- catches up then.
 	ClientState.StateChanged:Connect(function()

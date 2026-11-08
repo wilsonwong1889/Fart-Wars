@@ -13,6 +13,7 @@
 --   /fw weapon gasblaster   /fw barrels   /fw stats
 --   /fw coins 500   /fw xp 1000   /fw profile   /fw ability gaspulse
 --   /fw selftest   /fw daily   /fw spins 3   /fw health   /fw perf
+--   /fw challenges   /fw challenges done   /fw challenges reset
 --   /fw mode gascontrol (the next round's mode)
 --   /fw bots   /fw bots off   /fw bots on   /fw bots fill 6   /fw bots skill 0.7
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
@@ -38,6 +39,7 @@ local DataService = require(Services.DataService)
 local EconomyService = require(Services.EconomyService)
 local LoadoutService = require(Services.LoadoutService)
 local RewardsService = require(Services.RewardsService)
+local ChallengeService = require(Services.ChallengeService)
 local BotDirector = require(Services.BotDirector)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local BotConfig = require(Shared.Config.BotConfig)
@@ -46,6 +48,7 @@ local TeamConfig = require(Shared.Config.TeamConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local AudioConfig = require(Shared.Config.AudioConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local ChallengeConfig = require(Shared.Config.ChallengeConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local ExperimentConfig = require(Shared.Config.ExperimentConfig)
 local ArtAssets = require(Shared.Config.ArtAssets)
@@ -197,6 +200,38 @@ function TestControls.daily(player: Player): (boolean, string)
 	end
 	RewardsService.publish(player)
 	return true, `{player.Name} can claim a daily reward again`
+end
+
+-- Daily challenges: today's three and their progress; "done" finishes
+-- (and pays) them; "reset" starts the same three from zero again (their
+-- grant IDs stay used, so this session never pays one twice).
+function TestControls.challenges(player: Player, action: string?): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	elseif not ChallengeService.enabled() then
+		return false, "daily challenges are off (FeatureFlags.CHALLENGES)"
+	end
+	if action == "reset" then
+		return ChallengeService.testReset(player), `{player.Name}'s challenges start from zero again (one already paid this session won't pay twice)`
+	end
+	local view = ChallengeService.view(player)
+	if not (view and view.saving) then
+		return false, "no saving profile yet"
+	end
+	if action == "done" then
+		for _, entry in view.challenges do
+			local challenge = ChallengeConfig.get(entry.id)
+			if challenge and not entry.claimed then
+				ChallengeService.count(player, challenge.stat, challenge.goal)
+			end
+		end
+		view = assert(ChallengeService.view(player))
+	end
+	local lines = {}
+	for _, entry in view.challenges do
+		table.insert(lines, `{entry.text} {entry.progress}/{entry.goal}{if entry.claimed then " (paid)" else ""}`)
+	end
+	return true, table.concat(lines, ", ")
 end
 
 function TestControls.spins(player: Player, count: number?): (boolean, string)
@@ -579,7 +614,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>]"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, challenges [done | reset], spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>]"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -612,6 +647,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.profile(player)
 	elseif command == "daily" then
 		ok, message = TestControls.daily(player)
+	elseif command == "challenges" then
+		ok, message = TestControls.challenges(player, words[3])
 	elseif command == "spins" then
 		ok, message = TestControls.spins(player, tonumber(words[3]))
 	elseif command == "selftest" then

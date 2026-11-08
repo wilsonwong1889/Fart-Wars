@@ -8,8 +8,9 @@ Run: python3 scripts/analyze_economy.py [--ref GIT_REF] [--squad] [--live-ops] [
   --live-ops  count Bean Rain and the season track as if their flags were on
   --days N    how many days to simulate at most (default 400)
 Plain Python 3, nothing to install. The configs are parsed, not copied:
-change a number in ProgressionConfig, RewardsConfig, WeaponConfig or
-GameConfig and run it again. docs/economy.md has the targets and results.
+change a number in ProgressionConfig, RewardsConfig, WeaponConfig,
+GameConfig or ChallengeConfig and run it again. docs/economy.md has the
+targets and results.
 
 The model (expected values, no luck): each simulated player plays one
 session a day of a fixed length on a full 10v10 server, claims the daily
@@ -18,7 +19,9 @@ and buys each shop weapon the moment it's both unlocked and affordable,
 cheapest first. Combat pays per round from the profile's eliminations,
 assists, chain/barrel kills and 5-kill streaks; participation, the
 ten-minute gifts and the daily track pay as the configs say; weapon mastery
-counts eliminations with the newest weapon bought. The profiles below are
+counts eliminations with the newest weapon bought. With
+FeatureFlags.CHALLENGES on, the day's daily challenges are done one a round
+over the session's first rounds (the slowest is "Play 3 rounds"). The profiles below are
 assumptions, not config: change them here if real telemetry
 (kills per minute, samples.coinsPer10Minutes) says otherwise.
 """
@@ -362,10 +365,14 @@ def as_list(table) -> list:
     return [table[i] for i in range(1, len(table) + 1) if i in table]
 
 
-def read_source(rel: str, ref: str | None) -> str:
+def read_source(rel: str, ref: str | None, optional: bool = False) -> str | None:
+    if optional and not (ref or (root / rel).exists()):
+        return None
     if ref:
         result = subprocess.run(['git', 'show', f'{ref}:{rel}'], cwd=root, capture_output=True, text=True)
         if result.returncode != 0:
+            if optional:
+                return None
             sys.exit(f"Can't read {rel} at {ref}: {result.stderr.strip()}")
         return result.stdout
     return (root / rel).read_text(encoding='utf-8')
@@ -438,6 +445,8 @@ class Economy:
     beans_per_round: float = 0
     bean_coins: float = 0
     season: dict = field(default_factory=dict)
+    # Daily challenges: how many a day and what each pays (empty when off).
+    challenges: dict = field(default_factory=dict)
 
     @property
     def spin_coins(self) -> float:
@@ -468,6 +477,8 @@ def load(ref: str | None, live_ops: bool) -> Economy:
     flags = returned(source('FeatureFlags'), 'FeatureFlags')
     events = returned(source('EventConfig'), 'EventConfig')
     season_text = source('SeasonConfig')
+    # (Older refs have no daily challenges.)
+    challenge_text = read_source(CONFIG + 'ChallengeConfig.luau', ref, optional=True)
 
     max_level = prog['MAX_LEVEL']
     guns = [Gun(id, weapons[id]['displayName'], weapons[id]['price'], weapons[id]['level'])
@@ -518,6 +529,13 @@ def load(ref: str | None, live_ops: bool) -> Economy:
             'per_challenge': assigned(season_text, 'SeasonConfig.XP_PER_CHALLENGE', 'SeasonConfig'),
             'challenges': assigned(season_text, 'SeasonConfig.CHALLENGES_PER_WEEK', 'SeasonConfig'),
             'tier_coins': [int(tier.group(1)) + int(tier.group(2)) * n for n in range(1, int(count.group(1)) + 1)],
+        }
+    if flags.get('CHALLENGES') and challenge_text:
+        reward = assigned(challenge_text, 'ChallengeConfig.REWARD', 'ChallengeConfig')
+        economy.challenges = {
+            'per_day': assigned(challenge_text, 'ChallengeConfig.PER_DAY', 'ChallengeConfig'),
+            'coins': reward['coins'],
+            'xp': reward['xp'],
         }
     return economy
 
@@ -642,7 +660,7 @@ def simulate(eco: Economy, profile: Profile, days: int, squad: bool) -> Result:
             season_tiers()
         spin_all()
         shop()
-        session, gifts, squads = 0.0, 0, 0
+        session, gifts, squads, challenges = 0.0, 0, 0, 0
         reached = set()
         while session < profile.minutes_per_day * 60:
             session += STEP_SECONDS
@@ -666,6 +684,9 @@ def simulate(eco: Economy, profile: Profile, days: int, squad: bool) -> Result:
             if squad and squads < eco.squad['SQUAD_PER_DAY'] and session >= (squads + 1) * eco.squad['SQUAD_MINUTES'] * 60:
                 squads += 1
                 pay(eco.squad['SQUAD_COINS'], eco.squad['SQUAD_XP'], 'squad')
+            if eco.challenges and challenges < eco.challenges['per_day'] and session >= (challenges + 1) * eco.cycle_seconds:
+                challenges += 1
+                pay(eco.challenges['coins'], eco.challenges['xp'], 'challenges')
             shop()
         result.days.append((day_log['coins'], day_log['xp'], day_log['by']))
         if state['level'] >= eco.max_level and len(owned) == len(eco.guns) and day >= 7:
@@ -703,7 +724,7 @@ def report(eco: Economy, results: list[Result], args) -> bool:
     names = [r.profile.name for r in results]
     source = f'git ref {args.ref}' if args.ref else 'the working tree'
     extras = [x for x, on in (('squad bonus', args.squad), ('Bean Rain', eco.beans_per_round > 0),
-                              ('season track', bool(eco.season))) if on]
+                              ('season track', bool(eco.season)), ('daily challenges', bool(eco.challenges))) if on]
     print(f'Fart Wars economy model: configs from {source}'
           + (f', with {", ".join(extras)}' if extras else '') + '\n')
     print(f'Round {eco.round_seconds:.0f} s + intermission = one round every {eco.cycle_seconds:.0f} s '
@@ -734,7 +755,7 @@ def report(eco: Economy, results: list[Result], args) -> bool:
         ['week 1 coins (XP)', *[f'{week(r, 0):,.0f} ({week(r, 1):,.0f})' for r in results]],
     ])
 
-    reasons = ['combat', 'spins', 'daily', 'participation', 'mastery', 'squad', 'season', 'level cap']
+    reasons = ['combat', 'spins', 'daily', 'challenges', 'participation', 'mastery', 'squad', 'season', 'level cap']
     rows = []
     for reason in reasons:
         shares = [sum(d[2].get(reason, 0) for d in r.days[:7]) / max(1, week(r, 0)) for r in results]

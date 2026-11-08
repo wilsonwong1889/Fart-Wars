@@ -66,7 +66,7 @@ Services start in this order and never require one that starts later.
 | `GasService` | `start()`, `add(victim, amount, { attacker?, team?, cause, chainDepth?, weapon? }) -> boolean`, `vent(player, amount) -> number`, `gasOf(player)`, `isExploding(player)`, `explode(player)`, `stageOf(gas)`, `tick(dt)`, `reset(player)`, `testSetGas(player, value)`, signal `Exploded(victim, position, killer?, chainDepth, killerTeam?)` |
 | `CombatService` | `start()`, `fire(player, direction, shotId)`, `gasAt(weapon, distance, headshot)` (a hit's gas after fall-off), `weaponOf(player)`, `setWeapon(player, id)`, signals `PartHit(shooter, part, weapon, from)`, `Lobbed(shooter, from, direction, weapon)` |
 | `ExplosionService` | `start()`, `blast({ position, radius, gas, owner?, ownerTeam, cause, depth, source?, weapon? })`, `step()`, `pending()`, `blocked(from, to)`, signal `Blasted(blast)` |
-| `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()` |
+| `BarrelService` | `start()`, `shoot(shooter, part, amount) -> boolean`, `get(model)`, `all()`, `resetAll()`, signal `Exploded(owner?, chained)` (`chained`: another barrel's blast set it off) |
 | `DashService` | `start()`, `dash(player, direction) -> boolean` |
 | `AbilityService` | `start()`, `use(player) -> boolean`, `setAbility(player, id?)`, `abilityOf(player)` |
 | `ProjectileService` | `start()`, `throw(player, from, direction, weapon)`, `arc(from, direction, weapon, ignore) -> (landing, flight, path)`, `step()`, `cloudCount()` |
@@ -78,7 +78,9 @@ Services start in this order and never require one that starts later.
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
-| `SeasonService` | `start()`, `current()`, `challenges()`, `view(player)`, `push(player)`, `addXP(player, n)`, `count(player, stat, n?)`, `tick(dt)`, `setSeasons(list)`, `setClock(fn)`, `testEnable(on?)` (tests) |
+| `PlayStatsService` | `start()`, `count(player, stat, n?)`, `tick(dt)`, `finishRound(winner?)`, `roundSecondsOf(player)`, signal `Counted(player, stat, n)`; stats `eliminations`, `assists`, `streaks`, `dashes`, `barrels`, `chains`, `zoneSeconds`, `minutes`, `rounds`, `wins` (none from a bot's kill or death) |
+| `SeasonService` | `start()`, `current()`, `challenges()`, `view(player)`, `push(player)`, `addXP(player, n)`, `count(player, stat, n?)` (from `PlayStatsService.Counted`), `setSeasons(list)`, `setClock(fn)`, `testEnable(on?)` (tests) |
+| `ChallengeService` | `start()`, `enabled()`, `today()`, `challenges(player)`, `view(player)`, `push(player)`, `count(player, stat, n?)` (from `PlayStatsService.Counted`), `tick()`, `setClock(fn)`, `testEnable(on?)`, `testReset(player)` (tests) |
 | `EventService` | `start()`, `book(at?)`, `stop()`, `phase()`, `beans()`, `spot()`, `tick(dt)`, `testEnable(on?)`, `setRandom(rng)` (tests) |
 | `WeaponModel` (shared) | `tool(weaponId, name?) -> Tool`, `model(weaponId) -> (Model, center, size)`, `parts(weaponId, origin, anchored?) -> (parts, "mesh" \| "pieces")`, `imported(weaponId) -> (meshes?, why)`, `matches(meshSize, size)`, `muzzle(weaponId)` |
 | `WeaponFxController` (client) | `start()`, `track(tool)`, `fired(userId)`, `impact(position, color)`, `step(dt)`, `cameraKick()`, `states`, `emitted` |
@@ -106,17 +108,17 @@ reason.
 | `FartDash` | client → server | `direction: Vector3` (horizontal) |
 | `UseAbility` | client → server | none (the equipped Q ability) |
 | `Emote` | client → server | none (the equipped emote; one every 3 s) |
-| `RewardsRequest` | client → server (RemoteFunction) | `action: "status" \| "claimDaily" \| "spin"`; returns `{ ok, reason, message, ... }` (status: `day`, `ready`, `spins`, `giftsLeft`, `nextGiftSeconds`, `secondsToReset`, `saving`; a claim: `day`, `coins`, `spins?`, `cosmetic?`; a spin: `prize`, `label`, `coins`, `xp`, `cosmetic?`) |
+| `RewardsRequest` | client → server (RemoteFunction) | `action: "status" \| "claimDaily" \| "spin"`; returns `{ ok, reason, message, ... }` (status: `day`, `ready`, `spins`, `giftsLeft`, `nextGiftSeconds`, `secondsToReset`, `saving`, `challenges?` (the daily challenges' view, as in `ProgressEvent`); a claim: `day`, `coins`, `spins?`, `cosmetic?`; a spin: `prize`, `label`, `coins`, `xp`, `cosmetic?`) |
 | `ShopRequest` | client → server (RemoteFunction) | `action: "buy" \| "equip" \| "profile"`, `kind: "weapon" \| "ability" \| "cosmetic" \| "all"`, `id: string?` (40 characters at most); returns `{ ok, reason, message, profile? }` |
 | `RoundSnapshot` | client → server (RemoteFunction) | none; returns the snapshot below |
 | `RoundUpdate` | server → all | snapshot: `{ roundId, phase, phaseStartTime, phaseEndTime?, scoresByTeam, activePlayersByTeam, botsByTeam, result?, mode, matchMode, map, serverTime }`; `result = { winner?, draw, scores }` |
 | `TeamUpdate` | server → all | `{ counts = { Stinkers, Sharters }, bots = { Stinkers, Sharters }, maxTeamSize }` (`counts` includes the bots) |
-| `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test` |
+| `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test`, `challenge` (a daily challenge done) |
 | `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
 | `PrestigeRequest` | client → server (RemoteFunction) | `action: "preview" \| "confirm"`, `token: string?` (from the preview); returns `{ ok, reason, message, preview?, token?, rank? }` |
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
-| `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
+| `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`, `{ kind = "challenges", day, secondsToReset, saving, loading, challenges = { { id, text, hint, kind, goal, progress, claimed, coins, xp } } }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `challenge`, `test` |
 | `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked, amount, position }` (shooter; `gas` is the victim's meter after the hit, `amount` the gas it put in, 0 if it did nothing), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer?, chain }` (all; `chain` is its place in its chain reaction, 1 for the first), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position, radius, owner?, chain }` (all; `owner` whoever set it off), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
@@ -189,7 +191,8 @@ masterplan asks to measure: `firsts.shot`, `.hit`, `.elimination`,
 `Economy.xp.<reason>` (sources), and `flags.<reason>` (moderation).
 
 Retention and Phase 4: `retention.newPlayers`, `.nextDay`, `.D1`, `.D7`;
-`Rewards.dailyClaims`, `.gifts`, `.spins`; `Store.purchases`,
+`Rewards.dailyClaims`, `.gifts`, `.spins`; `Challenges.days` (players'
+new days), `.done`, `.done.<id>`, `.allDone`; `Store.purchases`,
 `Store.bought.<product>`, `Store.passGranted.<pass>`; `social.squadBonuses`,
 `.welcomes`, `.sessionsWithFriend`, `.friendCoplaySeconds`,
 `.leftWithFriend` / `.leftSolo`; and per experiment cohort
@@ -244,6 +247,7 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `EquippedBoom` | string? | the boom cosmetic slot (colours the explosions of players you eliminate) |
 | `SeasonId`, `SeasonXP`, `SeasonTier`, `SeasonWeek` | string, number, number, number | the season played, its XP, the tiers paid, the challenge week |
 | `SeasonProgress`, `SeasonDone` | { [stat]: number }, { string } | this week's challenge counts by stat, and the challenges done |
+| `Challenges` | { day, ids: { string }, progress: { [id]: number }, claimed: { string } } | the daily challenges: the UTC day, today's three, each one's progress and the ones done and paid |
 | `Prestige`, `LastPrestigeAt` | number | the prestige rank (0 before the first) and when it was last taken (os.time) |
 | `PurchasedCoins` | number | coins bought in the store since the last prestige (a prestige keeps up to this many) |
 | `SquadDay`, `SquadToday` | number | the UTC day and count of today's squad bonuses |

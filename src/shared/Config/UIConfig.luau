@@ -149,6 +149,7 @@ local UIConfig = {
 		levelCapRepeat = "Level 50 bonus",
 		mastery = "Mastery",
 		daily = "Daily reward",
+		challenge = "Daily challenge",
 		spin = "Free spin",
 		squad = "Playing with friends",
 		season = "Season tier",

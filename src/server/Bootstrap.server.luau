@@ -21,6 +21,7 @@
 --   LoadoutService        equipped weapon, ability and cosmetic; applied on spawn
 --   ShopService           buying and equipping (ShopRequest)
 --   RewardsService        the daily track, ten-minute gifts, free spins
+--                         (its status includes the daily challenges)
 --   SocialService         playing with friends: squad bonus, welcomes
 --   MonetizationService   the store: coin packs (receipts) and passes
 --   PrestigeService       prestige: preview, confirm, reset (flagged off)
@@ -28,7 +29,9 @@
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), the mode each round, snapshots to clients
 --   ZoneService           Gas Control's zone: who holds it, its points
+--   PlayStatsService      what players do, counted for challenges (no bots)
 --   SeasonService         the free seasonal track and weekly challenges
+--   ChallengeService      three daily challenges each, paid once when done
 --   EventService          live events: Bean Rain (flagged off)
 --   BotDirector           bots fill the server to four: who, where, their brains
 --   TestControls          test-only commands (Studio / allow-list)
@@ -73,7 +76,9 @@ local PrestigeService = require(Services.PrestigeService)
 local MetricsService = require(Services.MetricsService)
 local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
+local PlayStatsService = require(Services.PlayStatsService)
 local SeasonService = require(Services.SeasonService)
+local ChallengeService = require(Services.ChallengeService)
 local EventService = require(Services.EventService)
 local BotDirector = require(Services.BotDirector)
 local TestControls = require(script.Parent.TestControls)
@@ -110,7 +115,9 @@ PrestigeService.start()
 MetricsService.start()
 RoundService.start()
 ZoneService.start()
+PlayStatsService.start()
 SeasonService.start()
+ChallengeService.start()
 EventService.start()
 BotDirector.start()
 TestControls.start()

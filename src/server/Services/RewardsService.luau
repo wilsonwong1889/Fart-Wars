@@ -17,6 +17,8 @@
 -- gifts and spins should still be testable without API access.
 --   RewardsRequest:InvokeServer("status" | "claimDaily" | "spin" | "reveal")
 --     -> { ok, reason, message, ... }
+-- The status also carries the daily challenges (`challenges`, from
+-- ChallengeService) for the DAILY screen.
 -- A spin's prize is paid at once, but the client's wallet waits (see
 -- EconomyService.hold) until "reveal", sent when the wheel lands.
 --   ProgressEvent { kind = "gift", spins }
@@ -68,14 +70,20 @@ RewardsService.MESSAGES = table.freeze({
 -- Whether an unsaved (temporary) profile may claim and spin in Studio.
 RewardsService.unsavedInStudio = true
 
+-- The daily challenges' part of the status: ChallengeService sets it when
+-- it starts (it loads after this service).
+RewardsService.challenges = nil :: ((Player) -> { [string]: any }?)?
+
 -- Whether rewards are paused for this profile: it isn't saving (outside
--- Studio), so a claim would be lost and claimable again.
-local function paused(profile: DataService.Profile): boolean
+-- Studio), so a claim would be lost and claimable again. (The daily
+-- challenges pause by it too.)
+function RewardsService.paused(profile: DataService.Profile): boolean
 	if profile.lost then
 		return true
 	end
 	return profile.temporary and not (RewardsService.unsavedInStudio and RunService:IsStudio())
 end
+local paused = RewardsService.paused
 
 type Session = { giftSeconds: number, sinceSync: number }
 local sessions: { [Player]: Session } = {}
@@ -147,6 +155,7 @@ function RewardsService.status(player: Player): Result
 		nextGiftSeconds = if session then math.max(0, math.ceil(giftSeconds(player) - session.giftSeconds)) else giftSeconds(player),
 		secondsToReset = 86400 - os.time() % 86400,
 		saving = not paused(profile),
+		challenges = if RewardsService.challenges then RewardsService.challenges(player) else nil,
 	})
 end
 
