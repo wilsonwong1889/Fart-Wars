@@ -65,6 +65,11 @@ local DAILY_CARD_ITEMS = 3
 -- under it, bottom left.
 local PAGES_X, PAGES_Y, PAGES_WIDTH = 24, 40, 250
 local LEVEL_BOTTOM, LEVEL_HEIGHT = 12, 80
+-- The tiles down the right hang from TILES_TOP, below the coin pill (52
+-- down and 50 tall, 62.5 at the biggest HUD size), so the HUD size only
+-- grows them down; on a screen too short for them they shrink to end
+-- TILES_BOTTOM above its bottom.
+local TILES_TOP, TILES_BOTTOM = 124, 12
 
 local HomeController = {}
 
@@ -150,7 +155,15 @@ local function versionText(): string
 	return `v{ReleaseConfig.label(workspace:GetAttribute("ReleaseChannel") :: any)} · PC beta`
 end
 
--- Season is a tile only while one is on; the rest close up around it.
+-- A panel's HUD size (UI's HudScale on it).
+local function hudScaleOf(panel: Instance): number
+	local scale = panel:FindFirstChild("HudScale")
+	return if scale and scale:IsA("UIScale") then scale.Scale else 1
+end
+
+-- Season is a tile only while one is on; the rest close up around it. If
+-- the column, at the HUD size, would run past TILES_BOTTOM, the tiles
+-- shrink (their stack's Fit) to end there.
 local function layoutTiles()
 	local p = HomeController.parts
 	local y = 0
@@ -164,6 +177,10 @@ local function layoutTiles()
 		end
 	end
 	p.tileColumn.Size = UDim2.new(0, 86, 0, y)
+	-- From the first tile's top to the last one's bottom (76 tall, 86 apart).
+	local tall = y - 10
+	local room = (p.home.AbsoluteSize.Y - TILES_TOP - TILES_BOTTOM) / hudScaleOf(p.tileColumn)
+	p.tileFit.Scale = if tall > 0 and room > 0 then math.min(1, room / tall) else 1
 end
 
 -- The featured offers: what's worth a look right now, from what the player
@@ -481,12 +498,6 @@ local function pageOffers(by: number)
 	renderOffers()
 end
 
--- A panel's HUD size (UI's HudScale on it).
-local function hudScaleOf(panel: Instance): number
-	local scale = panel:FindFirstChild("HudScale")
-	return if scale and scale:IsA("UIScale") then scale.Scale else 1
-end
-
 -- The page column's top on the home screen (pixels from its top) as laid
 -- out, and the lowest it can go and still clear the level panel; its height.
 local function pagesSpan(): (number, number, number)
@@ -578,21 +589,33 @@ local function build()
 		end)
 	end
 
+	-- Hung from its top (the HUD size grows it down, never up into the
+	-- coin pill), the tiles in a stack that shrinks them when the screen is
+	-- too short for them (layoutTiles).
 	p.tileColumn = UI.new("Frame", {
 		Name = "Tiles",
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -20, 0.5, 0),
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -20, 0, TILES_TOP),
 		Size = UDim2.new(0, 86, 0, 0),
 		BackgroundTransparency = 1,
 		Parent = home,
 	})
+	local stack = UI.new("Frame", {
+		Name = "Stack",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 0),
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundTransparency = 1,
+		Parent = p.tileColumn,
+	})
+	p.tileFit = UI.new("UIScale", { Name = "Fit", Parent = stack })
 	p.tiles = {}
 	for _, entry in UIConfig.lobbyTiles do
 		local tile = UI.tile(entry.icon, entry.label, entry.color, {
 			Name = entry.id,
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Size = UDim2.new(0, 76, 0, 76),
-			Parent = p.tileColumn,
+			Parent = stack,
 		})
 		p.tiles[entry.id] = tile
 		UI.onClick(tile, function()
@@ -1266,11 +1289,13 @@ function HomeController.start()
 	render()
 	renderWallet()
 	renderOffers()
-	-- The page column follows the chat, the screen's size and the HUD size.
+	-- The page column follows the chat, the screen's size and the HUD size;
+	-- the tiles, the screen's size and the HUD size.
 	ChatSpace.Changed:Connect(fitPages)
 	HomeController.parts.home:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		fitPages()
 		ChatSpace.refit()
+		layoutTiles()
 	end)
 	task.defer(function()
 		for _, panel in { HomeController.parts.pages, HomeController.parts.levelBox } do
@@ -1282,7 +1307,12 @@ function HomeController.start()
 				end)
 			end
 		end
+		local tileScale = HomeController.parts.tileColumn:FindFirstChild("HudScale")
+		if tileScale then
+			tileScale:GetPropertyChangedSignal("Scale"):Connect(layoutTiles)
+		end
 		fitPages()
+		layoutTiles()
 	end)
 	for _, name in { "Coins", "Level", "XP", "XPToNext", "Spins", "DailyReady" } do
 		Players.LocalPlayer:GetAttributeChangedSignal(name):Connect(renderWallet)

@@ -3,7 +3,9 @@
 --     feed and the Players screen, and over teammates' heads; off in
 --     Settings takes them away
 --   * HUD size: every panel scales around its own anchor, full-screen
---     backdrops don't; from Settings, in steps, within limits
+--     backdrops don't; from Settings, in steps, within limits; at every
+--     size, on a 768 or 820 tall screen, nothing runs into anything (the
+--     home screen's tiles stay under the coin pill and on the screen)
 --   * reduce motion: softer explosion bursts, a steady gas outline
 --   * friends: the team cards say where your friends are
 local Players = game:GetService("Players")
@@ -24,6 +26,8 @@ end
 run(server.Bootstrap)
 local Shared = ReplicatedStorage.Shared
 local TeamConfig = require(Shared.Config.TeamConfig)
+local UIConfig = require(Shared.Config.UIConfig)
+local SettingsConfig = require(Shared.Config.SettingsConfig)
 local Team = require(server.Services.TeamService)
 local Lifecycle = require(server.Services.PlayerLifecycleService)
 local Gas = require(server.Services.GasService)
@@ -150,6 +154,70 @@ end
 check(Settings.hudScale == 0.8, "down to 80%")
 Settings.hudScale = 1
 UI.applyScale()
+
+-- At every HUD size, on a 768 or 820 tall screen, nothing runs into
+-- anything. The stand-ins lay nothing out, so `rect` works out where a
+-- frame is: from its Position, Size and AnchorPoint inside its parents,
+-- each UIScale growing its frame and all in it round the frame's anchor
+-- (UI.springy's Press aside: it's 1 at rest).
+local function rect(item: Instance, screen: Vector2): (Vector2, Vector2, number)
+	local lo, hi, k = Vector2.zero, screen, 1
+	local parent = item.Parent
+	if parent and parent:IsA("GuiObject") then
+		lo, hi, k = rect(parent, screen)
+	end
+	local frame = item :: GuiObject
+	local own = 1
+	for _, child in frame:GetChildren() do
+		if child:IsA("UIScale") and child.Name ~= "Press" then
+			own *= child.Scale
+		end
+	end
+	local area = hi - lo
+	local size = (Vector2.new(frame.Size.X.Scale * area.X, frame.Size.Y.Scale * area.Y) + Vector2.new(frame.Size.X.Offset, frame.Size.Y.Offset) * k) * own
+	local anchor = lo + Vector2.new(frame.Position.X.Scale * area.X, frame.Position.Y.Scale * area.Y) + Vector2.new(frame.Position.X.Offset, frame.Position.Y.Offset) * k
+	local at = anchor - frame.AnchorPoint * size
+	return at, at + size, k * own
+end
+local home = Home.parts
+-- Calls `test` on each screen at each HUD size.
+local function eachLayout(test: (screen: Vector2, label: string) -> ())
+	for _, height in { 768, 820 } do
+		local screen = Vector2.new(1366, height)
+		home.home.AbsoluteSize = screen
+		for _, size in SettingsConfig.settings.hudScale.steps do
+			Settings.hudScale = size
+			UI.applyScale()
+			test(screen, `{height} tall at {math.floor(size * 100 + 0.5)}%`)
+		end
+	end
+	Settings.hudScale = 1
+	UI.applyScale()
+	home.home.AbsoluteSize = Vector2.new(1280, 720)
+end
+-- The home screen's tiles (six, and seven while a season is on): from
+-- below the coin pill to the screen's bottom, full size wherever they fit.
+for _, season in { false, true } do
+	workspace:SetAttribute("SeasonActive", season)
+	eachLayout(function(screen, label)
+		local shown = {}
+		for _, entry in UIConfig.lobbyTiles do
+			if home.tiles[entry.id].Visible then
+				table.insert(shown, home.tiles[entry.id])
+			end
+		end
+		label ..= `, {#shown} tiles`
+		local _, pill = rect(home.home.Wallet.Pill, screen)
+		local first = rect(shown[1], screen)
+		local _, last = rect(shown[#shown], screen)
+		check(first.Y >= pill.Y, `{label}: the tiles start below the coin pill ({first.Y} vs {pill.Y})`)
+		check(last.Y <= screen.Y, `{label}: and end on the screen ({last.Y})`)
+		local unshrunk = first.Y + (last.Y - first.Y) / home.tileFit.Scale
+		check(home.tileFit.Scale == 1 or unshrunk > screen.Y - 12, `{label}: full size where they fit`)
+	end)
+end
+workspace:SetAttribute("SeasonActive", nil)
+check(home.tileFit.Scale == 1, "the tiles full size again")
 
 -- Reduce motion.
 Locker.parts.content.Settings.ReduceMotionRow.ReduceMotion.Activated:Fire()
