@@ -19,8 +19,9 @@
 --   * saved: progress and what's paid survive leaving and coming back; an
 --     unsaved session counts nothing (outside Studio); a damaged save starts
 --     today's three again
---   * the DAILY screen: a card each with its bar, reward and CLAIMED, the
---     time to new ones, live updates; with challenges off, none of it
+--   * the DAILY screen: a card each with its bar, its reward, and DONE &
+--     PAID once it's done (nothing to claim), the time to new ones, live
+--     updates; with challenges off, none of it
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -253,7 +254,9 @@ check(UI.parts.daily.Enabled and UI.parts.challengeSection.Visible ~= false, "th
 check(cards[1].card.Visible and cards[1].text.Text == "Play 3 rounds" and cards[1].count.Text == "1 / 3", "a card each: what to do and how far")
 check(math.abs(cards[1].fill.Size.X.Scale - 1 / 3) < 0.01 and cards[1].reward.Visible and not cards[1].claimed.Visible, "its bar, a third full, and its reward")
 check(string.find(cards[1].reward.Text, `+{REWARD.coins}`, 1, true) and string.find(cards[1].reward.Text, `+{REWARD.xp} XP`, 1, true), "the reward: " .. cards[1].reward.Text)
-check(cards[2].claimed.Visible and not cards[2].reward.Visible and cards[2].fill.Size.X.Scale == 1, "a done one: CLAIMED, full")
+check(cards[2].claimed.Visible and not cards[2].reward.Visible and cards[2].fill.Size.X.Scale == 1, "a done one: full, the reward gone")
+local doneText = cards[2].claimed.Text
+check(string.find(doneText, "DONE", 1, true) and string.find(doneText, "PAID", 1, true) and not string.find(doneText, "CLAIM", 1, true), "and it says it's done and paid, with nothing to claim: " .. doneText)
 check(cards[3].text.Text == "Fart Dash 30 times" and cards[3].hint.Text ~= "", "with a tip")
 check(string.find(UI.parts.challengeNote.Text, "^New ones in 2%dh %d%dm %d%ds$"), "and the time to new ones: " .. UI.parts.challengeNote.Text)
 

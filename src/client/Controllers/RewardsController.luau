@@ -5,9 +5,10 @@
 --                 the home screen when a claim is waiting (once a session).
 --                 Under it, today's three daily challenges
 --                 (FeatureFlags.CHALLENGES): each one's progress bar, its
---                 reward, CLAIMED once it's done (they pay by themselves),
---                 and the time to new ones (ProgressEvent "challenges", and
---                 the status when the screen opens).
+--                 reward, DONE & PAID once it's done (they pay by
+--                 themselves, nothing to claim), and the time to new ones
+--                 (ProgressEvent "challenges", and the status when the
+--                 screen opens).
 --   SpinWheel     free spins: a prize wheel (SpinWheel) with every prize's
 --                 exact chance, SPIN, the wheel winding up, spinning and
 --                 landing on what the server drew, the win, and how long
@@ -94,7 +95,8 @@ local function panel(screen: Instance, name: string, size: UDim2): Frame
 end
 
 -- The daily challenges: a header with the time to new ones, and a card
--- each (icon, what to do, a tip, the progress bar, the reward or CLAIMED).
+-- each (icon, what to do, a tip, the progress bar, the reward or DONE &
+-- PAID).
 local function buildChallenges(box: Instance)
 	local p = RewardsController.parts
 	local section = UI.new("Frame", {
@@ -199,7 +201,8 @@ local function buildChallenges(box: Instance)
 			TextColor3 = GOLD,
 			Parent = card,
 		})
-		local claimed = UI.label("✓ CLAIMED!", 22, {
+		-- Done: it paid by itself, there's nothing to claim.
+		local claimed = UI.label("✓ DONE & PAID! 💰", 22, {
 			Name = "Claimed",
 			Position = UDim2.new(0, 12, 0, 116),
 			Size = UDim2.new(1, -24, 0, 30),
@@ -356,8 +359,8 @@ local function renderDaily()
 end
 RewardsController.renderDaily = renderDaily
 
--- The daily challenges: each card's progress, reward or CLAIMED, and the
--- time to new ones.
+-- The daily challenges: each card's progress, reward or DONE & PAID, and
+-- the time to new ones.
 function RewardsController.renderChallenges()
 	local p = RewardsController.parts
 	if not p.challengeCards then
