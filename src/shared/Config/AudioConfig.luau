@@ -43,6 +43,10 @@ return table.freeze({
 	coins = "rbxassetid://127645268874265", -- you earned coins (CoinTransfer_01, Roblox)
 	levelUp = "rbxassetid://12222253", -- you reached a new level (victory.wav, Roblox)
 	tick = "rbxasset://sounds/volume_slider.ogg", -- the spin wheel passing a segment (built into every Roblox client)
+	-- A teammate's ping (or yours), Z: for now the same built-in click as the
+	-- spin's tick, so it works with nothing to approve; swap in a store
+	-- sound when one is picked.
+	ping = "rbxasset://sounds/volume_slider.ogg",
 
 	-- Each sound's mix. The IDs come from different libraries, so these even
 	-- them out. They are set from the kind of sound, not by ear (nobody has
@@ -83,6 +87,9 @@ return table.freeze({
 		-- Up to twenty a second as the wheel spins: quiet, and the same
 		-- click each time, like a real wheel's pointer.
 		tick = table.freeze({ volume = 0.3 }),
+		-- A team callout, heard wherever the ping is (flat): a signal, so no
+		-- wobble, and louder than the tick it borrows.
+		ping = table.freeze({ volume = 0.7 }),
 	}),
 
 	-- How far sounds in the world carry, in studs (the map is 480 across):

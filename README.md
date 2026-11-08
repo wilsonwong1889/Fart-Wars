@@ -79,7 +79,8 @@ repository holds credentials or API keys, and nothing should.
 **Controls (PC):** WASD move, mouse aim, left click fire, Shift Fart Dash,
 Q ability (once unlocked), 1-4 pick a weapon from the hotbar, E emote, Space jump,
 V first/third person, Left Alt free the mouse (again to lock it), M menu,
-Tab (hold) scoreboard. R and F are kept free for later mechanics. In a match
+Tab (hold) scoreboard, Z (or middle click) ping a spot for your team. R and
+F are kept free for later mechanics. In a match
 the mouse is locked to the crosshair in both views (third person sits over
 the shoulder); Alt frees it, and every screen with buttons frees it while
 it's open. Settings → 3rd person mouse lock off gives a free cursor in third
@@ -92,7 +93,11 @@ your ability on Q with its cooldown) and the level bar along the bottom.
 Your weapon is in your avatar's hands. Where your shots land, the gas they
 put in floats up ("+20%", gold for a headshot); a chain reaction you set
 off counts up big ("CHAIN x2!", "CHAIN x3!"), and players near someone
-else's see a smaller line. PLAY opens "Choose a Team": each
+else's see a smaller line. A compass strip along the top shows
+the directions, the lanes and the plaza (by their gates' names) and your
+team's pings; teammates too far away to pick out get a marker with the team
+symbol, and one in a fight or blowing up off the screen gets an arrow at
+its edge (`FeatureFlags.COMPASS`, `CompassConfig`). PLAY opens "Choose a Team": each
 team's card shows its count and is locked when joining it would be unfair. The first PLAY of a session shows a
 small controls card; there's no tutorial. Bindings live in
 `UIConfig.keys`.
@@ -114,17 +119,17 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `FeedbackConfig`, `SeasonConfig`, `EventConfig`, `LeaderboardConfig`, `SoftShutdownConfig`, `WeaponArt`, `PropArt` and `ShotArt` (generated from Blender), `MapArt`, `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `FeedbackConfig`, `SeasonConfig`, `EventConfig`, `LeaderboardConfig`, `CompassConfig`, `SoftShutdownConfig`, `WeaponArt`, `PropArt` and `ShotArt` (generated from Blender), `MapArt`, `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art), `MeshBuilder` (builds the Blender meshes in the game) |
 | `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
 | `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `SendFeedback`, `LeaderboardRequest` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `SendFeedback`, `LeaderboardRequest`, `Ping` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `RoundAwards` (the award maths), `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
-| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes), `GasNumbers` (the gas your shots put in, floating up where they land) and the controllers |
+| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes), `GasNumbers` (the gas your shots put in, floating up where they land), `Compass` (the compass's arithmetic) and the controllers |
 
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
 `Progress`, `Locker`, plus `GameMenu` and `ComingSoon`) are built in code by the client controllers
@@ -163,6 +168,7 @@ else.
 | `EventService` | live events (behind `FeatureFlags.EVENTS`): Bean Rain, announced, on the lanes only, capped, beans paying coins and a Fart Dash |
 | `FeedbackService` | `SendFeedback` (behind `FeatureFlags.FEEDBACK`): players' bug reports, ideas and other feedback (a type and up to 300 characters), checked, limited (one every two minutes and five a UTC day, across servers) and kept in their own DataStore with the version, place version, job ID, ping, frame rate and recent client errors; only the user ID, never a name; on this server only without DataStores; `/fw feedback` reads the newest |
 | `LeaderboardService` | `LeaderboardRequest` (behind `FeatureFlags.LEADERBOARD`): the weekly leaderboard in one OrderedDataStore per board and week; counts written in batches (a write per player and board a minute, on leaving and at shutdown) within the request budget; boards read only when someone looks, at most once a minute; napping quietly without DataStores |
+| `PingService` | `Ping` (behind `FeatureFlags.COMPASS`): a spot inside the map from a player on a team, one every 1.2 s at most, sent to that team only (the pinger included); junk and spots off the map refused and logged |
 | `ZoneService` | Gas Control's zone: who's in it, the capture (a few seconds alone in it, quicker with more), who holds it, a point a second while the holder has it to itself, holders' rewards; the attributes for the HUD's zone line and bar, the floor ring and the marker over the plaza; open spots in it for bots |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
@@ -171,7 +177,7 @@ else.
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls, reports from several players): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS`; `ReportPlayer` (fixed reasons, once per person, a few a session) |
 | `Health` | runs the service loops (an error in a tick is counted and reported, and the loop goes on); checks loops, errors per minute, frame rate, memory and saving every 30 seconds; Workspace's `ServerHealth`; `ClientReport` (clients' frame rate, ping, errors) |
-| Client controllers | `ShutdownController` (the soft shutdown's screen, started first), `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `ChainController` ("CHAIN x2!" pop-ups), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `FeedbackController` (the FEEDBACK window), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version), `LeaderboardController` (the weekly leaderboard): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| Client controllers | `ShutdownController` (the soft shutdown's screen, started first), `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `ChainController` ("CHAIN x2!" pop-ups), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `FeedbackController` (the FEEDBACK window), `HealthController` (the client's report), `CompassController` (the compass strip, far teammates' markers and arrows, pings), `HomeController` (home screen, Choose a Team, the version), `LeaderboardController` (the weekly leaderboard): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -180,7 +186,7 @@ one that depends on it (the specs fail on a require cycle).
 
 Clients only state intent: PLAY (with an optional team), a team choice or
 switch, spectate, which way they're aiming, a dash, Q, a purchase or an
-equip. The server re-checks
+equip, a ping. The server re-checks
 state, capacity, eligibility, fire interval, payload types and a per-player
 cooldown, casts every shot itself, and never accepts a hit, score, timer or
 team count from a client, and there's no remote at all for coins, XP or
@@ -317,6 +323,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Store` | receipts (once, saved first, repeats, unknown products, absent players, failed saves and retries, the memory limit), passes (on joining and after buying, verified, once across sessions), cosmetic slots and emotes, the Store tab and cosmetics grid |
 | `Rewards` | the daily track (once a UTC day, loops, no reset for missed days, spins and the day-7 tracer), gifts (active play only, the daily cap, the bank cap), spins (one each, the odds over 20,000 draws, the jackpot's tracer or coins once it's owned), unsaved sessions refused; the daily and spin screens |
 | `Social` | the squad bonus (friends on one team only, the daily cap), the newcomer welcome (once ever, not between new accounts, the welcomer's daily cap and reset), co-play counts; cohorts (stable, by percent and weight, off as shipped), experiment values reaching the gift timer, shop prices (paid and shown) and the tips default, telemetry by cohort |
+| `Compass` | the arithmetic (bearings, headings, the strip, overlapping names, the projection, edge arrows, a ping aimed at the ground); pings on the server (the team only, the pinger too; the rate limit; junk, spots off the map and pings from off a team refused without using up the limit); the strip's letters and the gates' names (where, which side, leaving when you're there, the nearer of two that overlap); markers (teammates only, past the symbol over their heads, ◆ with symbols off, in a fight or blowing up); arrows (behind you at the bottom, at most three, blowing up first); Z and middle click (not while typing, in a menu or too soon); a ping's pin, name, distance, sound, strip arrow, move and end; Reduce motion; HUD size |
+| `CompassOff` | `FeatureFlags.COMPASS` off: no compass, no pings sent or passed on |
 | `Access` | team symbols (score boxes, cards, kill feed, Players screen, over teammates, off), HUD size (panels scale, backdrops don't, the limits), reduce motion, friends on the team cards |
 | `Challenges` | on as shipped; three a day per player (never two of a kind, the same all day, different for others and other days, only doable ones); nothing bots feed counts (a bot's kill or death, a bot's barrel); a round alone with bots played and won; no switching onto the winners; real dashes, barrels and chains; minutes on the battlefield, not the home screen; paid once (more of it, the grant again, a new session); midnight UTC; saved across sessions, unsaved sessions paused, damaged saves; the DAILY screen's cards; `/fw challenges`; off |
 | `Season` | off as shipped and between seasons; season XP from XP and challenges; every tier paid once with its cosmetics and the badge; weekly challenges (the same for everyone, doable, from real eliminations and dashes, once each); a new week and a new season; the screen and button; booms |

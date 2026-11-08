@@ -2,9 +2,10 @@
 -- left click to fire, Shift for Fart Dash, Q for the equipped ability, 1-4
 -- for the hotbar's weapons, E to emote (held: the wheel), V for first/third person, Left Alt
 -- to free the mouse from the crosshair (and lock it again; MouseLock), M
--- for the menu and Tab (held) for the scoreboard. R and F stay free for
--- later mechanics. Keys pressed while typing in chat or a text box are
--- ignored. Bindings live in UIConfig.keys, ready for rebinding later.
+-- for the menu, Tab (held) for the scoreboard and Z (or the middle mouse
+-- button) to ping. R and F stay free for later mechanics. Keys pressed
+-- while typing in chat or a text box are ignored. Bindings live in
+-- UIConfig.keys, ready for rebinding later.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
@@ -29,6 +30,7 @@ InputController.AbilityPressed = Signal.new()
 InputController.SlotPressed = Signal.new() -- (slot number)
 InputController.EmotePressed = Signal.new()
 InputController.EmoteReleased = Signal.new()
+InputController.PingPressed = Signal.new()
 
 -- Set by the menu: no firing or dashing while it's open.
 InputController.menuOpen = false
@@ -85,6 +87,9 @@ function InputController.start()
 		if input.UserInputType == keys.fire then
 			setFire(true)
 			return
+		elseif input.UserInputType == keys.pingMouse then
+			InputController.PingPressed:Fire()
+			return
 		end
 		local key = input.KeyCode
 		if key == keys.camera then
@@ -102,6 +107,8 @@ function InputController.start()
 			InputController.AbilityPressed:Fire()
 		elseif key == keys.emote then
 			InputController.EmotePressed:Fire()
+		elseif key == keys.ping then
+			InputController.PingPressed:Fire()
 		else
 			local slot = table.find(keys.slots, key)
 			if slot then

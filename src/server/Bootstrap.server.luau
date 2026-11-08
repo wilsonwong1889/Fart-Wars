@@ -41,6 +41,7 @@
 --   LeaderboardService    the weekly leaderboard: counts written in batches,
 --                         boards read on demand and cached
 --   BotDirector           bots fill the server to four: who, where, their brains
+--   PingService           team pings (Ping): checked, rate-limited, team-only
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
@@ -93,6 +94,7 @@ local EventService = require(Services.EventService)
 local FeedbackService = require(Services.FeedbackService)
 local LeaderboardService = require(Services.LeaderboardService)
 local BotDirector = require(Services.BotDirector)
+local PingService = require(Services.PingService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
 local Health = require(script.Parent.Health)
@@ -137,6 +139,7 @@ EventService.start()
 FeedbackService.start()
 LeaderboardService.start()
 BotDirector.start()
+PingService.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then

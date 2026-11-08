@@ -122,13 +122,15 @@ reason.
 | `SettingsRequest` | client → server (RemoteFunction) | `action: "get" \| "save"`, `choices: { [name]: value }` (save: only names in `SettingsConfig`, each value a listed step, colour or boolean, else the whole save is refused; one a second); returns `{ ok, reason, settings? }` (get: the saved choices) |
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `SendFeedback` | client → server (RemoteFunction) | `{ kind: "Bug" \| "Idea" \| "Other", text: string (3 to 300 characters), fps?, ping?, errorCount?, errors?: { string } (5 at most) }`; returns `{ ok, reason, wait? }` (`sent`, `tooSoon` with the seconds to `wait`, `tooMany`, `empty`, `tooLong`, `badKind`, `badPayload`, `busy`, `tooFast`, `off`, `error`) |
+| `Ping` | client → server | `position: Vector3` (the spot under the crosshair, inside the map; one every 1.2 s at most) |
+| `Ping` | server → team | `{ from, position, endsAt }` (the pinger's user ID, the spot, server time): to the pinger's team only, the pinger included |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`, `{ kind = "challenges", day, secondsToReset, saving, loading, challenges = { { id, text, hint, kind, goal, progress, claimed, coins, xp } } }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `challenge`, `test` |
 | `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked, amount, position }` (shooter; `gas` is the victim's meter after the hit, `amount` the gas it put in, 0 if it did nothing), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer?, chain }` (all; `chain` is its place in its chain reaction, 1 for the first), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position, radius, owner?, chain }` (all; `owner` whoever set it off), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
-`disabled`, `notEquipped`, `noGas`, `throughWall`. Shop answers (`reason`): `bought`,
+`disabled`, `notEquipped`, `noGas`, `throughWall`, `outOfBounds`. Shop answers (`reason`): `bought`,
 `now`, `respawn`, `profile`, `busy`, `loading`, `notSaving`, `unknown`,
 `owned`, `level`, `coins`, `saveFailed`, `notOwned`, `badPayload`,
 `rateLimited`.

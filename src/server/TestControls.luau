@@ -384,6 +384,7 @@ local REMOTES = {
 	SettingsRequest = "RemoteFunction",
 	SendFeedback = "RemoteFunction",
 	LeaderboardRequest = "RemoteFunction",
+	Ping = "RemoteEvent",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,

@@ -81,6 +81,9 @@
         },
         "LeaderboardRequest": {
           "$className": "RemoteFunction"
+        },
+        "Ping": {
+          "$className": "RemoteEvent"
         }
       },
       "Assets": {

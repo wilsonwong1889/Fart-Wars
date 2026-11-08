@@ -222,6 +222,7 @@ local UIConfig = {
 		"Tip: keep out of fire for 5 seconds and your gas starts going down.",
 		"Tip: V switches between first and third person.",
 		"Tip: press M for the menu and TAB for the scoreboard.",
+		"Tip: Z (or middle click) pings a spot for your team. OVER HERE, BRO!",
 	}),
 	loadingSeconds = table.freeze({
 		-- Each stage waits at most this long, so a slow server never traps
@@ -293,6 +294,11 @@ local UIConfig = {
 		unlockMouse = Enum.KeyCode.LeftAlt,
 		menu = Enum.KeyCode.M,
 		scoreboard = Enum.KeyCode.Tab,
+		-- A ping for your team on the spot under the crosshair (the mouse is
+		-- locked to it in a match, so it needs no cursor), or the middle
+		-- mouse button, as in most shooters.
+		ping = Enum.KeyCode.Z,
+		pingMouse = Enum.UserInputType.MouseButton3,
 		-- Kept free for later mechanics.
 		reserved = table.freeze({ Enum.KeyCode.R, Enum.KeyCode.F }),
 	}),
@@ -307,6 +313,7 @@ local UIConfig = {
 		{ "Q", "Ability (once unlocked)" },
 		{ "1-4", "Pick a weapon" },
 		{ "E", "Emote (hold for the wheel)" },
+		{ "Z / MIDDLE CLICK", "Ping" },
 		{ "SPACE", "Jump" },
 		{ "V", "First / third person" },
 		{ "ALT", "Free the mouse" },
