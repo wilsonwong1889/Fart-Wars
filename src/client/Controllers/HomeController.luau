@@ -50,6 +50,7 @@ local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local DailyShopConfig = require(Shared.Config.DailyShopConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local WeaponView = require(Client.WeaponView)
+local FeedbackController = require(script.Parent.FeedbackController)
 
 local C = UIConfig.colors
 local Phase = States.Phase
@@ -984,6 +985,8 @@ local function build()
 		ClientState.send("RequestSpectate")
 	end)
 	sectionButtons(panel, 288)
+	-- Last in the list: FEEDBACK (while it's on).
+	FeedbackController.menuButton(panel, 288)
 
 	-- Coming Soon card
 	local soon = UI.screen("ComingSoon", 20)

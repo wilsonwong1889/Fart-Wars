@@ -15,6 +15,7 @@
 --   /fw selftest   /fw daily   /fw spins 3   /fw health   /fw perf
 --   /fw challenges   /fw challenges done   /fw challenges reset
 --   /fw mode gascontrol (the next round's mode)
+--   /fw feedback [n] (the newest player feedback, printed to the output)
 --   /fw bots   /fw bots off   /fw bots on   /fw bots fill 6   /fw bots skill 0.7
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
@@ -42,6 +43,7 @@ local LoadoutService = require(Services.LoadoutService)
 local RewardsService = require(Services.RewardsService)
 local ChallengeService = require(Services.ChallengeService)
 local BotDirector = require(Services.BotDirector)
+local FeedbackService = require(Services.FeedbackService)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local BotConfig = require(Shared.Config.BotConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
@@ -380,6 +382,7 @@ local REMOTES = {
 	ClientReport = "RemoteEvent",
 	PrestigeRequest = "RemoteFunction",
 	SettingsRequest = "RemoteFunction",
+	SendFeedback = "RemoteFunction",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
@@ -443,6 +446,7 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		report("OK", "Chat", if chatOk then `{chatVersion} (/fw via Chatted)` else "legacy chat")
 	end
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
+	report("OK", "Feedback", if FeedbackService.enabled() then "on: FEEDBACK in the M menu; /fw feedback reads the newest" else "off (FeatureFlags.FEEDBACK)")
 	report("OK", "Bots", if FeatureFlags.BOTS then `on: up to {BotConfig.FILL_TO} in the server at skill {BotConfig.DIFFICULTY}` else "off")
 	local launchPads = #LaunchPads.list(map)
 	expect(not FeatureFlags.LAUNCH_PADS or launchPads > 0, "Launch pads", if FeatureFlags.LAUNCH_PADS then `on: {launchPads} on the map` else "off", "on, but the map has none", "WARN")
@@ -610,6 +614,23 @@ function TestControls.stats(): (boolean, string)
 			.. `rejected {rejected}, errors {errored}`
 end
 
+-- The newest `count` feedback reports (FeedbackConfig.READ_DEFAULT if nil):
+-- every word printed to the server's output, where only the developer sees
+-- it; the line returned (shown to the admin) has counts and ages only.
+function TestControls.feedback(count: number?): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	if not FeedbackService.enabled() then
+		return false, "feedback is off (FeatureFlags.FEEDBACK)"
+	end
+	local ok, summary, lines = FeedbackService.readout(count)
+	for _, line in lines do
+		print(line)
+	end
+	return ok, summary
+end
+
 -- Runs one chat command; returns what happened, or nil if it wasn't one.
 function TestControls.run(player: Player, text: string): string?
 	local words = string.split(string.lower(text), " ")
@@ -617,7 +638,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, challenges [done | reset], spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>]"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, challenges [done | reset], spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>], feedback [n]"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -664,6 +685,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.perf()
 	elseif command == "bots" then
 		ok, message = TestControls.bots(words[3], tonumber(words[4]))
+	elseif command == "feedback" then
+		ok, message = TestControls.feedback(tonumber(words[3]))
 	end
 	Messages.send(player, "test", (if ok then "TEST: " else "TEST failed: ") .. message)
 	return message

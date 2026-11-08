@@ -7,7 +7,7 @@ the routine, and where each part of it lives in the code.
 
 | When | What | With |
 | --- | --- | --- |
-| Monday | Bug triage: sort the weekly issue list by severity, give each an owner and a way to verify the fix | [`release.md`](release.md) (issue list format) |
+| Monday | Bug triage: sort the weekly issue list by severity, give each an owner and a way to verify the fix | [`release.md`](release.md) (issue list format), players' feedback (below) |
 | Monday | Telemetry audit: are the numbers still sane? (see below) | `/fw stats`, `/fw health`, `/fw perf`, the Creator Hub |
 | Midweek | Fixes and balance changes on a branch, specs green, staging playtest | `python3 scripts/run_specs.py`, the staging place |
 | Thursday | Release: the checklist, a version bump, patch notes | [`release.md`](release.md) |
@@ -29,6 +29,29 @@ the routine, and where each part of it lives in the code.
   and experiment cohorts (`exp.*`) if one is running.
 - **Moderation**: `flags.*` and `reports.*`; read the flagged players' logs
   before changing `GameConfig.MODERATION`.
+
+## Players' feedback
+
+FEEDBACK in the M menu (`FeatureFlags.FEEDBACK`) lets a player send a bug
+report, an idea or anything else, up to 300 characters, one every two
+minutes and five a UTC day. Each report is kept with the version and
+channel, the place version, the server's job ID, the player's ping and
+frame rate, and their last few script errors (players' names scrubbed
+out); the only personal detail is the user ID, and no other player ever
+sees the words.
+
+- In a server: `/fw feedback [n]` prints the newest reports, every word,
+  to the server's output (F9 > Server, which only the experience's
+  developers can see); the line on screen has counts and ages only.
+- Everything: the Creator Hub's Data Stores manager. Reports are in
+  `FartWarsFeedback`, one key each (`<userId>_<time>_<id>`), listed by
+  time in the ordered store `FartWarsFeedbackIndex`; `quota_<userId>`
+  holds each player's limits for the day.
+- A data deletion request for a user: remove their `<userId>_...` keys
+  from both stores and `quota_<userId>`.
+- The counts (`Feedback.sent`, `Feedback.kind.<type>`,
+  `Feedback.saveFailures`, `rejects.SendFeedback`) are in the JSON
+  `/fw stats` prints.
 
 ## Patch notes
 

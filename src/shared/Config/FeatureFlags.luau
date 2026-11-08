@@ -80,6 +80,12 @@ return table.freeze({
 	-- by bots score team points but pay out nothing. Off: never any bots.
 	BOTS = true,
 
+	-- Feedback (FeedbackService): FEEDBACK in the M menu sends the developer
+	-- a bug report, idea or anything else (up to 300 characters), with the
+	-- version, ping, frame rate and recent errors; admins read the newest
+	-- with /fw feedback. Off: no button, and the server refuses reports.
+	FEEDBACK = true,
+
 	-- Structured "[FW]" lines in the output for every service event and
 	-- rejected request. Counters are kept either way.
 	DEBUG_LOGS = true,

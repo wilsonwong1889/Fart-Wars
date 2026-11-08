@@ -75,6 +75,9 @@
         },
         "SettingsRequest": {
           "$className": "RemoteFunction"
+        },
+        "SendFeedback": {
+          "$className": "RemoteFunction"
         }
       },
       "Assets": {
