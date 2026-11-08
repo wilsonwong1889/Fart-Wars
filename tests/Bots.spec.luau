@@ -131,9 +131,11 @@ local function avatar(name: string, x: number, z: number): Model
 	model.Parent = workspace
 	return model
 end
+-- Carrying the Gas Blaster: the checks below count its gas and its rate
+-- (BotArsenal tries the rest of the arsenal).
 local function spawnBot(bot: any, x: number, z: number): Model
 	local model = avatar(bot.name, x, z)
-	Bots.attach(bot, model)
+	Bots.attach(bot, model, { weapon = "GasBlaster" })
 	return model
 end
 local function place(model: Model, x: number, z: number)

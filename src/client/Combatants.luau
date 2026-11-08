@@ -5,8 +5,9 @@
 -- team and the current avatar, and keeps the list of every avatar on the
 -- field, so the controllers never look players and bots up separately.
 --   * a bot's avatar is a Model in workspace.Bots, tagged "Bot", carrying
---     its BotId, TeamId and DisplayName ("[BOT] Toots"); each life is a new
---     avatar, so watch() hears about every one
+--     its BotId, TeamId and DisplayName ("[BOT] Toots"), and the Weapon its
+--     life carries; each life is a new avatar, so watch() hears about every
+--     one
 --   * a bot's name and team are remembered after its avatar goes (ids are
 --     never reused), so a kill feed line that arrives late still names it
 --   * an id nobody here knows gives nil; nothing here errors on one
@@ -32,6 +33,9 @@ export type Combatant = {
 	-- The Player, for a player (cosmetics, the Players screen); nil for a bot.
 	player: Player?,
 	bot: boolean,
+	-- The gun in their hands (a WeaponConfig id: a player's equipped one, a
+	-- bot's life's), nil if nothing says (a bot between lives).
+	weapon: string?,
 }
 
 Combatants.TAG = "Bot"
@@ -54,6 +58,18 @@ local function teamOf(instance: Instance): string?
 	return if type(team) == "string" then team else nil
 end
 
+-- The "Weapon" attribute (a player's on the Player, a bot's on its avatar),
+-- else the gun held in the avatar's hands.
+local function weaponOf(instance: Instance, avatar: Model?): string?
+	local weapon = instance:GetAttribute("Weapon")
+	if type(weapon) == "string" then
+		return weapon
+	end
+	local held = avatar and avatar:FindFirstChild("HeldWeapon")
+	weapon = held and held:GetAttribute("Weapon")
+	return if type(weapon) == "string" then weapon else nil
+end
+
 local function fromPlayer(player: Player): Combatant
 	return {
 		id = player.UserId,
@@ -62,6 +78,7 @@ local function fromPlayer(player: Player): Combatant
 		character = player.Character,
 		player = player,
 		bot = false,
+		weapon = weaponOf(player, player.Character),
 	}
 end
 
@@ -82,6 +99,7 @@ local function fromBot(avatar: Model): Combatant?
 		character = if avatar.Parent then avatar else nil,
 		player = nil,
 		bot = true,
+		weapon = weaponOf(avatar, avatar),
 	}
 	seen[id] = { name = who.name, team = who.team }
 	return who

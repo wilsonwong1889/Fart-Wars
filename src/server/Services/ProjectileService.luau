@@ -7,7 +7,8 @@
 -- players and bots, every tick until it fades. Friendly fire stays off
 -- throughout, and the gas is credited to the thrower and the weapon. At
 -- most GameConfig.BUDGET.MAX_CLOUDS clouds last at once: a new one ends
--- the oldest early.
+-- the oldest early. A bot throws the same way (CombatService.BotLobbed):
+-- its splash and cloud are credited to it, and never gas the team it's on.
 --   CombatEvent { kind = "lob", shooter, from, to, path, flight }    all clients
 --   CombatEvent { kind = "cloud", position, radius, endsAt, team }  all clients
 local Players = game:GetService("Players")
@@ -37,6 +38,8 @@ type Cloud = {
 	radius: number,
 	gas: number,
 	owner: Player?,
+	-- A bot that threw it (its id), in place of `owner`.
+	ownerBot: number?,
 	team: string,
 	weapon: string,
 	endsAt: number,
@@ -88,13 +91,15 @@ function ProjectileService.arc(from: Vector3, direction: Vector3, weapon: Weapon
 	return position, t, path
 end
 
-local function land(thrower: Player, team: string, at: Vector3, weapon: WeaponConfig.Weapon)
+-- `thrower` is a player, or nil for a bot's (`ownerBot`, its id).
+local function land(thrower: Player?, ownerBot: number?, team: string, at: Vector3, weapon: WeaponConfig.Weapon)
 	Telemetry.count("Projectile.landed")
 	ExplosionService.blast({
 		position = at + Vector3.new(0, 1, 0),
 		radius = weapon.splashRadius :: number,
 		gas = weapon.gasPerHit,
-		owner = if thrower.Parent == Players then thrower else nil,
+		owner = if thrower and thrower.Parent == Players then thrower else nil,
+		ownerBot = ownerBot,
 		ownerTeam = team,
 		cause = "lob",
 		depth = 0,
@@ -105,6 +110,7 @@ local function land(thrower: Player, team: string, at: Vector3, weapon: WeaponCo
 		radius = weapon.cloudRadius :: number,
 		gas = weapon.cloudGas :: number,
 		owner = thrower,
+		ownerBot = ownerBot,
 		team = team,
 		weapon = weapon.id,
 		endsAt = now() + (weapon.cloudSeconds :: number),
@@ -132,7 +138,22 @@ function ProjectileService.throw(thrower: Player, from: Vector3, direction: Vect
 	local to, flight, path = ProjectileService.arc(from, direction, weapon, ignore)
 	Telemetry.count("Projectile.thrown")
 	combatEvent():FireAllClients({ kind = "lob", shooter = thrower.UserId, from = from, to = to, path = path, flight = flight })
-	task.delay(flight, land, thrower, team, to, weapon)
+	task.delay(flight, land, thrower, nil, team, to, weapon)
+end
+
+-- A bot's throw (CombatService has checked it like a shot), for its team.
+function ProjectileService.throwAsBot(bot: BotService.Bot, from: Vector3, direction: Vector3, weapon: WeaponConfig.Weapon)
+	if weapon.projectile ~= "lob" then
+		return
+	end
+	local ignore: { Instance } = {}
+	if bot.character then
+		table.insert(ignore, bot.character)
+	end
+	local to, flight, path = ProjectileService.arc(from, direction, weapon, ignore)
+	Telemetry.count("Projectile.thrownByBots")
+	combatEvent():FireAllClients({ kind = "lob", shooter = bot.id, from = from, to = to, path = path, flight = flight })
+	task.delay(flight, land, nil, bot.id, bot.team, to, weapon)
 end
 
 local function inCloud(cloud: Cloud, root: Instance?): boolean
@@ -151,11 +172,15 @@ function ProjectileService.step()
 		elseif at >= cloud.nextTickAt then
 			cloud.nextTickAt += cloud.tick
 			local owner = if cloud.owner and cloud.owner.Parent == Players then cloud.owner else nil
-			local source: GasService.Source = { attacker = owner, team = cloud.team, cause = "cloud", weapon = cloud.weapon }
+			-- A bot that has gone still gasses for its team, credited to
+			-- nobody; one that has since changed teams spares its new ones.
+			local ownerBot = cloud.ownerBot and BotService.get(cloud.ownerBot)
+			local source: GasService.Source = { attacker = owner, bot = ownerBot and ownerBot.id, team = cloud.team, cause = "cloud", weapon = cloud.weapon }
 			for _, player in Players:GetPlayers() do
 				local team = TeamService.teamOf(player)
 				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 				if team and team ~= cloud.team
+					and not (ownerBot and ownerBot.team == team)
 					and PlayerLifecycleService.stateOf(player) == States.Player.ACTIVE
 					and inCloud(cloud, root)
 				then
@@ -181,6 +206,7 @@ function ProjectileService.start()
 	end
 	started = true
 	CombatService.Lobbed:Connect(ProjectileService.throw)
+	CombatService.BotLobbed:Connect(ProjectileService.throwAsBot)
 	Health.loop("Projectiles", 0.1, function()
 		ProjectileService.step()
 	end)

@@ -16,9 +16,13 @@
 -- avatar mid-countdown explodes on the spot; one that dies some other way
 -- while gassed (a fall) is credited to its recent attacker. Every new
 -- avatar gets spawn protection, which firing ends.
+-- Each life carries a loadout, picked as it starts (BotConfig.pickLoadout:
+-- leaning away from the guns its teammates carry): a gun from the arsenal,
+-- held in its hand, at that gun's walking speed, and a Q ability.
 -- Clients see what they see on a player's avatar: "Gas" (0-100),
 -- "GasStage" (0-4), "ExplodesAt" and "ProtectedUntil" (server time), and
--- the SpawnProtection ForceField.
+-- the SpawnProtection ForceField; and the life's "Weapon" and "Ability"
+-- (ids), so every screen shows and hears the gun it really fires.
 --   CombatEvent { kind = "explosion", victim, position, killer? }   all clients
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -28,6 +32,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
+local BotConfig = require(Shared.Config.BotConfig)
+local WeaponConfig = require(Shared.Config.WeaponConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
+local WeaponModel = require(Shared.WeaponModel)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
@@ -50,7 +58,14 @@ export type Bot = {
 	name: string, -- display name, "[BOT] <name>"
 	team: string, -- TeamConfig id
 	character: Model?, -- current avatar, nil between lives
+	-- This life's loadout (the last life's between lives): a WeaponConfig id
+	-- and a Q ability's AbilityConfig id (nil: none).
+	weapon: string,
+	ability: string?,
 }
+
+-- A loadout to give a life instead of the pick (tests).
+export type Loadout = { weapon: string, ability: string? }
 
 -- (bot, character): attach() adopted a new avatar.
 BotService.Spawned = Signal.new()
@@ -94,6 +109,7 @@ local lives: { [Bot]: Life } = {}
 local byCharacter: { [Instance]: Bot } = {}
 local lastId = FIRST_ID + 1
 local started = false
+local random = Random.new()
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -300,6 +316,8 @@ function BotService.add(team: string, name: string): Bot
 		name = if string.sub(name, 1, #PREFIX) == PREFIX then name else PREFIX .. name,
 		team = team,
 		character = nil,
+		weapon = BotConfig.WEAPON,
+		ability = nil,
 	}
 	bots[bot.id] = bot
 	recount(team)
@@ -367,10 +385,44 @@ function BotService.fromInstance(instance: Instance): Bot?
 	return nil
 end
 
+-- The guns the other bots on `team` carry in the lives they're living.
+local function teamWeapons(team: string, except: Bot): { string }
+	local list = {}
+	for _, other in bots do
+		if other ~= except and other.team == team and current(other) then
+			table.insert(list, other.weapon)
+		end
+	end
+	return list
+end
+
+-- This life's gun in the avatar's hand (the one it was built holding, if
+-- that's the one), and its walking speed.
+local function arm(character: Model, humanoid: Humanoid, weapon: WeaponConfig.Weapon)
+	local held = character:FindFirstChild("HeldWeapon")
+	if not (held and held:IsA("Tool") and held:GetAttribute("Weapon") == weapon.id) then
+		if held then
+			held:Destroy()
+		end
+		-- Held as a player holds it (LoadoutService): being in the avatar
+		-- equips it.
+		local tool = WeaponModel.tool(weapon.id, weapon.displayName)
+		tool.Parent = character
+		-- Welding a gun into the hand gives the body's physics back to
+		-- Roblox; the server moves bots, so it takes them again.
+		local root = character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") then
+			pcall(root.SetNetworkOwner, root, nil)
+		end
+	end
+	humanoid.WalkSpeed = weapon.walkSpeed
+end
+
 -- Adopts a freshly built avatar that's already standing at a spawn: tags
--- and attributes, an empty meter, spawn protection. A previous avatar
--- (alive or not) goes, ending that life as a respawn would.
-function BotService.attach(bot: Bot, character: Model)
+-- and attributes, an empty meter, spawn protection, and this life's
+-- loadout (`loadout`, or else the pick). A previous avatar (alive or not)
+-- goes, ending that life as a respawn would.
+function BotService.attach(bot: Bot, character: Model, loadout: Loadout?)
 	if bots[bot.id] ~= bot then
 		warn(`[Bots] attach: {bot.name} isn't in the game`)
 		return
@@ -394,11 +446,24 @@ function BotService.attach(bot: Bot, character: Model)
 			item.CanQuery = false
 		end
 	end
+	local weaponId, ability
+	if loadout then
+		weaponId, ability = loadout.weapon, loadout.ability
+	else
+		weaponId, ability = BotConfig.pickLoadout(random, teamWeapons(bot.team, bot))
+	end
+	local weapon = WeaponConfig.weapons[weaponId] or WeaponConfig.weapons[BotConfig.WEAPON]
+	local q = ability and AbilityConfig[ability]
+	bot.weapon = weapon.id
+	bot.ability = if q and q.input == Enum.KeyCode.Q then q.id else nil
 	character:SetAttribute("BotId", bot.id)
 	character:SetAttribute("TeamId", bot.team)
 	character:SetAttribute("DisplayName", bot.name)
+	character:SetAttribute("Weapon", bot.weapon)
+	character:SetAttribute("Ability", bot.ability)
 	character:SetAttribute("ExplodesAt", nil)
 	humanoid.DisplayName = bot.name
+	arm(character, humanoid, weapon)
 	CollectionService:AddTag(character, TAG)
 	local home = folder()
 	if character.Parent ~= home then
@@ -478,6 +543,28 @@ end
 function BotService.gasOf(bot: Bot): number
 	local life = current(bot)
 	return if life then life.gas else 0
+end
+
+-- The gun this life carries (the last life's between lives).
+function BotService.weaponOf(bot: Bot): WeaponConfig.Weapon
+	return WeaponConfig.weapons[bot.weapon] or WeaponConfig.weapons[BotConfig.WEAPON]
+end
+
+-- Lets out up to `amount` of the bot's gas at once (Recovery Burst), as
+-- GasService.vent does a player's. Returns how much went. Too late once
+-- the countdown has started.
+function BotService.vent(bot: Bot, amount: number): number
+	local life = current(bot)
+	if not life or life.exploding or life.gas <= 0 or amount <= 0 then
+		return 0
+	end
+	local before = life.gas
+	life.gas = math.max(0, life.gas - amount)
+	if life.gas == 0 then
+		forget(life)
+	end
+	publish(life)
+	return before - life.gas
 end
 
 function BotService.isExploding(bot: Bot): boolean

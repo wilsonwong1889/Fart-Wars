@@ -8,21 +8,32 @@
 --     front of it (all the way round for a moment after taking gas), with
 --     a clear line from its head. A few rays at most each time.
 --   * Fighting (only while a round is ACTIVE): it waits its reaction time
---     after first seeing a target, turns to face it and fires the Gas
---     Blaster (CombatService.fireAsBot) at the upper body, or now and then
---     the head, through an error cone that's wider the faster the target
---     crosses its view, the farther away it is, in the first moment of
---     aiming and in mid-air; never faster than the weapon's interval times
---     its multiplier. Meanwhile it strafes, now and then jumps, closes in
---     on far targets and backs up from close ones.
+--     after first seeing a target, turns to face it and fires the gun its
+--     life carries (CombatService.fireAsBot) at the upper body, or now and
+--     then the head, through an error cone that's wider the faster the
+--     target crosses its view, the farther away it is, in the first moment
+--     of aiming and in mid-air; never faster than the gun's interval times
+--     its multiplier, and only inside the gun's reach (BotConfig.WEAPONS).
+--     A Stink Lobber throws instead: the arc that lands on them, the low
+--     one if nothing's in the way, else the high one, and for a moment
+--     after they duck behind cover it goes on lobbing, high, at where it
+--     saw them last. Meanwhile it strafes, now and then jumps, closes in
+--     on targets farther than its gun likes and backs up from nearer ones
+--     (a Spritzer up close, a Thunderclapper far off), and now and then
+--     Fart Dashes in, or away, with a player's cooldown.
+--   * Q: Recovery Burst once its gas is high, Gas Pulse with a target close
+--     enough to catch in the ring (AbilityService.useAsBot).
 --   * Backing off: at high gas it heads back to its own spawn, still
---     shooting at anyone in sight, until it has recovered.
+--     shooting at anyone in sight (and dashing away now and then), until it
+--     has recovered.
 --   * Getting about: with nobody to fight it walks a path
 --     (PathfindingService) to a goal: the control zone in Gas Control
 --     (holding it, not chasing out of it), else where it last saw an enemy,
---     else a patrol point in one of the lanes toward the enemy's side. It
+--     else a patrol point in one of the lanes toward the enemy's side (not
+--     so far for a Thunderclapper, which waits at each one, watching). It
 --     plans again on a timer; stuck, it jumps, then picks somewhere else.
--- How good it is at all of this is its tuning (BotConfig.tuning).
+-- How good it is at all of this is its tuning (BotConfig.tuning); its gun
+-- changes where it fights, never how well it aims or how fast it reacts.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PathfindingService = game:GetService("PathfindingService")
@@ -31,6 +42,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BotConfig = require(Shared.Config.BotConfig)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local States = require(Shared.States)
 local Services = script.Parent.Parent.Services
 local BotService = require(Services.BotService)
@@ -41,8 +54,20 @@ local PlayerLifecycleService = require(Services.PlayerLifecycleService)
 local MapService = require(Services.MapService)
 local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
+local DashService = require(Services.DashService)
+local AbilityService = require(Services.AbilityService)
+local ProjectileService = require(Services.ProjectileService)
 
-local WEAPON = WeaponConfig.weapons[BotConfig.WEAPON]
+local DASH = AbilityConfig.FartDash
+-- How far a Fart Dash goes.
+local DASH_STUDS = (DASH.speed :: number) * DASH.durationSeconds
+-- A lob is aimed this far below the target's middle (about its knees): on
+-- the way down it hits them or lands at their feet.
+local LOB_DROP = 2
+-- An arc that hits something within this of where it's aimed lands there.
+local LOB_NEAR_STUDS = 6
+-- With no arc that gets there clear, it looks again after this.
+local LOB_RETRY_SECONDS = 0.5
 -- An R15 avatar, for paths.
 local AGENT = { AgentRadius = 2, AgentHeight = 5.5, AgentCanJump = true, WaypointSpacing = 6 }
 -- Goals: how long each is worth keeping before choosing again.
@@ -58,6 +83,10 @@ type Fields = {
 	root: BasePart,
 	head: BasePart,
 	tuning: BotConfig.Tuning,
+	-- This life's gun and how it's fought with, and its Q ability.
+	weapon: WeaponConfig.Weapon,
+	style: BotConfig.Style,
+	ability: AbilityConfig.Ability?,
 	rng: Random,
 	rays: RaycastParams,
 	stopped: boolean,
@@ -80,6 +109,12 @@ type Fields = {
 	retreating: boolean,
 	strafeUntil: number,
 	strafeSide: number,
+	-- Which way the fight's range last moved it: 1 in, -1 back, 0 neither.
+	intent: number,
+	nextDashAt: number,
+	nextAbilityAt: number,
+	-- When it vents, now that its gas is high (its reaction time on).
+	ventAt: number?,
 	-- Getting about.
 	goal: Vector3?,
 	goalKind: string?,
@@ -95,6 +130,9 @@ type Fields = {
 	stuckAt: number,
 	stuckFrom: Vector3,
 	stuckCount: number,
+	-- Waiting at a patrol spot until then, looking that way.
+	holdUntil: number,
+	holdLook: Vector3?,
 }
 
 local BotBrain = {}
@@ -213,6 +251,7 @@ function BotBrain.new(bot: BotService.Bot, character: Model, tuning: BotConfig.T
 	rays.FilterType = Enum.RaycastFilterType.Exclude
 	rays.FilterDescendantsInstances = { character }
 	local at = now()
+	local weapon = BotService.weaponOf(bot)
 	local fields: Fields = {
 		bot = bot,
 		character = character,
@@ -220,6 +259,9 @@ function BotBrain.new(bot: BotService.Bot, character: Model, tuning: BotConfig.T
 		root = root,
 		head = if head and head:IsA("BasePart") then head else root,
 		tuning = tuning,
+		weapon = weapon,
+		style = BotConfig.styleOf(weapon.id),
+		ability = if bot.ability then AbilityConfig[bot.ability] else nil,
 		rng = Random.new(),
 		rays = rays,
 		stopped = false,
@@ -241,6 +283,10 @@ function BotBrain.new(bot: BotService.Bot, character: Model, tuning: BotConfig.T
 		retreating = false,
 		strafeUntil = at,
 		strafeSide = 0,
+		intent = 0,
+		nextDashAt = at,
+		nextAbilityAt = at,
+		ventAt = nil,
 		goal = nil,
 		goalKind = nil,
 		goalUntil = at,
@@ -255,6 +301,8 @@ function BotBrain.new(bot: BotService.Bot, character: Model, tuning: BotConfig.T
 		stuckAt = at + BotConfig.STUCK_SECONDS,
 		stuckFrom = root.Position,
 		stuckCount = 0,
+		holdUntil = -math.huge,
+		holdLook = nil,
 	}
 	local brain = setmetatable(fields, BotBrain)
 	-- Turns it smoothly to face whoever it's fighting (otherwise it faces
@@ -402,9 +450,32 @@ end
 
 -- Fighting.
 
--- Lines up the next shot when it's due before the next tick.
+-- Where a Stink Lobber goes on throwing at a target that has gone behind
+-- cover (still in the fight, seen in the last LOB_BLIND_SECONDS): where it
+-- saw them last. Nil for any other gun, or with a target in sight.
+function BotBrain.blindPoint(self: Brain, at: number): Vector3?
+	local seen = self.lastSeenPosition
+	if self.weapon.projectile ~= "lob" or self.visible or not seen or at - self.lastVisibleAt > BotConfig.LOB_BLIND_SECONDS then
+		return nil
+	end
+	if not (self.lastKey ~= nil and foe(self.lastKey, self.bot.team)) then
+		return nil
+	end
+	return seen - Vector3.new(0, LOB_DROP, 0)
+end
+
+-- Lines up the next shot when it's due before the next tick (none at a
+-- target out of its gun's reach).
 function BotBrain.trigger(self: Brain, at: number)
-	if self.shotQueued or not (self.target and self.visible) or at < self.readyAt - BotConfig.THINK_SECONDS then
+	if self.shotQueued or at < self.readyAt - BotConfig.THINK_SECONDS then
+		return
+	end
+	local target = self.target
+	if target and self.visible then
+		if flat(target.root.Position - self.root.Position).Magnitude > self.style.fireRange then
+			return
+		end
+	elseif not self:blindPoint(at) then
 		return
 	end
 	local due = math.max(self.nextShotAt, self.readyAt)
@@ -420,26 +491,10 @@ function BotBrain.trigger(self: Brain, at: number)
 	end)
 end
 
-function BotBrain.shoot(self: Brain)
-	local target = self.target
-	if not (target and self.visible) or RoundService.phase() ~= States.Phase.ACTIVE or BotService.isExploding(self.bot) then
-		return
-	end
-	local fresh = foe(target.key, self.bot.team)
-	if not fresh then
-		return
-	end
-	local at = now()
+-- How wide (degrees) the cone a shot lands in is, `distance` away along
+-- `line` with the target moving at `relative` to it.
+function BotBrain.errorCone(self: Brain, at: number, line: Vector3, distance: number, relative: Vector3): number
 	local t = self.tuning
-	local from = self.head.Position
-	local offset = aimPart(fresh, self.rng:NextNumber() < t.headChance).Position - from
-	local distance = offset.Magnitude
-	if distance < 0.5 or distance > WEAPON.range then
-		return
-	end
-	local line = offset / distance
-	-- Its own movement counts too: shooting on the move is harder.
-	local relative = velocity(fresh.root) - velocity(self.root)
 	local sideways = (relative - line * relative:Dot(line)).Magnitude
 	local cone = t.aimErrorDegrees + t.speedErrorDegrees * sideways / 16 + t.distanceErrorDegrees * distance / 100
 	local settling = math.clamp(1 - (at - self.seenAt) / t.settleSeconds, 0, 1)
@@ -447,11 +502,142 @@ function BotBrain.shoot(self: Brain)
 	if self.humanoid.FloorMaterial == Enum.Material.Air then
 		cone *= BotConfig.AIRBORNE_ERROR
 	end
-	local fired = CombatService.fireAsBot(self.bot, spread(line, cone, self.rng))
+	return cone
+end
+
+function BotBrain.shoot(self: Brain)
+	if RoundService.phase() ~= States.Phase.ACTIVE or BotService.isExploding(self.bot) then
+		return
+	end
+	local at = now()
+	local fired = if self.weapon.projectile == "lob" then self:throw(at) else self:fire(at)
+	if fired == nil then
+		return -- nothing to shoot at in reach
+	end
 	-- Timed from when the shot really went, so it's never sooner than the
 	-- weapon allows however the frames fall.
-	local wait = if fired then math.max(WEAPON.fireInterval + 0.02, WEAPON.fireInterval * t.fireIntervalMultiplier * self.rng:NextNumber(0.92, 1.12)) else 0.1
+	local interval = self.weapon.fireInterval
+	local wait = if fired then math.max(interval + 0.02, interval * self.tuning.fireIntervalMultiplier * self.rng:NextNumber(0.92, 1.12)) else 0.1
 	self.nextShotAt = now() + wait
+end
+
+-- An instant gun's shot at the target in sight. Nil when there's none
+-- within the gun's reach.
+function BotBrain.fire(self: Brain, at: number): boolean?
+	local target = self.target
+	local fresh = if target and self.visible then foe(target.key, self.bot.team) else nil
+	if not fresh then
+		return nil
+	end
+	local from = self.head.Position
+	local offset = aimPart(fresh, self.rng:NextNumber() < self.tuning.headChance).Position - from
+	local distance = offset.Magnitude
+	if distance < 0.5 or distance > math.min(self.weapon.range, self.style.fireRange) then
+		return nil
+	end
+	local line = offset / distance
+	-- Its own movement counts too: shooting on the move is harder.
+	local relative = velocity(fresh.root) - velocity(self.root)
+	return CombatService.fireAsBot(self.bot, spread(line, self:errorCone(at, line, distance, relative), self.rng))
+end
+
+-- The two ways (unit directions) to throw a lob from `from` that comes down
+-- on `point`, low arc first, at the weapon's speed and gravity, each nil if
+-- it can't (out of reach, or a flight longer than ProjectileService lets
+-- a throw fly).
+function BotBrain.arcs(from: Vector3, point: Vector3, weapon: WeaponConfig.Weapon): (Vector3?, Vector3?)
+	local speed, gravity = weapon.lobSpeed :: number, weapon.lobGravity :: number
+	local offset = point - from
+	local across = flat(offset)
+	local d = across.Magnitude
+	if d < 1 then
+		return nil, nil
+	end
+	local v2 = speed * speed
+	local square = v2 * v2 - gravity * (gravity * d * d + 2 * offset.Y * v2)
+	if square < 0 then
+		return nil, nil
+	end
+	local root = math.sqrt(square)
+	local horizontal = across / d
+	local function launch(tangent: number): Vector3?
+		local direction = (horizontal + Vector3.new(0, tangent, 0)).Unit
+		local flight = d / (speed * flat(direction).Magnitude)
+		return if flight < ProjectileService.MAX_FLIGHT_SECONDS - 0.05 then direction else nil
+	end
+	return launch((v2 - root) / (gravity * d)), launch((v2 + root) / (gravity * d))
+end
+
+-- Whether a lob thrown `direction` from `from` comes down on `point` with
+-- nothing in its way (LOB_RAYS rays along the arc; it may hit `through`,
+-- who it's thrown at).
+function BotBrain.arcClear(self: Brain, from: Vector3, direction: Vector3, point: Vector3, through: Model?): boolean
+	local weapon = self.weapon
+	local launch = direction * (weapon.lobSpeed :: number)
+	local fall = Vector3.new(0, -(weapon.lobGravity :: number) / 2, 0)
+	local flight = flat(point - from).Magnitude / math.max(flat(launch).Magnitude, 1e-3)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = if through then { self.character, through } else { self.character }
+	local last = from
+	for i = 1, BotConfig.LOB_RAYS do
+		local t = flight * i / BotConfig.LOB_RAYS
+		local here = from + launch * t + fall * t * t
+		local hit = workspace:Raycast(last, here - last, params)
+		if hit then
+			return (hit.Position - point).Magnitude <= LOB_NEAR_STUDS
+		end
+		last = here
+	end
+	return true
+end
+
+-- Which way to throw at `point`: the low arc when it's clear (the high one
+-- first when `high`, to get over cover), else the other; nil if neither
+-- gets there.
+function BotBrain.lobAim(self: Brain, from: Vector3, point: Vector3, high: boolean, through: Model?): Vector3?
+	local low, steep = BotBrain.arcs(from, point, self.weapon)
+	local first, second = low, steep
+	if high then
+		first, second = steep, low
+	end
+	for _, direction in { first, second } do
+		if direction and self:arcClear(from, direction, point, through) then
+			return direction
+		end
+	end
+	return nil
+end
+
+-- A stink bomb at the target in sight, or (high, over cover) at where it
+-- went out of sight. Nil when there's nothing to throw at within reach, or
+-- no arc gets there (it looks again in a moment).
+function BotBrain.throw(self: Brain, at: number): boolean?
+	local point, mover, through = nil, nil, nil
+	local target = self.target
+	local fresh = if target and self.visible then foe(target.key, self.bot.team) else nil
+	if fresh then
+		point = fresh.root.Position - Vector3.new(0, LOB_DROP, 0)
+		mover, through = fresh.root, fresh.character
+	else
+		point = self:blindPoint(at)
+	end
+	if not point then
+		return nil
+	end
+	local from = self.head.Position
+	local distance = flat(point - from).Magnitude
+	if distance > self.style.fireRange or distance < 3 then
+		return nil
+	end
+	local direction = self:lobAim(from, point, fresh == nil, through)
+	if not direction then
+		self.nextShotAt = math.max(self.nextShotAt, at + LOB_RETRY_SECONDS)
+		return nil
+	end
+	local line = (point - from).Unit
+	local relative = (if mover then velocity(mover) else Vector3.zero) - velocity(self.root)
+	return CombatService.fireAsBot(self.bot, spread(direction, self:errorCone(at, line, (point - from).Magnitude, relative), self.rng))
 end
 
 function BotBrain.face(self: Brain, point: Vector3?)
@@ -475,10 +661,43 @@ function BotBrain.blocked(self: Brain, direction: Vector3): boolean
 	return workspace:Raycast(self.root.Position, direction.Unit * 6, self.rays) ~= nil
 end
 
+-- Which way its gun wants the fight's range to go, `distance` studs from
+-- the target: 1 closer (not when holding the zone: it doesn't chase out of
+-- it), -1 back, 0 it's where it wants to be.
+function BotBrain.rangeIntent(self: Brain, distance: number, holdZone: boolean): number
+	if distance > self.style.closeIn and not holdZone then
+		return 1
+	elseif distance < self.style.backUp then
+		return -1
+	end
+	return 0
+end
+
+-- Now and then (the tuning's dashesPerSecond; never inside the cooldown,
+-- only from the ground) a Fart Dash along `direction`, if nothing solid is
+-- in the way. Returns whether it dashed.
+function BotBrain.maybeDash(self: Brain, at: number, dt: number, direction: Vector3): boolean
+	if not FeatureFlags.FART_DASH or at < self.nextDashAt or self.humanoid.FloorMaterial == Enum.Material.Air then
+		return false
+	end
+	local along = flat(direction)
+	if along.Magnitude < 0.1 or self.rng:NextNumber() >= self.tuning.dashesPerSecond * dt then
+		return false
+	end
+	if workspace:Raycast(self.root.Position, along.Unit * DASH_STUDS, self.rays) then
+		return false
+	end
+	local dashed = DashService.dashAsBot(self.bot, along.Unit)
+	self.nextDashAt = now() + (if dashed then DASH.cooldownSeconds else 0.5)
+	return dashed
+end
+
 -- Holding ground in a fight: strafing, now and then a jump, closing in on
--- a far target (not when holding the zone) and backing up from a close one.
+-- a target farther than its gun likes and backing up from a nearer one,
+-- now and then with a dash.
 function BotBrain.skirmish(self: Brain, at: number, dt: number, holdZone: boolean)
 	local target = self.target :: Foe
+	local style = self.style
 	local offset = flat(target.root.Position - self.root.Position)
 	local distance = offset.Magnitude
 	local toward = if distance > 0.1 then offset / distance else Vector3.zAxis
@@ -486,17 +705,14 @@ function BotBrain.skirmish(self: Brain, at: number, dt: number, holdZone: boolea
 	if at >= self.strafeUntil then
 		local seconds = BotConfig.STRAFE_SECONDS
 		self.strafeUntil = at + self.rng:NextNumber(seconds[1], seconds[2])
-		self.strafeSide = if self.rng:NextNumber() < self.tuning.strafeChance then (if self.rng:NextNumber() < 0.5 then -1 else 1) else 0
+		self.strafeSide = if self.rng:NextNumber() < self.tuning.strafeChance * style.strafe then (if self.rng:NextNumber() < 0.5 then -1 else 1) else 0
 		if self.strafeSide ~= 0 and self:blocked(side * self.strafeSide) then
 			self.strafeSide = -self.strafeSide
 		end
 	end
-	local move = side * self.strafeSide
-	if distance > BotConfig.CLOSE_IN_STUDS and not holdZone then
-		move += toward
-	elseif distance < BotConfig.BACK_UP_STUDS then
-		move -= toward
-	end
+	local intent = self:rangeIntent(distance, holdZone)
+	self.intent = intent
+	local move = side * self.strafeSide + toward * intent
 	if move.Magnitude > 0.1 then
 		self.moving = true
 		self.moveTarget = nil
@@ -504,8 +720,55 @@ function BotBrain.skirmish(self: Brain, at: number, dt: number, holdZone: boolea
 	else
 		self:moveTo(self.root.Position, at)
 	end
-	if self.rng:NextNumber() < self.tuning.jumpsPerSecond * dt then
+	if self.rng:NextNumber() < self.tuning.jumpsPerSecond * style.jumps * dt then
 		self.humanoid.Jump = true
+	end
+	-- A dash in only when it won't overshoot where the gun likes to be; out
+	-- only when the target is well inside where it backs off.
+	if intent > 0 and distance - style.closeIn > DASH_STUDS then
+		self:maybeDash(at, dt, toward)
+	elseif intent < 0 and style.backUp - distance > DASH_STUDS / 2 then
+		self:maybeDash(at, dt, -toward)
+	end
+end
+
+-- Backing off with someone in sight and near: now and then a dash away (on
+-- along its way home, if that's away from them).
+function BotBrain.escape(self: Brain, at: number, dt: number, target: Foe)
+	local away = flat(self.root.Position - target.root.Position)
+	if away.Magnitude < 0.1 or away.Magnitude > BotConfig.ESCAPE_STUDS then
+		return
+	end
+	local heading = if self.moveTarget then flat(self.moveTarget - self.root.Position) else Vector3.zero
+	local direction = if heading.Magnitude > 1 and heading.Unit:Dot(away.Unit) > 0 then heading else away
+	self:maybeDash(at, dt, direction)
+end
+
+-- Its Q ability, where it helps, after its reaction time: Recovery Burst
+-- once its gas is up to VENT_GAS; Gas Pulse with the target in sight close
+-- enough to catch in the ring, once it's ready to fire on them.
+function BotBrain.useAbility(self: Brain, at: number)
+	local ability = self.ability
+	if not ability or at < self.nextAbilityAt then
+		return
+	end
+	local wanted = false
+	if ability.vent then
+		if BotService.gasOf(self.bot) >= BotConfig.VENT_GAS then
+			self.ventAt = self.ventAt or at + self.tuning.reactionSeconds * self.rng:NextNumber(0.85, 1.2)
+			wanted = at >= (self.ventAt :: number)
+		else
+			self.ventAt = nil
+		end
+	elseif ability.radius then
+		local target = self.target
+		wanted = target ~= nil and self.visible and at >= self.readyAt
+			and (target.root.Position - self.root.Position).Magnitude <= BotConfig.PULSE_STUDS
+	end
+	if wanted then
+		local used = AbilityService.useAsBot(self.bot)
+		self.nextAbilityAt = now() + (if used then ability.cooldownSeconds else 1)
+		self.ventAt = nil
 	end
 end
 
@@ -553,7 +816,8 @@ function BotBrain.patrolPoint(self: Brain): Vector3
 		local middle = if map then map:GetPivot().Position else self.root.Position
 		return Vector3.new(middle.X, self.root.Position.Y, middle.Z)
 	end
-	local along = home:Lerp(away, self.rng:NextNumber(BotConfig.PATROL_DEPTH[1], BotConfig.PATROL_DEPTH[2]))
+	local depth = self.style.patrolDepth
+	local along = home:Lerp(away, self.rng:NextNumber(depth[1], depth[2]))
 	local axis = flat(away - home)
 	local list = lanes()
 	if axis.Magnitude < 1 or #list == 0 then
@@ -658,7 +922,17 @@ function BotBrain.follow(self: Brain, at: number): boolean
 	return true
 end
 
+-- Waiting at a patrol spot (its gun's holdSeconds), with nothing better
+-- to do.
+function BotBrain.holding(self: Brain, at: number): boolean
+	return at < self.holdUntil and self.goalKind == "patrol" and not self.retreating and self:wantedGoal(at) == "patrol"
+end
+
 function BotBrain.travel(self: Brain, at: number)
+	if self:holding(at) then
+		self:moveTo(self.root.Position, at)
+		return
+	end
 	local kind = self:wantedGoal(at)
 	if not self.goal or kind ~= self.goalKind or at >= self.goalUntil then
 		self:setGoal(kind, at)
@@ -670,16 +944,36 @@ function BotBrain.travel(self: Brain, at: number)
 	end
 	if not self:follow(at) then
 		-- There. Backing off, it waits at its spawn; chasing, there's
-		-- nothing more to see; in the zone or on patrol, another spot next
-		-- tick.
+		-- nothing more to see; in the zone, another spot next tick; on
+		-- patrol, another once it has waited its gun's while, watching the
+		-- enemy's side.
 		if self.goalKind == "chase" then
 			self.lastSeenPosition = nil
+		elseif self.goalKind == "patrol" then
+			local hold = self.style.holdSeconds
+			if hold[2] > 0 then
+				self.holdUntil = at + self.rng:NextNumber(hold[1], hold[2])
+				self.holdLook = self:enemySide()
+			end
 		end
 		if self.goalKind ~= "retreat" then
 			self.goal = nil
 		end
 		self:moveTo(self.root.Position, at)
 	end
+end
+
+-- The middle of the enemy's spawns (nil on a map without them).
+function BotBrain.enemySide(self: Brain): Vector3?
+	local theirs = {}
+	for _, other in TeamConfig.order do
+		if other ~= self.bot.team then
+			for _, spawn in MapService.spawns(other) do
+				table.insert(theirs, spawn)
+			end
+		end
+	end
+	return centroid(theirs)
 end
 
 -- Stuck: a jump first, then somewhere else to go.
@@ -729,21 +1023,29 @@ function BotBrain.tick(self: Brain, dt: number)
 	local at = now()
 	self:senseGas(at)
 	-- Between rounds nobody fights: it just walks about.
-	if RoundService.phase() == States.Phase.ACTIVE then
+	local active = RoundService.phase() == States.Phase.ACTIVE
+	if active then
 		self:look(at)
 		self:trigger(at)
+		self:useAbility(at)
 	else
 		self.target, self.visible = nil, false
 	end
 	self.moving = false
 	local target = if self.visible then self.target else nil
-	self:face(if target then target.root.Position else nil)
+	-- It faces whoever it's fighting, where it's lobbing at someone gone
+	-- behind cover, or (waiting on patrol) the enemy's side.
+	local blind = if target or not active then nil else self:blindPoint(at)
+	self:face(if target then target.root.Position elseif blind then blind elseif self:holding(at) then self.holdLook else nil)
 	local zone = activeZone()
 	if target and not self.retreating and not (zone and not ZoneService.inside(self.root.Position, zone)) then
 		self:skirmish(at, dt, zone ~= nil)
 	else
 		-- Backing off, or on the way to the zone, it still faces (and shoots
-		-- at) whoever is in sight.
+		-- at) whoever is in sight; backing off, it may dash away from them.
+		if target and self.retreating then
+			self:escape(at, dt, target)
+		end
 		self:travel(at)
 	end
 	self:checkStuck(at)

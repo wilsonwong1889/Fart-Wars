@@ -342,6 +342,75 @@ function DashService.refill(player: Player)
 	combatEvent:FireClient(player, { kind = "dashRefill" })
 end
 
+-- Bots (BotBrain) dash here, on a player's rules: alive, not exploding,
+-- the same cooldown (fresh with each life). The server moves bots, so it
+-- pushes the avatar the way a client pushes its own; everyone sees the
+-- trail ("dash", with the bot's id), and `checkSeconds` later the same
+-- check puts back one that went too far or through a wall. Returns
+-- whether it dashed.
+local BotService = require(script.Parent.BotService)
+local botCadences: { [Model]: Cadence.State } = setmetatable({}, { __mode = "k" }) :: any
+
+function DashService.dashAsBot(bot: BotService.Bot, direction: Vector3): boolean
+	if not FeatureFlags.FART_DASH or typeof(direction) ~= "Vector3" then
+		return false
+	end
+	local flat = horizontal(direction)
+	local character = bot.character
+	local root = BotService.rootOf(bot)
+	if flat.Magnitude < 0.01 or flat.Magnitude ~= flat.Magnitude or not (character and root) then
+		return false
+	end
+	if (DASH.blockedWhileExploding and BotService.isExploding(bot))
+		or (not DASH.allowedWhileProtected and BotService.isProtected(bot))
+	then
+		return false
+	end
+	local cadence = botCadences[character] or Cadence.new()
+	botCadences[character] = cadence
+	local slack = math.max(DASH.cooldownSeconds * (1 - GameConfig.FIRE_INTERVAL_TOLERANCE), GameConfig.FIRE_SLACK_SECONDS)
+	if not Cadence.take(cadence, DASH.cooldownSeconds, slack, now()) then
+		Telemetry.count("Dash.botCooldown")
+		return false
+	end
+	Telemetry.count("Dash.botDashes")
+	local unit = flat.Unit
+	local start = root.CFrame
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "FartDashAttachment"
+	attachment.Parent = root
+	local push = Instance.new("LinearVelocity")
+	push.Name = "FartDash"
+	push.Attachment0 = attachment
+	push.RelativeTo = Enum.ActuatorRelativeTo.World
+	push.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
+	push.LineDirection = unit
+	push.LineVelocity = DASH.speed :: number
+	push.MaxForce = math.huge
+	push.Parent = root
+	task.delay(DASH.durationSeconds, function()
+		push:Destroy()
+		attachment:Destroy()
+	end)
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
+	combatEvent:FireAllClients({ kind = "dash", player = bot.id, from = start.Position, direction = unit })
+	task.delay(CHECK_SECONDS, function()
+		if bot.character ~= character or not root.Parent then
+			return
+		end
+		local travelled = horizontal(root.Position - start.Position).Magnitude
+		if travelled > MAX_TRAVEL + GameConfig.WALK_SPEED * CHECK_SECONDS then
+			Telemetry.count("Dash.botTooFar")
+			character:PivotTo(start)
+		elseif DashService.throughWall(start.Position, root.Position) then
+			Telemetry.count("Dash.botThroughWall")
+			character:PivotTo(start)
+		end
+	end)
+	return true
+end
+
 function DashService.start()
 	if started then
 		return
