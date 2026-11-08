@@ -38,6 +38,80 @@ local UIConfig = {
 		headshotVolume = 1.4,
 	}),
 
+	-- Floating gas numbers (GasNumbers): "+20%" where your shot landed, for
+	-- you only, by the server's verdict (none for a hit that did nothing).
+	-- A headshot's is bigger and in the headshot marker's gold. Each pops in
+	-- at `pop` times its size (settling in popSeconds), starts `lift` studs
+	-- over the spot (a little to one side or the other, `spread`, so quick
+	-- hits don't stack), floats `rise` studs up over `seconds` and fades
+	-- over the last fadeSeconds. At most `pool` show at once (reducedPool
+	-- with Reduced effects or low detail), the oldest making way; none are
+	-- drawn past maxDistance studs.
+	gasNumbers = table.freeze({
+		looks = table.freeze({
+			body = table.freeze({ size = 24, color = colors.text }),
+			headshot = table.freeze({ size = 32, color = Color3.fromRGB(255, 205, 50) }),
+		}),
+		pop = 1.5,
+		popSeconds = 0.12,
+		lift = 1,
+		spread = 0.8,
+		rise = 2.5,
+		seconds = 0.75,
+		fadeSeconds = 0.25,
+		pool = 8,
+		reducedPool = 4,
+		maxDistance = 250,
+	}),
+
+	-- Chain reactions (ChainController), by the server's count of the
+	-- explosions in one chain. From the second, the chain's owner sees
+	-- `text` with that count big above the crosshair (at `height` down the
+	-- screen), the tagline for it underneath (taglines[1] for x2, the last
+	-- one past the list), in the colour for it (likewise): `size` plus
+	-- `growth` a link, up to maxSize. It pops in from `pop` times its size,
+	-- tilted `tilt` degrees, settling in popSeconds; shows for `seconds`,
+	-- fading over the last fadeSeconds; throws a ring out to ringSize
+	-- pixels; plays the "chain" sting at a pitch `pitchStep` higher a link
+	-- (from 1, up to maxPitch); and kicks the camera `kick` degrees of roll
+	-- (plus kickStep a link, up to maxKick) with a shove of `shove` studs a
+	-- degree, settling with a time constant of kickSeconds. Anyone else
+	-- within nearStuds of the bang sees `line` (the owner's name, the count)
+	-- smaller, for lineSeconds.
+	chain = table.freeze({
+		text = "CHAIN x%d!",
+		line = "💥 %s: CHAIN x%d!",
+		lineNoOwner = "💥 CHAIN x%d!",
+		taglines = table.freeze({ "DOUBLE STINK!", "TRIPLE TOOT!", "MEGA STINK!", "PENTA-FART!!", "GAS APOCALYPSE!!!" }),
+		colors = table.freeze({
+			Color3.fromRGB(255, 221, 26),
+			Color3.fromRGB(255, 160, 40),
+			Color3.fromRGB(255, 90, 50),
+			Color3.fromRGB(255, 70, 170),
+		}),
+		height = 0.36,
+		size = 64,
+		growth = 6,
+		maxSize = 88,
+		taglineSize = 26,
+		pop = 1.8,
+		tilt = 8,
+		popSeconds = 0.18,
+		seconds = 1.5,
+		fadeSeconds = 0.3,
+		ringSize = 320,
+		pitchStep = 0.08,
+		maxPitch = 1.4,
+		kick = 1.5,
+		kickStep = 0.5,
+		maxKick = 3,
+		shove = 0.08,
+		kickSeconds = 0.15,
+		nearStuds = 70,
+		lineSize = 22,
+		lineSeconds = 2,
+	}),
+
 	title = "FART WARS",
 	tagline = "Skibidi Stinkers vs Sigma Sharters",
 

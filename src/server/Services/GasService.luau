@@ -13,6 +13,9 @@
 -- Bots' own meters live in BotService, on these same rules.
 -- Clients see it on the character: "Gas" (0-100), "GasStage" (0-4) and
 -- "ExplodesAt" (server time).
+--   CombatEvent { kind = "explosion", victim, position, killer?, chain }   all clients
+-- (`chain`: the explosion's place in its chain reaction, 1 for the first;
+-- see Chain).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -24,6 +27,7 @@ local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local Chain = require(Server.Chain)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
@@ -32,8 +36,8 @@ local GAS = GameConfig.GAS
 
 local GasService = {}
 
--- (victim, position, killer?, chainDepth, killerTeam?, killerBot?): someone
--- exploded.
+-- (victim, position, killer?, chainDepth, killerTeam?, killerBot?, chain):
+-- someone exploded; `chain` is the chain reaction it was a link of.
 GasService.Exploded = Signal.new()
 
 export type Source = {
@@ -45,6 +49,8 @@ export type Source = {
 	team: string?,
 	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "test"
 	chainDepth: number?,
+	-- The chain reaction it's part of (a blast's), if any.
+	chain: Chain.Chain?,
 	-- The weapon behind it (shots, stink bombs, clouds), for mastery.
 	weapon: string?,
 }
@@ -66,6 +72,8 @@ type Meter = {
 	exploded: boolean,
 	cause: string,
 	chainDepth: number,
+	-- The chain reaction of the gas that started the countdown, if any.
+	chain: Chain.Chain?,
 	weapon: string?,
 	-- The team behind the gas that started the countdown.
 	finishTeam: string?,
@@ -114,6 +122,7 @@ local function meter(player: Player): Meter?
 		exploded = false,
 		cause = "shot",
 		chainDepth = 0,
+		chain = nil,
 		weapon = nil,
 		finishTeam = nil,
 	}
@@ -210,6 +219,8 @@ function GasService.explode(victim: Player)
 		cause = m.cause,
 		weapon = m.weapon,
 	})
+	-- The next link of the chain whose blast filled them, or a new chain.
+	local chain = Chain.link(m.chain)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
 	combatEvent:FireAllClients({
@@ -217,15 +228,17 @@ function GasService.explode(victim: Player)
 		victim = victim.UserId,
 		position = position,
 		killer = if killer then killer.UserId else killerBot,
+		chain = chain.count,
 	})
 	local credited = killer ~= nil or killerBot ~= nil
-	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, if credited then m.lastAttackerTeam else m.finishTeam, killerBot)
+	GasService.Exploded:Fire(victim, position, killer, m.chainDepth, if credited then m.lastAttackerTeam else m.finishTeam, killerBot, chain)
 end
 
 local function beginExplosion(victim: Player, m: Meter, source: Source)
 	m.exploding = true
 	m.cause = source.cause
 	m.chainDepth = source.chainDepth or 0
+	m.chain = source.chain
 	-- Mastery only for gas someone fired (not a bomb whose thrower left).
 	m.weapon = if source.attacker then source.weapon else nil
 	m.finishTeam = source.team or (source.attacker and TeamService.teamOf(source.attacker))

@@ -28,6 +28,9 @@ return table.freeze({
 	-- further, until a whoopee cushion of its own is chosen.
 	launch = "rbxassetid://9113150517",
 	alpha = "rbxassetid://9114898840", -- BRO IS THE ALPHA FART! (Kazoo Fanfare 9, PSE)
+	-- A chain reaction's "CHAIN x2!" (Kazoo Fanfare 9, PSE, the alpha call's
+	-- for now: a placeholder until a chain sting of its own is chosen).
+	chain = "rbxassetid://9114898840",
 	barrel = "rbxassetid://3149249837", -- a gas barrel exploding (Cannon_Explode, Roblox)
 	spritzer = "rbxassetid://9113047432", -- the Spritzer firing (Aerosol Spray Can 15, PSE)
 	thunderclapper = "rbxassetid://9114372701", -- the Thunderclapper firing (Farts Airy 13, PSE)
@@ -70,6 +73,9 @@ return table.freeze({
 		inflate = table.freeze({ volume = 0.4 }),
 		critical = table.freeze({ volume = 0.55 }),
 		alpha = table.freeze({ volume = 0.6 }),
+		-- Each link of your chain plays it a step higher (ChainController),
+		-- so no random wobble.
+		chain = table.freeze({ volume = 0.55 }),
 		-- The screens.
 		purchase = table.freeze({ volume = 0.5 }),
 		coins = table.freeze({ volume = 0.4, pitch = NumberRange.new(0.97, 1.04) }),

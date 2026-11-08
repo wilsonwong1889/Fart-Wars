@@ -9,7 +9,9 @@
 -- team, credited to nobody; an explosion with no team behind it (a test
 -- gas) blasts nobody. Bots are in it like players: a blast gasses enemy
 -- bots, an exploding bot blasts its killer's enemies (BotService.Exploded),
--- and a bot's blast is credited to that bot.
+-- and a bot's blast is credited to that bot. A blast from an explosion
+-- carries that explosion's chain (Chain), so whatever it sets off counts on
+-- as the next link; a stink bomb's or Gas Pulse's carries none.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,6 +22,7 @@ local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local Chain = require(Server.Chain)
 local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
@@ -45,6 +48,9 @@ export type Blast = {
 	sourceBot: number?,
 	-- The weapon behind it, for mastery (stink bombs).
 	weapon: string?,
+	-- The chain reaction of the explosion behind it (none for a stink bomb
+	-- or Gas Pulse): whatever it sets off is that chain's next link.
+	chain: Chain.Chain?,
 }
 
 -- (blast): a blast resolved; BarrelService sets off barrels in range.
@@ -102,6 +108,7 @@ local function resolve(blast: Blast)
 		team = blast.ownerTeam,
 		cause = blast.cause,
 		chainDepth = blast.depth,
+		chain = blast.chain,
 		weapon = blast.weapon,
 	}
 	for _, player in Players:GetPlayers() do
@@ -136,7 +143,7 @@ function ExplosionService.start()
 	end
 	started = true
 	-- A player or bot explosion blasts the killer's enemies around it.
-	GasService.Exploded:Connect(function(victim, position, killer, depth, killerTeam, killerBot)
+	GasService.Exploded:Connect(function(victim, position, killer, depth, killerTeam, killerBot, chain)
 		if killerTeam then
 			ExplosionService.blast({
 				position = position,
@@ -148,10 +155,11 @@ function ExplosionService.start()
 				cause = "chain",
 				depth = depth + 1,
 				source = victim,
+				chain = chain,
 			})
 		end
 	end)
-	BotService.Exploded:Connect(function(bot, position, killer, depth, killerTeam, killerBot)
+	BotService.Exploded:Connect(function(bot, position, killer, depth, killerTeam, killerBot, chain)
 		if killerTeam then
 			ExplosionService.blast({
 				position = position,
@@ -163,6 +171,7 @@ function ExplosionService.start()
 				cause = "chain",
 				depth = depth + 1,
 				sourceBot = bot.id,
+				chain = chain,
 			})
 		end
 	end)

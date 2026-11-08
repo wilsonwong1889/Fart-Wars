@@ -87,7 +87,10 @@ person.
 coins and the Shop / Abilities / Levels / Settings buttons top right; the
 gas bar and the Fart Dash charge over a hotbar (your weapons in slots 1-4,
 your ability on Q with its cooldown) and the level bar along the bottom.
-Your weapon is in your avatar's hands. PLAY opens "Choose a Team": each
+Your weapon is in your avatar's hands. Where your shots land, the gas they
+put in floats up ("+20%", gold for a headshot); a chain reaction you set
+off counts up big ("CHAIN x2!", "CHAIN x3!"), and players near someone
+else's see a smaller line. PLAY opens "Choose a Team": each
 team's card shows its count and is locked when joining it would be unfair. The first PLAY of a session shows a
 small controls card; there's no tutorial. Bindings live in
 `UIConfig.keys`.
@@ -119,7 +122,7 @@ Rojo maps the source like this (`default.project.json`):
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
 | `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
-| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes) and the controllers |
+| `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes), `GasNumbers` (the gas your shots put in, floating up where they land) and the controllers |
 
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
 `Progress`, `Locker`, plus `GameMenu` and `ComingSoon`) are built in code by the client controllers
@@ -139,7 +142,7 @@ else.
 | `CombatService` | the Gas Blaster: checks each shot (state, interval, shot numbers, payload), casts it on the server, sends hits to GasService; logs suspicious accuracy and movement |
 | `GasService` | the gas meter: enemy-only gas, protection, recovery, the countdown and the explosion, killer and assists |
 | `EliminationService` | each death credited exactly once, with an event ID; streaks and the alpha announcement |
-| `ExplosionService` | blasts from explosions: gas to the owner's enemies in range and in sight, chain depth limit, a per-tick budget |
+| `ExplosionService` | blasts from explosions: gas to the owner's enemies in range and in sight, chain depth limit, a per-tick budget; each blast carries its chain reaction (`Chain`), whose count every explosion sends |
 | `BarrelService` | gas barrels: health, fuse, ownership by the last shot, blasts, respawn |
 | `DashService` | Fart Dash: cooldown and travel checks |
 | `AbilityService` | the Q ability: checks (state, equipped, exploding, cooldown), Recovery Burst's vent, Gas Pulse's wind-up and blast |
@@ -160,7 +163,7 @@ else.
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls, reports from several players): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS`; `ReportPlayer` (fixed reasons, once per person, a few a session) |
 | `Health` | runs the service loops (an error in a tick is counted and reported, and the loop goes on); checks loops, errors per minute, frame rate, memory and saving every 30 seconds; Workspace's `ServerHealth`; `ClientReport` (clients' frame rate, ping, errors) |
-| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `ChainController` ("CHAIN x2!" pop-ups), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -311,6 +314,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Audio` | every sound's ID and mix (volume, pitch variety, how far it carries); flat sounds at their volume and a pitch in their range, Settings' sound and volume ruling everything; sounds in the world from where they happen, too far away not played, the voice pool (its size, a share per sound, freed when a sound ends or in time, the oldest reused, a lost anchor rebuilt); in the game, others' shots, blasts, throws, splats, abilities, dashes and emotes in the world, your own shots, hits, warnings, emote and throw flat (never echoed), the screens' sounds flat |
 | `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `HitFeedback` | the hit marker at the crosshair, only on the server's verdict: body, headshot (bigger, gold, the hit sound pitched up), the hit that sets them off (bigger still, a ring) and one that did nothing (grey, silent); the pop, the fade, back-to-back hits; REDUCE MOTION and REDUCED EFFECTS |
+| `GasNumbers` | the floating gas numbers on the real server: your own hits only, the server's amount where it landed, white, a headshot's bigger and gold, a bot's, the Spritzer's "+9%"; none for spawn protection, a teammate or someone going off; side by side, the pool, reduced effects and reduce motion |
+| `ChainCallouts` | chain counts from the server (players, a bot and barrels, a branching chain keeping one count, a stink bomb starting none); "CHAIN x2!" and up for the chain's owner (tagline, colour, size, the sting's pitch, a camera kick that never turns the view); nothing guessed; the line near someone else's chain, not far away or over your own; reduce motion and reduced effects |
 | `Metrics` | segments, the funnel (once per step, Roblox's for new players), fairness by segment, economy events and their types, a new payer, failing analytics, session lengths and early leavers, concurrent players |
 | `Release` | the version and channel on every screen; health (every loop watched, a stopped loop FAILING and recovering, a tick's error counted and the loop going on, an error burst, saving's check, `/fw health`); client reports (averaged, junk and spam refused); player reports (reasons, not yourself, once each, the session cap, three reporters flag once); the Players screen (block, hide emotes, report and the answer) |
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |

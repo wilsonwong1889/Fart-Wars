@@ -117,7 +117,7 @@ reason.
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
-| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position, radius }` (all), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
+| `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked, amount, position }` (shooter; `gas` is the victim's meter after the hit, `amount` the gas it put in, 0 if it did nothing), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer?, chain }` (all; `chain` is its place in its chain reaction, 1 for the first), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position, radius, owner?, chain }` (all; `owner` whoever set it off), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
@@ -145,6 +145,8 @@ Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 | `PROGRESSION` | on | coins, XP and levels; off pays nothing (stats and saving carry on), for combat-only playtests |
 | `SPAWN_PROTECTION` | on | 3 seconds after each spawn, ended by firing |
 | `TEAMMATE_HIGHLIGHTS` | on | teammates outlined |
+| `GAS_NUMBERS` | on | floating gas numbers ("+20%") where your own shots land |
+| `CHAIN_CALLOUTS` | on | "CHAIN x2!" pop-ups from the server's chain count, a smaller line for players near one |
 | `DEBUG_LOGS` | on | `[FW]` lines in the output |
 
 `GameConfig.TEST_CONTROLS.ENABLED` turns the test commands on or off.
