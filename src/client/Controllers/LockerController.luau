@@ -19,7 +19,9 @@
 --                lifetime stats, badges, and every cosmetic (tracers,
 --                Fart Dash trails, emotes): equip it, or how to get it
 --   Settings     reduced effects, sound effects, tips, the mouse lock in
---                third person, and the controls
+--                third person, field of view, mouse sensitivity, the
+--                crosshair's size and colour, and the controls; saved to
+--                the profile (SettingsController)
 -- Every button only asks (ShopRequest); while a request is out the buttons
 -- wait and the status line says so, and the answer (or the refusal) is
 -- shown. What the player owns comes from the server (ProfileUpdate); coins
@@ -44,6 +46,8 @@ local ClientState = require(Client.ClientState)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local SettingsConfig = require(Shared.Config.SettingsConfig)
+local SettingsController = require(script.Parent.SettingsController)
 local MouseLock = require(Client.MouseLock)
 local Detail = require(Client.Detail)
 local HealthController = require(script.Parent.HealthController)
@@ -1061,10 +1065,33 @@ local function progressionTab(content: Frame)
 	end
 end
 
-local VOLUME_STEP = 0.25
-local HUD_SIZES = { 0.8, 0.9, 1, 1.1, 1.25 }
+-- A step as the page shows it: 0.75 as "75%" (percent); 1.5 as "1.5x"
+-- and 1 as "1.0x" (times).
+local function percent(value: number): string
+	return `{math.floor(value * 100 + 0.5)}%`
+end
+local function times(value: number): string
+	local shown = string.gsub(string.format("%.2f", value), "0$", "")
+	return shown .. "x"
+end
+
+-- Once the saved settings arrive (SettingsController), an open Settings
+-- page shows them.
+local settingsHooked = false
+local function hookSettings()
+	if settingsHooked then
+		return
+	end
+	settingsHooked = true
+	SettingsController.Loaded:Connect(function()
+		if LockerController.isOpen and LockerController.tab == "Settings" then
+			render()
+		end
+	end)
+end
 
 local function settingsTab(content: Frame)
+	hookSettings()
 	-- Everything scrolls in one list.
 	local list = UI.new("ScrollingFrame", {
 		Name = "Settings",
@@ -1125,6 +1152,16 @@ local function settingsTab(content: Frame)
 		end)
 		note(holder, help)
 	end
+	-- Whether these choices stick (saved to the profile, or this session).
+	local saveNote = SettingsController.note()
+	if saveNote ~= "" then
+		text(list, saveNote, 13, 0, {
+			Name = "SaveNote",
+			Size = UDim2.new(1, -10, 0, 18),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = if SettingsController.state == "saving" then C.accent else C.muted,
+		})
+	end
 	for i, toggle in toggles do
 		local holder = row(toggle.name, i)
 		local on = (Settings :: any)[toggle.key]
@@ -1136,8 +1173,7 @@ local function settingsTab(content: Frame)
 			Parent = holder,
 		})
 		UI.onClick(button, function()
-			(Settings :: any)[toggle.key] = not (Settings :: any)[toggle.key]
-			Settings.chosen[toggle.key] = true
+			SettingsController.choose(toggle.key, not (Settings :: any)[toggle.key])
 			if toggle.key == "lowDetail" then
 				Detail.apply()
 			end
@@ -1145,21 +1181,45 @@ local function settingsTab(content: Frame)
 		end)
 		note(holder, toggle.note)
 	end
-	stepper("Volume", #toggles + 1, `VOLUME {math.floor(Settings.volume * 100 + 0.5)}%`, function(by)
-		Settings.volume = math.clamp(Settings.volume + by * VOLUME_STEP, 0, 1)
-		Settings.chosen.volume = true
+	-- - and + walk a setting along its steps in SettingsConfig (colours go
+	-- round).
+	local function step(key: string, by: number)
+		SettingsController.choose(key, SettingsConfig.step(key, (Settings :: any)[key], by))
+	end
+	stepper("Volume", #toggles + 1, `VOLUME {percent(Settings.volume)}`, function(by)
+		step("volume", by)
 		render()
 	end, "The game's sound effects, on top of Roblox's own volume.")
-	stepper("HudSize", #toggles + 2, `HUD SIZE {math.floor(Settings.hudScale * 100 + 0.5)}%`, function(by)
-		local index = table.find(HUD_SIZES, Settings.hudScale) or 3
-		Settings.hudScale = HUD_SIZES[math.clamp(index + by, 1, #HUD_SIZES)]
-		Settings.chosen.hudScale = true
+	stepper("HudSize", #toggles + 2, `HUD SIZE {percent(Settings.hudScale)}`, function(by)
+		step("hudScale", by)
 		UI.applyScale()
 		render()
 	end, "Bigger or smaller panels and text, everywhere.")
+	stepper("FieldOfView", #toggles + 3, `FIELD OF VIEW {Settings.fieldOfView}`, function(by)
+		step("fieldOfView", by)
+		render()
+	end, "How much you see, first and third person. Wider spots more stinkers sneaking up.")
+	stepper("Sensitivity", #toggles + 4, `SENSITIVITY {times(Settings.sensitivity)}`, function(by)
+		step("sensitivity", by)
+		render()
+	end, "How fast the mouse turns the camera, on top of Roblox's own camera sensitivity.")
+	stepper("CrosshairSize", #toggles + 5, `CROSSHAIR {percent(Settings.crosshairSize)}`, function(by)
+		step("crosshairSize", by)
+		render()
+	end, "The crosshair's size.")
+	stepper("CrosshairColor", #toggles + 6, `CROSSHAIR {string.upper(Settings.crosshairColor)}`, function(by)
+		step("crosshairColor", by)
+		render()
+	end, "The crosshair's colour: pick one that pops against the map.")
+	-- The colour stepper's value in its own colour.
+	local colorRow = list:FindFirstChild("CrosshairColorRow")
+	local colorLabel = colorRow and colorRow:FindFirstChild("CrosshairColor")
+	if colorLabel and colorLabel:IsA("TextLabel") then
+		colorLabel.TextColor3 = SettingsConfig.crosshairColors[Settings.crosshairColor] or C.text
+	end
 	-- A code box (the admin code; the server checks it), only where codes
 	-- work (never on the live place).
-	local codeRow = row("Code", #toggles + 3)
+	local codeRow = row("Code", #toggles + 7)
 	codeRow.Visible = workspace:GetAttribute("CodesOn") == true
 	local codeBox = UI.new("TextBox", {
 		Name = "CodeBox",

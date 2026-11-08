@@ -1,5 +1,7 @@
--- The player's choices from the Settings screen, for this session. The
--- controllers read them; only the Settings screen changes them.
+-- The player's choices from the Settings screen. The controllers read them;
+-- only the Settings screen changes them (SettingsController.choose), and
+-- SettingsController keeps the ones the player picks in their profile, so
+-- they're back next visit. The defaults here are SettingsConfig's.
 return {
 	-- Fewer puffs and clouds (stink clouds that gas you always show).
 	reducedEffects = false,
@@ -22,8 +24,19 @@ return {
 	-- like a cursor (off). First person always locks it; the unlock key and
 	-- open screens free it either way (MouseLock).
 	lockMouse = true,
-	-- Players whose emotes are hidden (the Players screen), by user ID.
+	-- The camera's field of view (degrees) in both views, and how fast it
+	-- turns with the mouse, times the player's own Roblox sensitivity
+	-- (CameraController applies both).
+	fieldOfView = 70,
+	sensitivity = 1,
+	-- The crosshair: its size (times the usual) and colour (a name in
+	-- SettingsConfig.crosshairColors).
+	crosshairSize = 1,
+	crosshairColor = "White",
+	-- Players whose emotes are hidden (the Players screen), by user ID. Not
+	-- saved: it lasts the session.
 	hiddenEmotes = {} :: { [number]: boolean },
-	-- The ones the player has changed themselves.
+	-- The ones the player has changed themselves (this visit or, once
+	-- they've loaded, an earlier one).
 	chosen = {} :: { [string]: boolean },
 }

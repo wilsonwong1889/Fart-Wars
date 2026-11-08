@@ -1,5 +1,6 @@
 -- Combat on the client: it shows and it asks, the server decides.
---   * a crosshair that follows the mouse (centred in first person)
+--   * a crosshair that follows the mouse (centred in first person), in the
+--     colour and size picked in Settings
 --   * left click fires the Gas Blaster toward the crosshair at its fire
 --     interval, numbering each shot, with an instant local tracer; the
 --     server's verdict comes back as a hit marker that pops at the
@@ -31,6 +32,7 @@ local UIConfig = require(Shared.Config.UIConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
+local SettingsConfig = require(Shared.Config.SettingsConfig)
 local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local Combatants = require(Client.Combatants)
@@ -120,9 +122,11 @@ local function build()
 		Parent = screen,
 	})
 	p.crosshair = crosshair
+	-- Its four ticks (styleCrosshair sizes and colours them from Settings).
+	p.ticks = {}
 	for i, size in { UDim2.new(0, 2, 0, 10), UDim2.new(0, 10, 0, 2) } do
 		for _, offset in { -9, 9 } do
-			UI.new("Frame", {
+			local mark = UI.new("Frame", {
 				Name = "Tick",
 				AnchorPoint = Vector2.new(0.5, 0.5),
 				Position = if i == 1 then UDim2.new(0.5, 0, 0.5, offset) else UDim2.new(0.5, offset, 0.5, 0),
@@ -131,6 +135,7 @@ local function build()
 				BorderSizePixel = 0,
 				Parent = crosshair,
 			}, { UI.stroke(C.stroke, 1) })
+			table.insert(p.ticks, { frame = mark, vertical = i == 1, sign = math.sign(offset) })
 		end
 	end
 	p.hitMarker = UI.label("✕", 26, {
@@ -651,10 +656,32 @@ local function refreshTeammates()
 end
 CombatController.refreshTeammates = refreshTeammates
 
+-- The crosshair's colour and size (Settings), redone only when they change:
+-- each tick 2 pixels wide, 10 long and 9 from the centre at size 1.
+local styledColor: string? = nil
+local styledSize: number? = nil
+local function styleCrosshair()
+	if Settings.crosshairColor == styledColor and Settings.crosshairSize == styledSize then
+		return
+	end
+	styledColor, styledSize = Settings.crosshairColor, Settings.crosshairSize
+	local color = SettingsConfig.crosshairColors[Settings.crosshairColor] or C.text
+	local length = math.floor(10 * Settings.crosshairSize + 0.5)
+	local gap = math.floor(9 * Settings.crosshairSize + 0.5)
+	for _, mark in CombatController.parts.ticks do
+		mark.frame.BackgroundColor3 = color
+		mark.frame.Size = if mark.vertical then UDim2.new(0, 2, 0, length) else UDim2.new(0, length, 0, 2)
+		mark.frame.Position = if mark.vertical
+			then UDim2.new(0.5, 0, 0.5, mark.sign * gap)
+			else UDim2.new(0.5, mark.sign * gap, 0.5, 0)
+	end
+end
+
 -- Every frame: the crosshair follows the mouse, the dash meter counts down.
 local function render()
 	local p = CombatController.parts
 	local aiming = ClientState.isActive() and not InputController.menuOpen
+	styleCrosshair()
 	p.crosshair.Visible = aiming
 	UserInputService.MouseIconEnabled = not aiming
 	if aiming then

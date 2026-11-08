@@ -19,6 +19,7 @@
 --   ProjectileService     stink bombs and their clouds
 --   EconomyService        coins, XP, levels, unlocks, mastery, stats
 --   LoadoutService        equipped weapon, ability and cosmetic; applied on spawn
+--   SettingsService       the Settings screen's choices, saved (SettingsRequest)
 --   ShopService           buying and equipping (ShopRequest)
 --   RewardsService        the daily track, ten-minute gifts, free spins
 --                         (its status includes the daily challenges)
@@ -69,6 +70,7 @@ local AbilityService = require(Services.AbilityService)
 local ProjectileService = require(Services.ProjectileService)
 local EconomyService = require(Services.EconomyService)
 local LoadoutService = require(Services.LoadoutService)
+local SettingsService = require(Services.SettingsService)
 local ShopService = require(Services.ShopService)
 local RewardsService = require(Services.RewardsService)
 local SocialService = require(Services.SocialService)
@@ -109,6 +111,7 @@ AbilityService.start()
 ProjectileService.start()
 EconomyService.start()
 LoadoutService.start()
+SettingsService.start()
 ShopService.start()
 RewardsService.start()
 SocialService.start()

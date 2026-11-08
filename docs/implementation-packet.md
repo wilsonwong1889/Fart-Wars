@@ -75,6 +75,7 @@ Services start in this order and never require one that starts later.
 | `ExperimentService` | `start()`, `assign(player)`, `variant(player, key) -> string?`, `value(player, key)`, `weaponPrice(player, price)`, `track(player, metric, n?)`, `tick(dt)`, `setConfig(config)` (tests) |
 | `SocialService` | `start()`, `squadmate(player) -> Player?`, `coplayed(player)`, `tick(dt)` |
 | `ShopService` | `start()`, `buy(player, weaponId) -> Result`, `request(player, action, kind, id?) -> Result` (`{ ok, reason, message, profile? }`) |
+| `SettingsService` | `start()`, `get(player) -> { [name]: value }?` (the saved Settings choices, checked), `request(player, action, payload?) -> Result` (`{ ok, reason, settings? }`); constant `SAVE_GAP` |
 | `RoundService` | `start()`, `step(now)`, `phase()`, `snapshot()`, `getMode()`, `lastParticipation()`, `testEndPhaseIn(seconds)`, signal `PhaseChanged(phase, snapshot)` |
 | `Telemetry` | `log(service, event, fields)`, `count(key, n)`, `error(service, err)`, `guard(service, fn)`, `reject(remote, player, reason)`, `isFlagged(player)`, `joined/left(player)`, `first(player, kind)`, `time(kind, seconds)`, `sample(kind, value)`, `flag(player, reason, detail?)`, `snapshot()`, signal `Flagged(player, reason, detail?)` |
 | `Moderation` | `start()`, `flagsOf(player)`, `report(reporter, targetUserId, reason) -> { ok, reason }`; config `GameConfig.MODERATION` (`KICK_AT_FLAGS`, `BANNED_USER_IDS`, `REPORT_REASONS`, `REPORTS_PER_SESSION`, `REPORTS_TO_FLAG`) |
@@ -116,6 +117,7 @@ reason.
 | `UIMessage` | server → one | `{ kind, text, ... }`: `afkWarning` (+`detail`, `endsAt`), `afkClear`, `afkMoved`, `teamFull`, `team` (+`team`), `denied`, `test`, `challenge` (a daily challenge done) |
 | `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
 | `PrestigeRequest` | client → server (RemoteFunction) | `action: "preview" \| "confirm"`, `token: string?` (from the preview); returns `{ ok, reason, message, preview?, token?, rank? }` |
+| `SettingsRequest` | client → server (RemoteFunction) | `action: "get" \| "save"`, `choices: { [name]: value }` (save: only names in `SettingsConfig`, each value a listed step, colour or boolean, else the whole save is refused; one a second); returns `{ ok, reason, settings? }` (get: the saved choices) |
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`, `{ kind = "challenges", day, secondsToReset, saving, loading, challenges = { { id, text, hint, kind, goal, progress, claimed, coins, xp } } }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `challenge`, `test` |
@@ -168,6 +170,7 @@ it proves.
 | `Economy` | 3.1 grants with unique IDs, no double awards, limits, audit ledger, source breakdowns, idle farming, anomalous gains; 3.2 levels 1-50, unlocks, cap and repeat rewards, lifetime XP, rewards never lost; 3.4 mastery once per milestone; 3.5 repeated reward triggers, max level, HUD |
 | `Soak` | 2.5 the 20-player test (errors, memory, invariants) as far as a stand-in goes; 1.3 churn with every system on |
 | `Arsenal` | 3.3 playstyles (rate, range, handling, area denial), abilities with cooldown trade-offs and counterplay, one ability at a time |
+| `Settings` | 3.4 a new save field with a default (no `SaveVersion` bump), server-validated and rate-limited saves, junk refused; settings back after leaving and rejoining; field of view and sensitivity in both views |
 | `Shop` | 3.3 server-checked purchases, ownership saved before the UI confirms, loadouts validated and applied on respawn; 3.5 interrupted purchases, pending purchase states, the menu |
 | `Continuous` | 1.1 continuous core loop behind its flag |
 | `Lifecycle` | 1.3 joining, spawning, churn without duplicate avatars or bad counts |
@@ -253,6 +256,7 @@ One DataStore, `FartWarsProfiles`, key `player_<UserId>`. `SaveVersion` 1:
 | `SquadDay`, `SquadToday` | number | the UTC day and count of today's squad bonuses |
 | `WelcomedBy` | number | the friend (user ID) who welcomed this player; 0 if nobody yet |
 | `WelcomedFriends`, `WelcomeDay`, `WelcomesToday` | { number }, number, number | newcomers this player has welcomed (the latest 50), today's welcomes |
+| `Settings` | { [name]: boolean \| number \| string } | the Settings screen's choices the player has picked (`SettingsConfig`); unpicked ones aren't saved and stay at their defaults. On load a damaged choice is dropped (back to its default) and a newer build's is kept |
 | `Lock` | { Job, At }? | the server holding the profile; absent when free |
 
 A new field gets a default in `DataService.defaults()`; `migrate` fills it

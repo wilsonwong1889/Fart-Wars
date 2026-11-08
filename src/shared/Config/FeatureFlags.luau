@@ -55,6 +55,11 @@ return table.freeze({
 	-- The daily track, ten-minute gifts and free spins (needs PROGRESSION).
 	REWARDS = true,
 
+	-- The Settings screen's choices saved to the player's profile and back
+	-- on their next visit (SettingsService, SettingsController). Off: they
+	-- last the session, as before.
+	SAVED_SETTINGS = true,
+
 	-- A few seconds of protection after each spawn; firing ends it early.
 	SPAWN_PROTECTION = true,
 

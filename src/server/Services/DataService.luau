@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local RewardsConfig = require(Shared.Config.RewardsConfig)
+local SettingsConfig = require(Shared.Config.SettingsConfig)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
@@ -110,6 +111,10 @@ export type Data = {
 	SeasonWeek: number,
 	SeasonProgress: { [string]: number },
 	SeasonDone: { string },
+	-- The Settings screen's choices the player has picked, by name
+	-- (SettingsConfig; SettingsService saves them). Unpicked ones aren't
+	-- here and stay at their defaults.
+	Settings: { [string]: any },
 }
 export type Profile = {
 	data: Data,
@@ -184,6 +189,7 @@ function DataService.defaults(): Data
 		SeasonWeek = 0,
 		SeasonProgress = {},
 		SeasonDone = {},
+		Settings = {},
 	}
 end
 
@@ -225,6 +231,9 @@ function DataService.migrate(old: { [string]: any }?): Data
 			data[field] = nil
 		end
 	end
+	-- Settings: a damaged choice goes back to its default; one from a newer
+	-- build is kept for it.
+	data.Settings = SettingsConfig.tidy(data.Settings)
 	data.SaveVersion = DataService.VERSION
 	return data :: Data
 end

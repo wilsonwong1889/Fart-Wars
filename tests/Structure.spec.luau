@@ -63,6 +63,7 @@ local remotes = {
 	ReportPlayer = "RemoteFunction",
 	ClientReport = "RemoteEvent",
 	PrestigeRequest = "RemoteFunction",
+	SettingsRequest = "RemoteFunction",
 }
 local present = 0
 for _, child in ReplicatedStorage.Remotes:GetChildren() do
