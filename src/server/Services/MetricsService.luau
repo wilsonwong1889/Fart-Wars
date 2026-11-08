@@ -143,7 +143,7 @@ local function onTransaction(player: Player, coins: number, reason: string, bala
 		Telemetry.count("metrics.newPayers")
 	end
 	local kind = if reason == "purchase" and coins > 0 then "IAP"
-		elseif reason == "purchase" or reason == "refund" then "Shop"
+		elseif reason == "purchase" or reason == "refund" or reason == "giftSent" then "Shop"
 		elseif TIMED[reason] then "TimedReward"
 		else "Gameplay"
 	local flow = if coins > 0 then Enum.AnalyticsEconomyFlowType.Source else Enum.AnalyticsEconomyFlowType.Sink

@@ -13,7 +13,10 @@
 --                stamp on the card when it's bought or equipped
 --     Daily      today's five cosmetics (DailyShopConfig: the same for
 --                everyone, new at 00:00 UTC, counting down), by rarity,
---                for coins (after "Buy it?")
+--                for coins (after "Buy it?"), or GIFT one to someone else
+--                in the server: the server lists who's here (friends
+--                first; who has it already, who can't get gifts), pick
+--                one, SEND
 --     Coins      the coin packs, and that nothing here is power
 --   Levels       level, XP, coins, the next goal and the unlock track,
 --                lifetime stats, badges, and every cosmetic (tracers,
@@ -176,24 +179,29 @@ end
 
 local render: () -> ()
 local stamp: (id: string, text: string) -> ()
+local drawGift: () -> ()
 
--- Sends one request; the buttons wait for the answer.
-function LockerController.request(action: string, kind: string, id: string?)
+-- Sends one request; the buttons wait for the answer. `target` is who a
+-- gift is for.
+function LockerController.request(action: string, kind: string, id: string?, target: number?)
 	if LockerController.busy then
 		return
 	end
 	LockerController.busy = true
-	setStatus(if action == "buy" then "Buying... (saving your purchase)" elseif action == "redeem" then "Checking the code..." else "Equipping...")
+	setStatus(if action == "buy" then "Buying... (saving your purchase)"
+		elseif action == "gift" then "Sending your gift... (saving it for them)"
+		elseif action == "redeem" then "Checking the code..."
+		else "Equipping...")
 	render()
 	task.spawn(function()
 		local remote = ClientState.remote("ShopRequest") :: RemoteFunction
 		local sentAt = os.clock()
-		local ok, answer = pcall(remote.InvokeServer, remote, action, kind, id)
+		local ok, answer = pcall(remote.InvokeServer, remote, action, kind, id, target)
 		HealthController.noteLatency(os.clock() - sentAt)
 		LockerController.busy = false
 		if ok and type(answer) == "table" then
 			setStatus(tostring(answer.message), if answer.ok then C.accent else C.warning)
-			if answer.ok and (action == "buy" or action == "redeem") then
+			if answer.ok and (action == "buy" or action == "gift" or action == "redeem") then
 				Audio.play("purchase")
 			end
 		else
@@ -201,8 +209,11 @@ function LockerController.request(action: string, kind: string, id: string?)
 			setStatus(answer.message, C.warning)
 		end
 		render()
+		if LockerController.parts.gift.Visible then
+			drawGift()
+		end
 		if answer.ok and id and LockerController.isOpen then
-			stamp(id, if action == "buy" then "PURCHASED!" else "EQUIPPED!")
+			stamp(id, if action == "buy" then "PURCHASED!" elseif action == "gift" then "GIFTED!" else "EQUIPPED!")
 		end
 		LockerController.BadgesChanged:Fire()
 		LockerController.Answered:Fire(answer, action, kind, id)
@@ -382,7 +393,13 @@ local function tint(box: Frame, color: Color3)
 	end
 end
 
+local CONFIRM_HEIGHT = 330
+local CONFIRM_GIFT_HEIGHT = 396
+local GIFT_PINK = Color3.fromRGB(205, 95, 225)
+
 -- "Buy it?" before coins are spent: what it is, its price and what's left.
+local GIFT_ROW_HEIGHT = 50
+
 local function confirm(kind: string, id: string, title: string, cost: number, color: Color3, draw: (Frame) -> ())
 	local p = LockerController.parts
 	p.confirmKind, p.confirmId = kind, id
@@ -391,6 +408,9 @@ local function confirm(kind: string, id: string, title: string, cost: number, co
 	p.confirmLeft.Text = `You'll have {UI.commas(number("Coins", 0) - cost)} coins left.`
 	UI.setEnabled(p.confirmYes, true)
 	p.confirmNo.Text, p.confirmNo.Label.Text = "NO", "NO"
+	-- Only cosmetics can be gifts: their card has room for GIFT.
+	p.confirmGift.Visible = kind == "cosmetic"
+	p.confirmCard.Size = UDim2.new(0, 440, 0, if kind == "cosmetic" then CONFIRM_GIFT_HEIGHT else CONFIRM_HEIGHT)
 	tint(p.confirmCard, color)
 	for _, child in p.confirmPreview:GetChildren() do
 		if not child:IsA("UICorner") then
@@ -435,12 +455,180 @@ function LockerController.confirmCosmetic(id: string)
 		UI.setEnabled(p.confirmYes, false)
 		p.confirmNo.Text, p.confirmNo.Label.Text = "CLOSE", "CLOSE"
 	end
+	-- A gift needs the coins too, but not to own it or not.
+	UI.setEnabled(p.confirmGift, profile.saving ~= false and short <= 0)
 end
 
 function LockerController.closeConfirm()
 	local p = LockerController.parts
 	p.confirm.Visible = false
 	p.confirmId = nil
+end
+
+-- GIFT: one of today's cosmetics for someone else in this server, with the
+-- player's coins. The server says who's here, who has it already and who
+-- can't get gifts now; the player picks one and SENDs. A new open or a
+-- close makes any answer still on its way stale (giftToken).
+local giftToken = 0
+-- Who a user ID in the list is (specs and Studio checks stand in others).
+LockerController.playerOf = function(userId: number): Player?
+	return Players:GetPlayerByUserId(userId)
+end
+
+-- The people in the list, friends first, then by name.
+local function giftPeople(): { { entry: { [string]: any }, player: Player } }
+	local people = {}
+	for _, entry in LockerController.parts.giftRecipients or {} do
+		local other = type(entry) == "table" and type(entry.userId) == "number" and LockerController.playerOf(entry.userId)
+		if other then
+			table.insert(people, { entry = entry, player = other })
+		end
+	end
+	table.sort(people, function(a, b)
+		if (a.entry.friend == true) ~= (b.entry.friend == true) then
+			return a.entry.friend == true
+		end
+		return string.lower(a.player.DisplayName) < string.lower(b.player.DisplayName)
+	end)
+	return people
+end
+
+local function giftCanPick(entry: { [string]: any }): boolean
+	return LockerController.parts.giftAllowed == true and entry.ready == true and entry.owns ~= true
+end
+
+drawGift = function()
+	local p = LockerController.parts
+	for _, child in p.giftList:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	local people = giftPeople()
+	for i, person in people do
+		local entry, other = person.entry, person.player
+		local picked = p.giftTarget == entry.userId
+		local canPick = giftCanPick(entry)
+		local row = UI.new("TextButton", {
+			Name = `Row{entry.userId}`,
+			LayoutOrder = i,
+			Size = UDim2.new(1, -10, 0, GIFT_ROW_HEIGHT),
+			BackgroundColor3 = if picked then Color3.fromRGB(60, 44, 80) else Color3.fromRGB(14, 12, 22),
+			BackgroundTransparency = if canPick then 0.25 else 0.6,
+			AutoButtonColor = false,
+			Text = "",
+			Parent = p.giftList,
+		}, { UI.corner(10), UI.stroke(if picked then UIConfig.gold else C.stroke, if picked then 3 else 1) })
+		row:SetAttribute("Enabled", canPick)
+		UI.label(other.DisplayName, 20, {
+			Name = "DisplayName",
+			Position = UDim2.new(0, 12, 0, 5),
+			Size = UDim2.new(1, -160, 0, 24),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			TextTransparency = if canPick then 0 else 0.4,
+			Parent = row,
+		})
+		UI.label(`@{other.Name}`, 13, {
+			Name = "UserName",
+			Position = UDim2.new(0, 12, 0, 29),
+			Size = UDim2.new(1, -160, 0, 16),
+			Font = UIConfig.bodyFont,
+			TextColor3 = C.muted,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = row,
+		})
+		local tag = if entry.owns == true then "HAS IT"
+			elseif entry.ready ~= true then "CAN'T GET GIFTS"
+			elseif entry.friend == true then "FRIEND"
+			else ""
+		UI.label(tag, 15, {
+			Name = "Tag",
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -12, 0.5, 0),
+			Size = UDim2.new(0, 140, 0, 22),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = if tag == "FRIEND" then C.accent else C.muted,
+			Parent = row,
+		})
+		UI.onClick(row, function()
+			LockerController.pickRecipient(entry.userId)
+		end)
+	end
+	p.giftList.CanvasSize = UDim2.new(0, 0, 0, #people * (GIFT_ROW_HEIGHT + 6))
+	-- What to do next, under the list.
+	local item = p.giftId and DailyShopConfig.item(p.giftId)
+	local left = number("Coins", 0) - (if item then item.price else 0)
+	local target = p.giftTarget and LockerController.playerOf(p.giftTarget)
+	local line, color = "Pick who gets it.", C.text
+	if p.giftRecipients == nil then
+		line = "Finding everyone here..."
+	elseif p.giftError then
+		line, color = p.giftError, C.warning
+	elseif not p.giftAllowed then
+		line, color = "Gifting isn't available on your account.", C.warning
+	elseif #people == 0 then
+		line = "Nobody else is in this server yet."
+	elseif target then
+		line = `{target.DisplayName} gets it. You'll have {UI.commas(left)} coins left.`
+	end
+	p.giftLeft.Text = line
+	p.giftLeft.TextColor3 = color
+	UI.setEnabled(p.giftSend, target ~= nil and left >= 0 and not LockerController.busy)
+end
+
+function LockerController.openGift(id: string)
+	local p = LockerController.parts
+	local item = DailyShopConfig.item(id)
+	local cosmetic = ProgressionConfig.cosmetics[id]
+	if not item or not cosmetic then
+		return
+	end
+	LockerController.closeConfirm()
+	giftToken += 1
+	local token = giftToken
+	p.giftId, p.giftTarget, p.giftRecipients, p.giftAllowed, p.giftError = id, nil, nil, false, nil
+	p.giftTitle.Text = `GIFT {string.upper(cosmetic.name)}`
+	p.giftPrice.Text = `💰 {UI.commas(item.price)}  from your coins, theirs to keep`
+	tint(p.giftCard, DailyShopConfig.rarities[item.rarity].color)
+	drawGift()
+	p.gift.Visible = true
+	UI.pop(p.giftCard, 0.8)
+	task.spawn(function()
+		local remote = ClientState.remote("ShopRequest") :: RemoteFunction
+		local ok, answer = pcall(remote.InvokeServer, remote, "recipients", "cosmetic", id)
+		if token ~= giftToken then
+			return
+		end
+		if ok and type(answer) == "table" and answer.ok and type(answer.recipients) == "table" then
+			p.giftRecipients = answer.recipients
+			p.giftAllowed = answer.canGift == true
+		else
+			p.giftRecipients = {}
+			p.giftError = if ok and type(answer) == "table" then tostring(answer.message) else "Couldn't reach the server. Try again."
+		end
+		drawGift()
+	end)
+end
+
+-- Picks who gets the gift (someone who can have it).
+function LockerController.pickRecipient(userId: number)
+	local p = LockerController.parts
+	for _, person in giftPeople() do
+		if person.entry.userId == userId and giftCanPick(person.entry) then
+			p.giftTarget = userId
+			drawGift()
+			return
+		end
+	end
+end
+
+function LockerController.closeGift()
+	local p = LockerController.parts
+	giftToken += 1
+	p.gift.Visible = false
+	p.giftId, p.giftTarget = nil, nil
 end
 
 -- A card or tile on the open page, by its weapon's or cosmetic's id.
@@ -1431,6 +1619,107 @@ local function build()
 		Parent = p.confirmCard,
 	})
 	UI.onClick(p.confirmNo, LockerController.closeConfirm)
+	p.confirmGift = UI.chunky("GIFT IT TO SOMEONE HERE", GIFT_PINK, "🎁", {
+		Name = "Gift",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -84),
+		Size = UDim2.new(0, 360, 0, 48),
+		TextSize = 20,
+		Visible = false,
+		Parent = p.confirmCard,
+	})
+	UI.onClick(p.confirmGift, function()
+		local id = p.confirmId
+		if id then
+			LockerController.openGift(id)
+		end
+	end)
+
+	-- GIFT: who gets it, over the shop until SEND or BACK.
+	p.gift = UI.new("Frame", {
+		Name = "Gift",
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.4,
+		-- Only SEND, BACK or a name: a click beside the card doesn't reach the shop.
+		Active = true,
+		Visible = false,
+		ZIndex = 10,
+		Parent = screen,
+	})
+	p.giftCard = UI.box("Card", GIFT_PINK, UDim2.new(0, 460, 0, 452), {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 0.5, 0),
+		Parent = p.gift,
+	})
+	p.giftTitle = UI.label("", 30, {
+		Name = "Title",
+		Position = UDim2.new(0, 16, 0, 14),
+		Size = UDim2.new(1, -32, 0, 36),
+		TextScaled = true,
+		Parent = p.giftCard,
+	})
+	p.giftPrice = UI.label("", 18, {
+		Name = "Price",
+		Position = UDim2.new(0, 0, 0, 52),
+		Size = UDim2.new(1, 0, 0, 24),
+		TextColor3 = UIConfig.gold,
+		Parent = p.giftCard,
+	})
+	p.giftList = UI.new("ScrollingFrame", {
+		Name = "List",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 86),
+		Size = UDim2.new(1, -36, 0, 246),
+		BackgroundColor3 = Color3.fromRGB(14, 12, 22),
+		BackgroundTransparency = 0.6,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		CanvasSize = UDim2.new(0, 0, 0, 0),
+		Parent = p.giftCard,
+	}, {
+		UI.corner(12),
+		UI.new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6) }),
+		UI.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	p.giftLeft = UI.label("", 16, {
+		Name = "Left",
+		Position = UDim2.new(0, 16, 0, 340),
+		Size = UDim2.new(1, -32, 0, 22),
+		Font = UIConfig.bodyFont,
+		TextWrapped = true,
+		Parent = p.giftCard,
+	})
+	p.giftSend = UI.chunky("SEND", C.play, "🎁", {
+		Name = "Send",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, -95, 1, -18),
+		Size = UDim2.new(0, 180, 0, 56),
+		TextSize = 24,
+		Parent = p.giftCard,
+	})
+	UI.onClick(p.giftSend, function()
+		local id, target = p.giftId, p.giftTarget
+		LockerController.closeGift()
+		if id and target then
+			LockerController.request("gift", "cosmetic", id, target)
+		end
+	end)
+	p.giftBack = UI.chunky("BACK", Color3.fromRGB(235, 55, 60), "↩️", {
+		Name = "Back",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 95, 1, -18),
+		Size = UDim2.new(0, 160, 0, 56),
+		TextSize = 24,
+		Parent = p.giftCard,
+	})
+	UI.onClick(p.giftBack, function()
+		local id = p.giftId
+		LockerController.closeGift()
+		if id then
+			LockerController.confirmCosmetic(id)
+		end
+	end)
 end
 
 -- Opens a page (and on the shop, scrolls to `section`). "Store" is the
@@ -1483,6 +1772,7 @@ end
 function LockerController.hide()
 	LockerController.isOpen = false
 	LockerController.closeConfirm()
+	LockerController.closeGift()
 	LockerController.parts.screen.Enabled = false
 	MouseLock.setFree("Locker", false)
 end
@@ -1541,10 +1831,29 @@ function LockerController.start()
 		player:GetAttributeChangedSignal(name):Connect(function()
 			render()
 			LockerController.BadgesChanged:Fire()
+			if name == "Coins" and LockerController.parts.gift.Visible then
+				drawGift()
+			end
 		end)
 	end
 	-- Pressing PLAY, spectating or going AFK closes it.
 	ClientState.StateChanged:Connect(LockerController.close)
+	-- Someone who leaves drops out of the gift list.
+	Players.PlayerRemoving:Connect(function(other)
+		local p = LockerController.parts
+		if p.gift.Visible and p.giftRecipients then
+			for i = #p.giftRecipients, 1, -1 do
+				local entry = p.giftRecipients[i]
+				if type(entry) == "table" and entry.userId == other.UserId then
+					table.remove(p.giftRecipients, i)
+				end
+			end
+			if p.giftTarget == other.UserId then
+				p.giftTarget = nil
+			end
+			drawGift()
+		end
+	end)
 end
 
 return LockerController
