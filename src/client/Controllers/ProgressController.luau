@@ -6,6 +6,7 @@
 --   * small "+10 coins  +20 XP  Elimination" lines stacked bottom right,
 --     gone after a moment; nothing in the middle of the screen mid-fight
 --   * a short LEVEL UP banner with what it unlocked, and mastery badges
+--   * "A GIFT!" when someone in the server gives you a cosmetic
 --   * whether progress is saving: "Loading progress..." while the profile
 --     loads, a warning if this session won't save (DataStatus attribute)
 local Players = game:GetService("Players")
@@ -273,6 +274,13 @@ local function onEvent(event: any)
 	elseif event.kind == "gift" then
 		ProgressController.line("🎡 A free spin for playing! Open it top right.", Color3.fromRGB(200, 160, 255), 5)
 		Audio.play("coins")
+	elseif event.kind == "giftReceived" then
+		local cosmetic = type(event.item) == "string" and ProgressionConfig.cosmetics[event.item]
+		if cosmetic and type(event.from) == "string" then
+			banner("🎁 A GIFT!", `{event.from} gave you {cosmetic.name}!`)
+			ProgressController.line(`🎁 {cosmetic.name} is yours: equip it in your Loadout.`, Color3.fromRGB(232, 138, 245), 6)
+			Audio.play("purchase")
+		end
 	elseif event.kind == "mastery" then
 		ProgressController.line(`{event.badge} mastery: {event.eliminations} eliminations`, C.accent)
 	end
