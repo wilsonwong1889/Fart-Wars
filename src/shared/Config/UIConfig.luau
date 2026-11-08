@@ -148,6 +148,8 @@ local UIConfig = {
 		table.freeze({ id = "Season", label = "SEASON", icon = "🏆", color = Color3.fromRGB(240, 120, 40) }),
 		table.freeze({ id = "Players", label = "PLAYERS", icon = "👥", color = Color3.fromRGB(45, 155, 245) }),
 		table.freeze({ id = "Leaderboard", label = "TOP", icon = "📊", color = Color3.fromRGB(30, 185, 160) }),
+		-- The practice yard again (only with FeatureFlags.PRACTICE).
+		table.freeze({ id = "Practice", label = "PRACTICE", icon = "🎯", color = Color3.fromRGB(235, 70, 120) }),
 		table.freeze({ id = "Settings", label = "SETTINGS", icon = "⚙️", color = Color3.fromRGB(115, 120, 140) }),
 	}),
 	gold = Color3.fromRGB(255, 205, 50),

@@ -9,7 +9,9 @@
 --               offers (two at a time, arrows for more), the title, PLAY
 --               (or Space or F; a bubble points at it for someone who
 --               hasn't played yet) and the round's status. The
---               later-phase screens say Coming Soon
+--               later-phase screens say Coming Soon. A profile's first
+--               PLAY goes to the practice yard (PracticeController), and
+--               the team screen comes after it
 --   TeamSelect  after PLAY: "CHOOSE A TEAM", each team's card with its
 --               count (locked when joining it would make the teams
 --               unfair), and AUTO; picking one joins the match
@@ -43,6 +45,7 @@ local LockerController = require(script.Parent.LockerController)
 local RewardsController = require(script.Parent.RewardsController)
 local PlayersController = require(script.Parent.PlayersController)
 local SeasonController = require(script.Parent.SeasonController)
+local PracticeController = require(script.Parent.PracticeController)
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
@@ -96,6 +99,8 @@ local function openTile(id: string)
 		SeasonController.open()
 	elseif id == "Players" then
 		PlayersController.open()
+	elseif id == "Practice" then
+		PracticeController.replay()
 	elseif UIConfig.pages[id] then
 		LockerController.open(id)
 	else
@@ -141,7 +146,8 @@ local function layoutTiles()
 	local y = 0
 	for _, entry in UIConfig.lobbyTiles do
 		local tile = p.tiles[entry.id]
-		tile.Visible = entry.id ~= "Season" or workspace:GetAttribute("SeasonActive") == true
+		tile.Visible = (entry.id ~= "Season" or workspace:GetAttribute("SeasonActive") == true)
+			and (entry.id ~= "Practice" or PracticeController.available())
 		if tile.Visible then
 			tile.Position = UDim2.new(0.5, 0, 0, y + 38)
 			y += 86
@@ -1109,6 +1115,10 @@ function HomeController.play()
 	end
 	pressedPlay = true
 	renderFirstTip()
+	-- A first PLAY warms up in the practice yard; the team screen follows.
+	if PracticeController.offer() then
+		return
+	end
 	renderPicker()
 	HomeController.parts.teamSelect.Enabled = true
 end
@@ -1206,6 +1216,7 @@ function HomeController.start()
 	InputController.MenuToggled:Connect(function()
 		HomeController.setMenu(not HomeController.menuOpen)
 	end)
+	PracticeController.Finished:Connect(HomeController.play)
 	-- The status line's countdown.
 	task.spawn(function()
 		while true do

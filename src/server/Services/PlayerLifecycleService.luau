@@ -4,12 +4,15 @@
 --                      even mid-round
 --   spectate        -> MENU_SPECTATOR again: avatar removed, slot released
 --   idle (AFKService) -> AFK_SPECTATOR, the same way
+--   practice yard   -> PRACTICE (PracticeService): an avatar in the yard, no
+--                      team slot; spectate or PLAY from there as from home
 --   leave           -> forgotten, slot released
--- Characters only exist for ACTIVE players: Players.CharacterAutoLoads is
--- off, spawns go through here, and an avatar that turns up for anyone else
--- is removed. Every spawn is at the team's safest pad, with a few seconds of
--- protection (the character's "ProtectedUntil" attribute and a ForceField)
--- that firing ends early. In continuous play, joining is PLAY.
+-- Characters only exist for ACTIVE and PRACTICE players: Players
+-- .CharacterAutoLoads is off, spawns go through here, and an avatar that
+-- turns up for anyone else is removed. Every match spawn is at the team's
+-- safest pad, with a few seconds of protection (the character's
+-- "ProtectedUntil" attribute and a ForceField) that firing ends early; the
+-- practice yard has no need of it. In continuous play, joining is PLAY.
 -- Clients see their state as the Player's "State" attribute.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -94,6 +97,11 @@ local function setState(player: Player, runtime: Runtime, state: string)
 	if previous ~= state then
 		PlayerLifecycleService.StateChanged:Fire(player, state, previous)
 	end
+end
+
+-- Whether a player in `state` keeps an avatar.
+local function keepsAvatar(state: string?): boolean
+	return state == PlayerState.ACTIVE or state == PlayerState.PRACTICE
 end
 
 local function removeCharacter(player: Player)
@@ -208,11 +216,11 @@ end
 
 local function onCharacterAdded(player: Player, character: Model)
 	local runtime = runtimes[player]
-	if not runtime or runtime.state ~= PlayerState.ACTIVE then
-		-- Nobody off a team keeps an avatar (Studio can auto-load one before
-		-- the server turns that off).
+	if not runtime or not keepsAvatar(runtime.state) then
+		-- Nobody off a team (or out of the practice yard) keeps an avatar
+		-- (Studio can auto-load one before the server turns that off).
 		task.defer(function()
-			if player.Character == character and PlayerLifecycleService.stateOf(player) ~= PlayerState.ACTIVE then
+			if player.Character == character and not keepsAvatar(PlayerLifecycleService.stateOf(player)) then
 				removeCharacter(player)
 			end
 		end)
@@ -236,6 +244,10 @@ local function onCharacterAdded(player: Player, character: Model)
 		ignoreAccessory(item)
 	end
 	character.DescendantAdded:Connect(ignoreAccessory)
+	if runtime.state == PlayerState.PRACTICE then
+		-- The practice yard looks after its own avatar (PracticeService).
+		return
+	end
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not (humanoid and humanoid:IsA("Humanoid")) then
 		return
@@ -290,6 +302,41 @@ function PlayerLifecycleService.requestPlay(player: Player, preferred: unknown)
 	spawnPlayer(player, runtime)
 end
 
+-- The practice yard (PracticeService): off the home screen into PRACTICE,
+-- an avatar at `at` with no team slot, no spawn protection and no Spawned
+-- (it isn't a match spawn); called again in the yard, a fresh avatar there.
+-- LoadCharacterAsync yields; if the player left, spectated, played or was
+-- sent to the yard again meanwhile, this gives way. Returns the avatar.
+function PlayerLifecycleService.enterPractice(player: Player, at: CFrame): Model?
+	local runtime = runtimes[player]
+	if not runtime or runtime.state == PlayerState.ACTIVE then
+		return nil
+	end
+	runtime.spawnToken += 1
+	local token = runtime.spawnToken
+	setState(player, runtime, PlayerState.PRACTICE)
+	player.RespawnLocation = nil
+	local ok, err = pcall(player.LoadCharacterAsync, player)
+	if not ok then
+		warn(`[Lifecycle] couldn't put {player.Name} in the practice yard: {err}`)
+	end
+	if runtimes[player] ~= runtime or runtime.spawnToken ~= token then
+		-- Overtaken: whatever came after looks after the avatar (a spectate
+		-- or a leave removes it; a match spawn replaces it).
+		if runtimes[player] == runtime and not keepsAvatar(runtime.state) then
+			removeCharacter(player)
+		end
+		return nil
+	end
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	character:PivotTo(at)
+	Telemetry.log("Lifecycle", "practiceSpawned", { player = player })
+	return character
+end
+
 -- Takes a player off their team: avatar gone, slot free for someone else.
 function PlayerLifecycleService.toSpectator(player: Player, state: string): boolean
 	local runtime = runtimes[player]
@@ -313,7 +360,7 @@ end
 
 function PlayerLifecycleService.requestSpectate(player: Player)
 	local runtime = runtimes[player]
-	if runtime and runtime.state == PlayerState.ACTIVE then
+	if runtime and keepsAvatar(runtime.state) then
 		PlayerLifecycleService.toSpectator(player, PlayerState.MENU_SPECTATOR)
 	end
 end

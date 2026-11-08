@@ -51,6 +51,7 @@ local WeaponView = require(Client.WeaponView)
 local PrestigeController = require(script.Parent.PrestigeController)
 local Signal = require(Shared.Signal)
 local ProgressController = require(script.Parent.ProgressController)
+local PracticeController = require(script.Parent.PracticeController)
 
 local C = UIConfig.colors
 -- How wide the shop's page is inside the window.
@@ -1194,6 +1195,24 @@ local function settingsTab(content: Frame)
 		end
 	end)
 	note(codeRow, "Got a code? Type it here.")
+	-- The practice yard again, from the home screen.
+	if PracticeController.available() then
+		local practiceRow = row("Practice", #toggles + 4)
+		local practice = UI.chunky("PRACTICE YARD", C.play, "🎯", {
+			Name = "Practice",
+			Size = UDim2.new(0, 300, 0, 38),
+			TextSize = 17,
+			Parent = practiceRow,
+		})
+		UI.setEnabled(practice, not ClientState.isActive())
+		UI.onClick(practice, function()
+			LockerController.close()
+			PracticeController.replay()
+		end)
+		note(practiceRow, if ClientState.inPractice() then "You're in it! SKIP (ENTER) when you've had enough."
+			elseif ClientState.isActive() then "From the home screen: M, then SPECTATE, then here."
+			else "Gas some dummies, Fart Dash, blow up a barrel. Then pick a team.")
+	end
 	text(list, "CONTROLS", 18, 20, { TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.accent })
 	local controls = {}
 	for _, entry in UIConfig.controls do

@@ -24,6 +24,7 @@
 --   MonetizationService   the store: coin packs (receipts) and passes
 --   PrestigeService       prestige: preview, confirm, reset (flagged off)
 --   MetricsService        live metrics by segment, the onboarding funnel
+--   PracticeService       the practice yard: a first PLAY's warm-up
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), the mode each round, snapshots to clients
 --   ZoneService           Gas Control's zone: who holds it, its points
@@ -69,6 +70,7 @@ local SocialService = require(Services.SocialService)
 local MonetizationService = require(Services.MonetizationService)
 local PrestigeService = require(Services.PrestigeService)
 local MetricsService = require(Services.MetricsService)
+local PracticeService = require(Services.PracticeService)
 local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
 local SeasonService = require(Services.SeasonService)
@@ -105,6 +107,7 @@ SocialService.start()
 MonetizationService.start()
 PrestigeService.start()
 MetricsService.start()
+PracticeService.start()
 RoundService.start()
 ZoneService.start()
 SeasonService.start()

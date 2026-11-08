@@ -10,7 +10,10 @@
 -- Lobber) pass the same checks, then hand the throw to ProjectileService.
 -- A shot that hits a bot gasses it through BotService instead. Bots fire
 -- the Gas Blaster through fireAsBot: the same cast, range, gas and
--- headshots, one shot per fire interval, only while a round is on.
+-- headshots, one shot per fire interval, only while a round is on. In the
+-- practice yard (State PRACTICE) a shot passes the same checks and is cast
+-- the same way, but only reaches the yard (PracticeHit): no gas to players
+-- or bots, no stats, no funnel step, nothing lobbed.
 --   CombatEvent { kind = "shot", shooter, from, to }                 all clients
 --   CombatEvent { kind = "hit", victim, gas, headshot, blocked }     the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
@@ -42,6 +45,9 @@ local CombatService = {}
 CombatService.PartHit = Signal.new()
 -- (shooter, from, direction, weapon): a lobbed weapon fired.
 CombatService.Lobbed = Signal.new()
+-- (shooter, part, weapon, from, at): what a shot in the practice yard hit
+-- (PracticeService: its dummies and barrel). Match shots never fire it.
+CombatService.PracticeHit = Signal.new()
 
 type Shooter = {
 	weapon: string,
@@ -157,6 +163,23 @@ function CombatService.gasAt(weapon: WeaponConfig.Weapon, distance: number, head
 	return math.max(1, math.floor(full * (1 - (1 - minShare) * past) + 0.5))
 end
 
+-- A shot in the practice yard, after the usual checks: cast the same way,
+-- the shooter shown where it went, and what it hit handed to the yard.
+local function practiceShot(player: Player, character: Model, from: Vector3, unit: Vector3, weapon: WeaponConfig.Weapon)
+	if weapon.projectile == "lob" then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character }
+	local result = workspace:Raycast(from, unit * weapon.range, params)
+	local to = if result then result.Position else from + unit * weapon.range
+	combatEvent():FireClient(player, { kind = "shot", shooter = player.UserId, from = from, to = to })
+	if result then
+		CombatService.PracticeHit:Fire(player, result.Instance, weapon, from, result.Position)
+	end
+end
+
 -- One shot from `player` toward `direction`; `shotId` counts up per shot.
 function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	if not FeatureFlags.GAS_COMBAT then
@@ -174,7 +197,8 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		reject(player, "badPayload")
 		return
 	end
-	if PlayerLifecycleService.stateOf(player) ~= States.Player.ACTIVE then
+	local state = PlayerLifecycleService.stateOf(player)
+	if state ~= States.Player.ACTIVE and state ~= States.Player.PRACTICE then
 		reject(player, "notActive")
 		return
 	end
@@ -202,6 +226,10 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		return
 	end
 	entry.lastShotId = id
+	if state == States.Player.PRACTICE then
+		practiceShot(player, character :: Model, head.Position, aim / length, weapon)
+		return
+	end
 	checkMovement(player, entry, head.Position, at)
 	entry.lastShotAt = at
 	table.insert(entry.shots, at)

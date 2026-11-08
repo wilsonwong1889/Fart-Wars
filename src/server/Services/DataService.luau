@@ -107,6 +107,8 @@ export type Data = {
 	SeasonWeek: number,
 	SeasonProgress: { [string]: number },
 	SeasonDone: { string },
+	-- The practice yard: finished or skipped (PracticeService).
+	PracticeDone: boolean,
 }
 export type Profile = {
 	data: Data,
@@ -180,6 +182,7 @@ function DataService.defaults(): Data
 		SeasonWeek = 0,
 		SeasonProgress = {},
 		SeasonDone = {},
+		PracticeDone = false,
 	}
 end
 

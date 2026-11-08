@@ -88,9 +88,12 @@ coins and the Shop / Abilities / Levels / Settings buttons top right; the
 gas bar and the Fart Dash charge over a hotbar (your weapons in slots 1-4,
 your ability on Q with its cooldown) and the level bar along the bottom.
 Your weapon is in your avatar's hands. PLAY opens "Choose a Team": each
-team's card shows its count and is locked when joining it would be unfair. The first PLAY of a session shows a
-small controls card; there's no tutorial. Bindings live in
-`UIConfig.keys`.
+team's card shows its count and is locked when joining it would be unfair. A
+new profile's first PLAY goes to the practice yard first: about half a minute
+in a yard of your own (gas the dummies, Fart Dash, blow up a barrel; SKIP or
+Enter any time), then the team screen. The PRACTICE tile on the home screen
+and Settings replay it. The first match of a session shows a small controls
+card. Bindings live in `UIConfig.keys`.
 
 **Round states:** WAITING → ACTIVE (300 s) → RESULTS (15 s) → ACTIVE, or back
 to WAITING when there aren't enough players. A round in progress always
@@ -99,9 +102,11 @@ clients get a snapshot with an absolute end time and work out the countdown
 from the server clock, so lag never stretches a round.
 
 **Player states:** MENU_SPECTATOR (just joined, or chose to spectate),
-ACTIVE (on a team with an avatar) and AFK_SPECTATOR (moved off their team
-for being idle). Only ACTIVE players have an avatar or a team slot. The
-server sets the state; clients read it from the Player's `State` attribute.
+ACTIVE (on a team with an avatar), AFK_SPECTATOR (moved off their team
+for being idle) and PRACTICE (in the practice yard: an avatar, no team).
+Only ACTIVE players have a team slot, and only ACTIVE and PRACTICE players
+an avatar. The server sets the state; clients read it from the Player's
+`State` attribute.
 
 ## Project structure
 
@@ -114,11 +119,11 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art), `MeshBuilder` (builds the Blender meshes in the game) |
 | `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
 | `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `Practice` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
-| `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces) |
+| `ServerStorage.Maps` | `src/maps` | `BrainrotBattlefield`, built from code with `MapKit` (the shared map pieces), and `PracticeYard` (the practice yard, built for each player in it) |
 | `StarterPlayerScripts.Client` | `src/client` | `ClientBootstrap`, `ClientState`, `UI`, `ShotFx` (what shots look like), `WeaponSkin` (dresses held guns in the meshes) and the controllers |
 
 The screens (`HomeScreen`, `HUD`, `ResultsScreen`, `Scoreboard`,
@@ -153,6 +158,7 @@ else.
 | `SeasonService` | the free seasonal track (behind `FeatureFlags.SEASONS`): season XP, tiers paid once, weekly challenges from real play, new weeks and seasons |
 | `EventService` | live events (behind `FeatureFlags.EVENTS`): Bean Rain, announced, on the lanes only, capped, beans paying coins and a Fart Dash |
 | `ZoneService` | Gas Control's zone: who's in it, who holds it, a point a second for a team alone in it, holders' rewards; the HUD's zone line and the floor ring |
+| `PracticeService` | the practice yard (behind `FeatureFlags.PRACTICE`): due once per profile, a yard for each player in one, its dummies and barrel, the steps; nothing there pays or counts |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
 | `SocialService` | playing with friends: the squad bonus (a friend on your team), the one-time newcomer welcome, co-play counts |
@@ -160,7 +166,7 @@ else.
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls, reports from several players): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS`; `ReportPlayer` (fixed reasons, once per person, a few a session) |
 | `Health` | runs the service loops (an error in a tick is counted and reported, and the loop goes on); checks loops, errors per minute, frame rate, memory and saving every 30 seconds; Workspace's `ServerHealth`; `ClientReport` (clients' frame rate, ping, errors) |
-| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PracticeController` (the yard's prompts and SKIP), `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
