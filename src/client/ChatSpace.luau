@@ -2,8 +2,8 @@
 -- (TextChatService: its message window with the input bar under it, top
 -- left by default) reports where it is on screen (the AbsolutePosition and
 -- AbsoluteSize of ChatWindowConfiguration and ChatInputBarConfiguration);
--- its size isn't known before then and follows the screen's. Two ways to
--- share the screen:
+-- its size isn't known before then and follows the screen's. Three ways
+-- to share the screen:
 --   * a layout keeps clear of bounds(), redoing itself on Changed (the
 --     home screen's buttons go below the chat)
 --   * a screen with no room where the chat is claims a corner for it
@@ -11,8 +11,13 @@
 --     to fit the room given (WidthScale and HeightScale, never under
 --     MIN_SCALE), until the claim is let go. The newest claim wins; with
 --     none the chat is back where the place had it.
--- The chat is never hidden. Bounds are in the same pixels as any
--- GuiObject's AbsolutePosition, so they compare with a screen's own.
+--   * a screen whose window the chat would take the clicks of says so in
+--     its claim (avoid): while the chat, where it would be, covers any of
+--     the window, it's hidden (Enabled off, the window and the input bar),
+--     and it shows again, as it was, once it wouldn't or the claim is let
+--     go (the locker's window on a laptop's screen).
+-- The chat is hidden for nothing else. Bounds are in the same pixels as
+-- any GuiObject's AbsolutePosition, so they compare with a screen's own.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 
@@ -34,6 +39,9 @@ export type Claim = {
 	-- The room the chat must fit in (top left, bottom right), or nil for
 	-- as much as it likes.
 	room: (() -> (Vector2, Vector2))?,
+	-- The window the chat mustn't cover (top left, bottom right, or nil
+	-- while it isn't on screen): the chat is hidden while it would.
+	avoid: (() -> (Vector2?, Vector2?))?,
 }
 
 local claims: { { name: string, claim: Claim } } = {}
@@ -41,6 +49,14 @@ local defaults: { horizontal: any, vertical: any, width: number, height: number 
 local hooked: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local announced = false
 local last = ""
+-- The parts of the chat an avoid has hidden, each with whether it was
+-- showing before, and where the chat was when it went.
+local hidden: { [any]: boolean } = {}
+local hiddenLo: Vector2?, hiddenHi: Vector2? = nil, nil
+
+local function hiding(): boolean
+	return next(hidden) ~= nil
+end
 
 local function window(): any
 	return TextChatService:FindFirstChildOfClass("ChatWindowConfiguration")
@@ -50,8 +66,14 @@ local function inputBar(): any
 	return TextChatService:FindFirstChildOfClass("ChatInputBarConfiguration")
 end
 
-local function rectOf(config: any): (Vector2?, Vector2?)
-	if not config or config.Enabled == false then
+-- Where a part of the chat is, or (`wouldBe`) would be if an avoid
+-- hadn't hidden it.
+local function rectOf(config: any, wouldBe: boolean?): (Vector2?, Vector2?)
+	if not config then
+		return nil, nil
+	end
+	local showing = if wouldBe and hidden[config] ~= nil then hidden[config] else config.Enabled ~= false
+	if not showing then
 		return nil, nil
 	end
 	local at, size = config.AbsolutePosition, config.AbsoluteSize
@@ -61,18 +83,36 @@ local function rectOf(config: any): (Vector2?, Vector2?)
 	return at, at + size
 end
 
--- Where the chat is: its top left and bottom right corners (the window and
--- the input bar together), or nil when no chat window is showing a size.
-function ChatSpace.bounds(): (Vector2?, Vector2?)
-	local lo, hi = rectOf(window())
+-- The window and the input bar together.
+local function span(wouldBe: boolean?): (Vector2?, Vector2?)
+	local lo, hi = rectOf(window(), wouldBe)
 	if not lo then
 		return nil, nil
 	end
-	local barLo, barHi = rectOf(inputBar())
+	local barLo, barHi = rectOf(inputBar(), wouldBe)
 	if barLo and barHi then
 		lo, hi = (lo :: Vector2):Min(barLo), (hi :: Vector2):Max(barHi)
 	end
 	return lo, hi
+end
+
+-- Where the chat is: its top left and bottom right corners (the window and
+-- the input bar together), or nil when no chat window is showing a size.
+function ChatSpace.bounds(): (Vector2?, Vector2?)
+	return span()
+end
+
+-- Whether the chat, where it would be with no avoid (where it says it is,
+-- hidden or not, else where it was when it went), covers any of lo..hi.
+local function covers(lo: Vector2?, hi: Vector2?): boolean
+	local chatLo, chatHi = span(true)
+	if not (chatLo and chatHi) then
+		chatLo, chatHi = hiddenLo, hiddenHi
+	end
+	if not (lo and hi and chatLo and chatHi) then
+		return false
+	end
+	return chatLo.X < hi.X and lo.X < chatHi.X and chatLo.Y < hi.Y and lo.Y < chatHi.Y
 end
 
 -- The claim in force, if any.
@@ -106,6 +146,27 @@ local function set(config: any, key: string, value: any)
 	end
 end
 
+-- Hides the chat, window and input bar (yes), or shows them as they were.
+local function hide(yes: boolean)
+	if not yes then
+		for config, was in hidden do
+			write(config, "Enabled", was)
+		end
+		table.clear(hidden)
+		hiddenLo, hiddenHi = nil, nil
+		return
+	end
+	if not hiding() then
+		hiddenLo, hiddenHi = ChatSpace.bounds()
+	end
+	for _, config in { window(), inputBar() } do
+		if hidden[config] == nil then
+			hidden[config] = config.Enabled ~= false
+			write(config, "Enabled", false)
+		end
+	end
+end
+
 local function setScale(config: any, key: string, value: number)
 	local now = tonumber(config[key]) or 1
 	if math.abs(now - value) > 0.01 then
@@ -132,6 +193,7 @@ local function apply()
 	local base = defaults :: any
 	local claim = current()
 	if not claim then
+		hide(false)
 		set(config, "HorizontalAlignment", base.horizontal)
 		set(config, "VerticalAlignment", base.vertical)
 		setScale(config, "WidthScale", base.width)
@@ -140,6 +202,7 @@ local function apply()
 	end
 	set(config, "HorizontalAlignment", claim.horizontal)
 	set(config, "VerticalAlignment", claim.vertical)
+	hide(claim.avoid ~= nil and covers(claim.avoid()))
 	local lo, hi = ChatSpace.bounds()
 	if not (claim.room and lo and hi) then
 		return
@@ -167,8 +230,10 @@ end
 
 local applying, again = false, false
 local function changed()
-	local lo, hi = ChatSpace.bounds()
-	local key = if lo and hi then `{lo.X},{lo.Y},{hi.X},{hi.Y}` else ""
+	-- (Hidden, it counts where it would be: an avoid looks again if that
+	-- changes.)
+	local lo, hi = span(true)
+	local key = if lo and hi then `{hiding()}:{lo.X},{lo.Y},{hi.X},{hi.Y}` else ""
 	if key == last then
 		return
 	end
@@ -284,8 +349,9 @@ function ChatSpace.start()
 	end)
 end
 
--- Specs only: no claims, nothing remembered.
+-- Specs only: no claims, nothing remembered (the chat showing).
 function ChatSpace.reset()
+	hide(false)
 	table.clear(claims)
 	defaults = nil
 	last = ""

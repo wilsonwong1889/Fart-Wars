@@ -11,6 +11,11 @@
 --     keeps empty, and shrinks to fit there if it must; it never covers
 --     the weapons, the home screen redrawing under it doesn't take it
 --     back, and closing the loadout puts it back top left
+--   * the locker: the chat stays top left, hidden while it would cover the
+--     window (on 1366x768 it reaches under the title and the tabs), left
+--     showing where it clears it, and looked at again as the HUD size or
+--     the screen changes; closing the locker shows it again, and from the
+--     locker to the loadout ends in the loadout's corner, showing
 --   * in a match the chat is where the place had it, full size
 local Players = game:GetService("Players")
 local TextChatService = game:GetService("TextChatService")
@@ -95,8 +100,12 @@ task.wait(0.5)
 local ChatSpace = require(client.ChatSpace)
 local Home = require(client.Controllers.HomeController)
 local Loadout = require(client.Controllers.LoadoutController)
+local Locker = require(client.Controllers.LockerController)
+local Settings = require(client.Settings)
+local UI = require(client.UI)
 local home = Home.parts
 local loadout = Loadout.parts
+local lockerPanel = Locker.parts.panel
 
 local function chat(): (Vector2, Vector2)
 	local lo, hi = ChatSpace.bounds()
@@ -127,12 +136,28 @@ local function levelTop(): number
 	return lo.Y
 end
 
+-- Where Roblox draws the locker's window: its Size at the HUD size, in
+-- the middle of the screen.
+local function layOutLocker()
+	local scale = lockerPanel:FindFirstChild("HudScale")
+	local size = Vector2.new(lockerPanel.Size.X.Offset, lockerPanel.Size.Y.Offset) * (if scale then scale.Scale else 1)
+	lockerPanel.AbsoluteSize = size
+	lockerPanel.AbsolutePosition = (SCREEN - size) / 2
+end
+
 local function resize(size: Vector2)
 	SCREEN = size
 	home.home.AbsoluteSize = size
 	loadout.screen.AbsoluteSize = size
 	layOut()
+	layOutLocker()
 	task.wait(0.1)
+end
+local function hudSize(size: number)
+	Settings.hudScale = size
+	UI.applyScale()
+	layOutLocker()
+	task.wait(0.5)
 end
 
 for _, which in { "share", "fixed" } do
@@ -175,6 +200,50 @@ for _, which in { "share", "fixed" } do
 		lo, hi = chat()
 		pagesLo, pagesHi = pagesRect()
 		check(not overlaps(lo, hi, pagesLo, pagesHi), `{label}: still clear of the buttons`)
+
+		-- The locker: hidden where the chat would cover its window, left
+		-- showing where it clears it (a big screen, a chat that doesn't
+		-- grow with it); either way it doesn't move.
+		local scales = { window.WidthScale, window.HeightScale }
+		Locker.open()
+		task.wait(1)
+		local panelLo = lockerPanel.AbsolutePosition
+		local clears = size.X == 1920 and which == "fixed"
+		check(overlaps(lo, hi, panelLo, panelLo + lockerPanel.AbsoluteSize) ~= clears, `{label}: the chat {if clears then "clears" else "would cover"} the locker's window`)
+		check(window.Enabled == clears and bar.Enabled == clears, `{label}: so with the locker open it's {if clears then "left showing" else "hidden"}`)
+		check(window.HorizontalAlignment == Enum.HorizontalAlignment.Left and window.VerticalAlignment == Enum.VerticalAlignment.Top and window.WidthScale == scales[1] and window.HeightScale == scales[2], `{label}: and it hasn't moved`)
+		Home.render()
+		task.wait(0.6)
+		check(window.Enabled == clears, `{label}: the home screen redrawing doesn't change that`)
+		if clears then
+			hudSize(1.25)
+			check(not window.Enabled and not bar.Enabled, `{label}: at HUD size 125% the window reaches under the chat: hidden`)
+			hudSize(1)
+			check(window.Enabled and bar.Enabled, `{label}: back at 100%: showing`)
+			resize(Vector2.new(1366, 768))
+			task.wait(0.5)
+			check(not window.Enabled, `{label}: the screen made 1366x768: hidden`)
+			resize(size)
+			task.wait(0.5)
+			check(window.Enabled, `{label}: and back: showing`)
+		end
+		Locker.close()
+		task.wait(1)
+		check(window.Enabled and bar.Enabled, `{label}: closing the locker shows the chat again`)
+		lo, hi = chat()
+		pagesLo, pagesHi = pagesRect()
+		check(not overlaps(lo, hi, pagesLo, pagesHi), `{label}: clear of the buttons`)
+		-- From the locker to the loadout (its tab), then closing it all.
+		Locker.open()
+		task.wait(0.5)
+		Locker.open("Loadout")
+		task.wait(1)
+		check(ChatSpace.holds("Loadout") and not ChatSpace.holds("Locker"), `{label}: from the locker to the loadout, the loadout's claim is in force`)
+		check(window.HorizontalAlignment == Enum.HorizontalAlignment.Right and window.VerticalAlignment == Enum.VerticalAlignment.Bottom and window.Enabled and bar.Enabled, `{label}: the chat in the loadout's corner, showing`)
+		Locker.close()
+		task.wait(1)
+		check(window.HorizontalAlignment == Enum.HorizontalAlignment.Left and window.VerticalAlignment == Enum.VerticalAlignment.Top and window.Enabled and bar.Enabled, `{label}: closing it all puts the chat back top left, showing`)
+		check(math.abs(window.WidthScale - scales[1]) < 0.02 and math.abs(window.HeightScale - scales[2]) < 0.02, `{label}: at the size it was`)
 	end
 end
 
@@ -200,6 +269,6 @@ check(not overlaps(lo, hi, pagesLo, pagesHi) and pagesHi.Y <= levelTop() - ChatS
 resize(Vector2.new(1366, 768))
 ChatSpace.claim("HomeScreen", nil)
 task.wait(1)
-check(window.HorizontalAlignment == Enum.HorizontalAlignment.Left and window.HeightScale == 1 and window.WidthScale == 1, "with no screen asking, the chat is back as it was")
+check(window.HorizontalAlignment == Enum.HorizontalAlignment.Left and window.HeightScale == 1 and window.WidthScale == 1 and window.Enabled and bar.Enabled, "with no screen asking, the chat is back as it was")
 
 return { status = "PASS", checks = checks }

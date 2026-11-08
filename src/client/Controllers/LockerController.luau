@@ -30,7 +30,8 @@
 -- shown. What the player owns comes from the server (ProfileUpdate); coins
 -- and level from their attributes. buyable() and newAbilities() are what
 -- the Shop and Loadout buttons' badges count. The mouse is free while
--- it's open (MouseLock "Locker").
+-- it's open (MouseLock "Locker"), and Roblox's chat stays off the window
+-- (ChatSpace: hidden while it would cover it).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -53,6 +54,7 @@ local Settings = require(Client.Settings)
 local SettingsConfig = require(Shared.Config.SettingsConfig)
 local SettingsController = require(script.Parent.SettingsController)
 local MouseLock = require(Client.MouseLock)
+local ChatSpace = require(Client.ChatSpace)
 local Detail = require(Client.Detail)
 local HealthController = require(script.Parent.HealthController)
 local WeaponView = require(Client.WeaponView)
@@ -1576,6 +1578,10 @@ local function build()
 		Parent = screen,
 	}, { UI.corner(22), UI.stroke(C.stroke, 5) })
 	p.panel = panel
+	-- The chat looks again as the window moves or grows (the screen's
+	-- size, the HUD size).
+	panel:GetPropertyChangedSignal("AbsolutePosition"):Connect(ChatSpace.refit)
+	panel:GetPropertyChangedSignal("AbsoluteSize"):Connect(ChatSpace.refit)
 	-- The header: the page's name on its colour, and your coins.
 	-- (UI.paint recolours its Fill.)
 	p.header = UI.new("Frame", {
@@ -1842,6 +1848,26 @@ local function build()
 	end)
 end
 
+-- Where the window is on screen (its HUD size in), or nil before it's
+-- laid out.
+local function panelRect(): (Vector2?, Vector2?)
+	local panel = LockerController.parts.panel
+	local at, size = panel.AbsolutePosition, panel.AbsoluteSize
+	if typeof(at) ~= "Vector2" or typeof(size) ~= "Vector2" or size.X <= 0 or size.Y <= 0 then
+		return nil, nil
+	end
+	return at, at + size
+end
+-- Roblox's chat while the locker is open: where the home screen has it
+-- (top left), but hidden while it would cover the window, which it does
+-- on a laptop's screen (it takes the clicks on the title, the tabs and
+-- the first rows); on a big screen it clears it and stays.
+LockerController.CHAT_CLAIM = {
+	horizontal = Enum.HorizontalAlignment.Left,
+	vertical = Enum.VerticalAlignment.Top,
+	avoid = panelRect,
+} :: ChatSpace.Claim
+
 -- Opens a page (and on the shop, scrolls to `section`). "Store" is the
 -- shop's Featured part; "Loadout" (and the old "Abilities") the loadout
 -- screen.
@@ -1882,6 +1908,7 @@ function LockerController.open(tab: string?, section: string?)
 	LockerController.isOpen = true
 	p.screen.Enabled = true
 	MouseLock.setFree("Locker", true)
+	ChatSpace.claim("Locker", LockerController.CHAT_CLAIM)
 	render()
 	if section and LockerController.tab == "Weapons" then
 		LockerController.jump(section, true)
@@ -1895,6 +1922,7 @@ function LockerController.hide()
 	LockerController.closeGift()
 	LockerController.parts.screen.Enabled = false
 	MouseLock.setFree("Locker", false)
+	ChatSpace.claim("Locker", nil)
 end
 
 -- Closes the locker and the loadout.
