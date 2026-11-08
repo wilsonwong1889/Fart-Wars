@@ -2,11 +2,16 @@
 -- (ClientReport) for the health numbers: the frame rate over the last
 -- minute, render spikes (frames over SPIKE_SECONDS), network ping, how
 -- long the menus wait on the server (UI latency), script errors since the
--- last report and the Roblox graphics quality. Nothing else is sent.
+-- last report and the Roblox graphics quality. Nothing else is sent, except
+-- with a player's own feedback report (FeedbackController), which takes
+-- current(): the frame rate, the ping and the last few error messages
+-- (players' names scrubbed out).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ScriptContext = game:GetService("ScriptContext")
+
+local FeedbackConfig = require(ReplicatedStorage:WaitForChild("Shared").Config.FeedbackConfig)
 
 local HealthController = {}
 
@@ -19,6 +24,11 @@ local spikes = 0
 local errors = 0
 local latencyTotal, latencyCount = 0, 0
 local windowStart = os.clock()
+local lastFps: number? = nil
+-- This session's errors: how many, and the last few messages (oldest
+-- first, a repeat counted on its entry rather than added again).
+local sessionErrors = 0
+local recentErrors: { { text: string, count: number } } = {}
 local started = false
 
 local function quality(): number?
@@ -39,6 +49,7 @@ function HealthController.sample(): { [string]: number }
 	if frames > 0 then
 		report.fps = math.floor(frames / elapsed * 10) / 10
 		report.spikes = spikes
+		lastFps = report.fps
 	end
 	if latencyCount > 0 then
 		report.uiLatency = latencyTotal / latencyCount
@@ -54,6 +65,53 @@ function HealthController.sample(): { [string]: number }
 	frames, spikes, errors, windowStart = 0, 0, 0, nowClock
 	latencyTotal, latencyCount = 0, 0
 	return report
+end
+
+-- Keeps an error message for current(), with this player's names scrubbed
+-- out (the server scrubs everyone's again).
+function HealthController.noteError(message: unknown)
+	sessionErrors += 1
+	if type(message) ~= "string" then
+		return
+	end
+	local text = FeedbackConfig.cut(string.sub(message, 1, FeedbackConfig.MAX_ERROR_LENGTH * 4), FeedbackConfig.MAX_ERROR_LENGTH)
+	text = FeedbackConfig.scrub(FeedbackConfig.clean(text), { player.Name, player.DisplayName })
+	if text == "" then
+		return
+	end
+	for i, entry in recentErrors do
+		if entry.text == text then
+			entry.count += 1
+			-- The newest goes last.
+			table.remove(recentErrors, i)
+			table.insert(recentErrors, entry)
+			return
+		end
+	end
+	table.insert(recentErrors, { text = text, count = 1 })
+	while #recentErrors > FeedbackConfig.MAX_ERRORS do
+		table.remove(recentErrors, 1)
+	end
+end
+
+-- The numbers now, for a feedback report, without starting a new window:
+-- the frame rate so far this window (or the last one's, early on), the
+-- ping, the session's error count and the last few messages, oldest first.
+function HealthController.current(): { fps: number?, ping: number?, errorCount: number, errors: { string } }
+	local elapsed = os.clock() - windowStart
+	local fps = if frames > 0 and elapsed >= 2 then math.floor(frames / elapsed * 10) / 10 else lastFps
+	local ok, ping = pcall(player.GetNetworkPing, player)
+	local messages = {}
+	for _, entry in recentErrors do
+		-- The count first, so cutting a long message never loses it.
+		table.insert(messages, if entry.count > 1 then `(x{entry.count}) {entry.text}` else entry.text)
+	end
+	return {
+		fps = fps,
+		ping = if ok and type(ping) == "number" then ping else nil,
+		errorCount = sessionErrors,
+		errors = messages,
+	}
 end
 
 -- A menu request's round trip (seconds), for the UI latency.
@@ -80,8 +138,9 @@ function HealthController.start()
 			spikes += 1
 		end
 	end)
-	ScriptContext.Error:Connect(function()
+	ScriptContext.Error:Connect(function(message)
 		errors += 1
+		HealthController.noteError(message)
 	end)
 	task.spawn(function()
 		while true do

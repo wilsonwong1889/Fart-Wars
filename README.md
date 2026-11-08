@@ -109,12 +109,12 @@ Rojo maps the source like this (`default.project.json`):
 
 | In Studio | Source | What it is |
 | --- | --- | --- |
-| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `SeasonConfig`, `EventConfig`, `WeaponArt`, `PropArt` and `ShotArt` (generated from Blender), `MapArt`, `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
+| `ReplicatedStorage.Shared.Config` | `src/shared/Config` | `GameConfig`, `FeatureFlags`, `TeamConfig`, `MapConfig`, `WeaponConfig`, `AbilityConfig`, `ProgressionConfig`, `RewardsConfig`, `MonetizationConfig`, `ExperimentConfig`, `ReleaseConfig`, `PrestigeConfig`, `FeedbackConfig`, `SeasonConfig`, `EventConfig`, `WeaponArt`, `PropArt` and `ShotArt` (generated from Blender), `MapArt`, `WeaponFx`, `ArtAssets`, `AudioConfig`, `UIConfig` |
 | `ReplicatedStorage.Shared.Interfaces` | `src/shared/Interfaces` | `MapBase`, `GameModeBase`: the contracts maps and modes keep |
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art), `MeshBuilder` (builds the Blender meshes in the game) |
 | `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
 | `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `SendFeedback` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
@@ -144,7 +144,7 @@ else.
 | `DashService` | Fart Dash: cooldown and travel checks |
 | `AbilityService` | the Q ability: checks (state, equipped, exploding, cooldown), Recovery Burst's vent, Gas Pulse's wind-up and blast |
 | `ProjectileService` | stink bombs: the server-flown arc, the splash, the clouds and their ticks |
-| `DataService` | player profiles: session-locked loads with retries, migrations, autosave, leave and shutdown saves, temporary profiles when DataStores are down; the only module that touches the DataStore |
+| `DataService` | player profiles: session-locked loads with retries, migrations, autosave, leave and shutdown saves, temporary profiles when DataStores are down; the only module that touches the profiles' DataStore |
 | `EconomyService` | coins, XP, levels and unlocks, the cap rewards, participation, mastery and lifetime stats; every grant has a unique ID, limits and a ledger entry; spending and refunds |
 | `LoadoutService` | the equipped weapon, ability and tracer: owned items only, applied on each spawn (mid-fight changes wait), the profile view for the screens |
 | `ShopService` | `ShopRequest`: purchases (server prices and checks, saved before confirming, rolled back on a failed save) and equipping |
@@ -152,6 +152,7 @@ else.
 | `PrestigeService` | `PrestigeRequest` (behind `FeatureFlags.PRESTIGE`): an exact preview with a confirmation token, then the reset, saved before it's confirmed and undone if the save fails; cosmetic rewards only |
 | `SeasonService` | the free seasonal track (behind `FeatureFlags.SEASONS`): season XP, tiers paid once, weekly challenges from real play, new weeks and seasons |
 | `EventService` | live events (behind `FeatureFlags.EVENTS`): Bean Rain, announced, on the lanes only, capped, beans paying coins and a Fart Dash |
+| `FeedbackService` | `SendFeedback` (behind `FeatureFlags.FEEDBACK`): players' bug reports, ideas and other feedback (a type and up to 300 characters), checked, limited (one every two minutes and five a UTC day, across servers) and kept in their own DataStore with the version, place version, job ID, ping, frame rate and recent client errors; only the user ID, never a name; on this server only without DataStores; `/fw feedback` reads the newest |
 | `ZoneService` | Gas Control's zone: who's in it, who holds it, a point a second for a team alone in it, holders' rewards; the HUD's zone line and the floor ring |
 | `MetricsService` | live metrics by segment (new or returning, paying or free): the onboarding funnel (also sent to Roblox's), eliminations and deaths, session lengths, coin sources and sinks (sent to Roblox's economy events) |
 | `ExperimentService` | retention experiments: each player's cohorts (from their user ID), the values they get (gift timing, early prices, tips), telemetry by cohort; all off as shipped |
@@ -160,7 +161,7 @@ else.
 | `Telemetry` | structured `[FW]` logs, counters, errors per service, rejected requests by remote and reason, abnormal request rates, flags for review, time to first shot / hit / elimination / purchase, the return rate |
 | `Moderation` | acts on flags (abnormal requests, accuracy, movement, coins, dashing through walls, reports from several players): review only by default, or a kick at `GameConfig.MODERATION.KICK_AT_FLAGS`; turns away `BANNED_USER_IDS`; `ReportPlayer` (fixed reasons, once per person, a few a session) |
 | `Health` | runs the service loops (an error in a tick is counted and reported, and the loop goes on); checks loops, errors per minute, frame rate, memory and saving every 30 seconds; Workspace's `ServerHealth`; `ClientReport` (clients' frame rate, ping, errors) |
-| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
+| Client controllers | `InputController`, `CameraController`, `CombatController` (crosshair, gas and dash bars), `EffectsController`, `HUDController` (score boxes and timer), `ProgressController` (level bar, rewards), `LockerController`, `HotbarController` (weapons 1-4, Q), `MenuBarController` (coins, menu buttons), `TipsController`, `PlayersController` (block, hide emotes, report), `FeedbackController` (the FEEDBACK window), `HealthController` (the client's report), `HomeController` (home screen, Choose a Team, the version): render, capture input, switch camera, fire, dash and use abilities, ask the shop; they never decide teams, hits, results, rewards or purchases |
 
 `Bootstrap.server.luau` loads them in dependency order. No module requires
 one that depends on it (the specs fail on a require cycle).
@@ -248,6 +249,8 @@ Chat (`/fw` or `!fw`):
 /fw stats                shots, hits, eliminations a minute, barrel and chain kills,
                          spawn deaths, dashes, gas recovered, coins and XP granted,
                          temporary profiles, save failures, rejected requests, errors
+/fw feedback 5           the five newest player feedback reports (10 without a number,
+                         25 at most), every word printed to the server's output only
 ```
 
 Or the server command bar in Studio, with the same words and an optional
@@ -304,6 +307,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Dodges` | nobody dodges an explosion (a team switch, a new round, Reset mid-countdown or while gassed), no credit for stale or ownerless gas, mastery only for gas someone fired, turncoats can't gas or assist against their new team |
 | `Arsenal` | the Spritzer's rate and range, the Thunderclapper's weight, the Stink Lobber's arc, splash, cloud and mastery; Recovery Burst and Gas Pulse with every refusal, the shared cooldown and cancelling; Q and the HUD on the client |
 | `Balance` | each weapon's role on the full-size map (reach in order, the Thunderclapper short of the arena, who gasses fastest where); fall-off (full gas close, less far away, never under the minimum, headshots still better) on paper and on real shots down a clear lane; every stink bomb landing, one lobbed over the throne; the shop's descriptions matching the numbers |
+| `Feedback` | player feedback: quiet without DataStores (kept on the server, read back); validation (the three types, UTF-8, cleaning, 3 to 300 characters, numbers in range, the server's ping, errors capped, cut and scrubbed of every player's name); junk payloads refused and counted; storage (the versions, job ID, ping, FPS and errors, keyed and tagged by user ID, listed by time, no names); limits (two minutes with the wait, five a UTC day, the next day, across servers, refusals free, one request a second, one at a time); outages (retried, the player told, the quota given back, saved but unlisted still read); `/fw feedback` (newest first, words only in the output, how many, off); the window (FEEDBACK in the M menu, types, the 300 cut and count, SEND's answers, the mouse, its clicks, scrubbed errors along, the text never reaching a client) |
 | `Admin` | the admin code: a wrong code gives nothing and too many lock the box; the right one (any case) gives every weapon, ability and cosmetic, coins and spins, saved, and turns on the /fw commands for that player; the code never reaches the client; the Settings code box; never on the live place, the box only where the code works, and `ENABLED` off refusing it |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
