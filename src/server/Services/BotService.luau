@@ -19,7 +19,8 @@
 -- Clients see what they see on a player's avatar: "Gas" (0-100),
 -- "GasStage" (0-4), "ExplodesAt" and "ProtectedUntil" (server time), and
 -- the SpawnProtection ForceField.
---   CombatEvent { kind = "explosion", victim, position, killer? }   all clients
+--   CombatEvent { kind = "explosion", victim, position, killer?, chain }   all clients
+-- (`chain`: its place in its chain reaction, as for a player; see Chain).
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -32,6 +33,7 @@ local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local Chain = require(Server.Chain)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
@@ -57,8 +59,8 @@ BotService.Spawned = Signal.new()
 -- (bot, character): that life ended (exploded, fell, Health 0, removed,
 -- moved, replaced). Once per character.
 BotService.Died = Signal.new()
--- (bot, position, killer?, chainDepth, killerTeam?, killerBot?): a bot
--- exploded.
+-- (bot, position, killer?, chainDepth, killerTeam?, killerBot?, chain): a
+-- bot exploded; `chain` is the chain reaction it was a link of.
 BotService.Exploded = Signal.new()
 
 type Life = {
@@ -83,6 +85,8 @@ type Life = {
 	ended: boolean,
 	cause: string,
 	chainDepth: number,
+	-- The chain reaction of the gas that started the countdown, if any.
+	chain: Chain.Chain?,
 	-- The team behind the gas that started the countdown.
 	finishTeam: string?,
 	connections: { RBXScriptConnection },
@@ -229,14 +233,17 @@ local function explode(life: Life)
 		assistBots = assistBots,
 		cause = life.cause,
 	})
+	-- The next link of the chain whose blast filled it, or a new chain.
+	local chain = Chain.link(life.chain)
 	combatEvent():FireAllClients({
 		kind = "explosion",
 		victim = bot.id,
 		position = position,
 		killer = if killer then killer.UserId else killerBot,
+		chain = chain.count,
 	})
 	local credited = killer ~= nil or killerBot ~= nil
-	BotService.Exploded:Fire(bot, position, killer, life.chainDepth, if credited then life.lastAttackerTeam else life.finishTeam, killerBot)
+	BotService.Exploded:Fire(bot, position, killer, life.chainDepth, if credited then life.lastAttackerTeam else life.finishTeam, killerBot, chain)
 	finish(life)
 end
 
@@ -244,6 +251,7 @@ local function beginExplosion(life: Life, source: GasService.Source)
 	life.exploding = true
 	life.cause = source.cause
 	life.chainDepth = source.chainDepth or 0
+	life.chain = source.chain
 	life.finishTeam = source.team or (source.attacker and TeamService.teamOf(source.attacker))
 	life.character:SetAttribute("ExplodesAt", now() + GAS.EXPLOSION_COUNTDOWN_SECONDS)
 	Telemetry.count("Bots.countdowns")
@@ -423,6 +431,7 @@ function BotService.attach(bot: Bot, character: Model)
 		ended = false,
 		cause = "shot",
 		chainDepth = 0,
+		chain = nil,
 		finishTeam = nil,
 		connections = {},
 	}

@@ -46,6 +46,14 @@ return table.freeze({
 	-- Teammates outlined in their team colour.
 	TEAMMATE_HIGHLIGHTS = true,
 
+	-- Floating gas numbers ("+20%", gold for a headshot) where your own
+	-- shots land.
+	GAS_NUMBERS = true,
+
+	-- "CHAIN x2!" pop-ups for chain reactions, from the server's count, and
+	-- a smaller line for players near one.
+	CHAIN_CALLOUTS = true,
+
 	-- Bots (BotDirector): while fewer than BotConfig.FILL_TO people are in
 	-- the server (and at least one is), "[BOT]" players fill it up, keeping
 	-- the teams level; each human who joins takes a bot's place. Kills of or

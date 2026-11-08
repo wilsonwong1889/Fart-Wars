@@ -12,9 +12,11 @@
 -- the Gas Blaster through fireAsBot: the same cast, range, gas and
 -- headshots, one shot per fire interval, only while a round is on.
 --   CombatEvent { kind = "shot", shooter, from, to }                 all clients
---   CombatEvent { kind = "hit", victim, gas, headshot, blocked }     the shooter
+--   CombatEvent { kind = "hit", victim, gas, headshot, blocked, amount, position }   the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
--- (player values are user IDs, a bot's its negative ID; positions Vector3s).
+-- (player values are user IDs, a bot's its negative ID; positions Vector3s;
+-- a hit's `gas` is the victim's meter after it, `amount` the gas it put in,
+-- 0 if it did nothing, and `position` where it landed).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -259,6 +261,8 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		gas = if victim then GasService.gasOf(victim) else BotService.gasOf(bot :: BotService.Bot),
 		headshot = headshot,
 		blocked = not landed,
+		amount = if landed then amount else 0,
+		position = result.Position,
 	})
 end
 

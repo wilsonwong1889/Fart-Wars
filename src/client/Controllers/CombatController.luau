@@ -4,7 +4,8 @@
 --     interval, numbering each shot, with an instant local tracer; the
 --     server's verdict comes back as a hit marker that pops at the
 --     crosshair (bigger, gold and higher-pitched for a headshot; bigger
---     still, orange and with a ring for the hit that sets them off)
+--     still, orange and with a ring for the hit that sets them off), and
+--     the gas it put in floats up where it landed (GasNumbers)
 --   * your gas meter and its stage, the countdown when you're about to
 --     blow, and your current streak
 --   * other players' (and bots') shots as tracers, a red marker pointing
@@ -36,6 +37,7 @@ local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local GasNumbers = require(Client.GasNumbers)
 local InputController = require(script.Parent.InputController)
 local WeaponFxController = require(script.Parent.WeaponFxController)
 
@@ -567,6 +569,8 @@ local function onCombatEvent(event: { [string]: any })
 		end
 	elseif event.kind == "hit" then
 		showHit(event)
+		-- "+20%" where it landed (none for a hit that did nothing).
+		GasNumbers.show(event)
 	elseif event.kind == "damaged" then
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if root and typeof(event.from) == "Vector3" then
