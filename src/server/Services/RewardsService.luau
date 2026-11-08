@@ -274,7 +274,8 @@ function RewardsService.spin(player: Player): Result
 		cosmetic = cosmetic,
 		spins = profile.data.Spins,
 		message = if prize.cosmetic and not cosmetic
-			then `You won {prize.label}, which you have: {coins} coins instead!`
+			then `You already have the {prize.label}, so it's {coins} coins instead!`
+			elseif cosmetic then `You won the {prize.label}! Equip it in LOADOUT.`
 			else `You won {prize.label}!`,
 	})
 end

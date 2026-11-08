@@ -1157,8 +1157,10 @@ local function settingsTab(content: Frame)
 		UI.applyScale()
 		render()
 	end, "Bigger or smaller panels and text, everywhere.")
-	-- A code box (the admin code; the server checks it).
+	-- A code box (the admin code; the server checks it), only where codes
+	-- work (never on the live place).
 	local codeRow = row("Code", #toggles + 3)
+	codeRow.Visible = workspace:GetAttribute("CodesOn") == true
 	local codeBox = UI.new("TextBox", {
 		Name = "CodeBox",
 		Size = UDim2.new(0, 200, 0, 38),
@@ -1259,6 +1261,8 @@ local function build()
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.5,
+		-- Clicks stop here, not on the dimmed screen under it.
+		Active = true,
 		Parent = screen,
 	})
 	local panel = UI.new("Frame", {
@@ -1386,6 +1390,8 @@ local function build()
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.4,
+		-- Only YES or NO: a click beside the card doesn't reach the shop.
+		Active = true,
 		Visible = false,
 		ZIndex = 10,
 		Parent = screen,

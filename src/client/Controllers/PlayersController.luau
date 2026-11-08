@@ -246,6 +246,8 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 560, 0, 470),
 		BackgroundColor3 = C.panel,
+		-- A click on the window stays on it.
+		Active = true,
 		Parent = screen,
 	}, { UI.corner(16), UI.stroke(C.stroke, 4), UI.padding(14) })
 	UI.label("PLAYERS", 28, { Name = "Title", Parent = panel })

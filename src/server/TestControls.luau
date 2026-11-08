@@ -405,8 +405,8 @@ function TestControls.selftest(player: Player?): (boolean, string)
 	expect(FeatureFlags.MATCH_MODE == "Rounds" and FeatureFlags.GAS_COMBAT and FeatureFlags.PROGRESSION, "Feature flags", `{FeatureFlags.MATCH_MODE}, combat and progression on`, `MATCH_MODE {FeatureFlags.MATCH_MODE}, GAS_COMBAT {FeatureFlags.GAS_COMBAT}, PROGRESSION {FeatureFlags.PROGRESSION}`, "WARN")
 	report("OK", "Bots", if FeatureFlags.BOTS then `on: up to {BotConfig.FILL_TO} in the server at skill {BotConfig.DIFFICULTY}` else "off")
 	report("WARN", "Release", `test controls on (allow-list: {#GameConfig.TEST_CONTROLS.USER_IDS}); turn GameConfig.TEST_CONTROLS.ENABLED off before a public release`)
-	if AdminCode.ENABLED then
-		report("WARN", "Admin code", "on: anyone with the code gets everything; turn AdminCode.ENABLED off before a public release")
+	if AdminCode.on() then
+		report("WARN", "Admin code", "on here: anyone with the code gets everything. It's off on the live place (ReleaseConfig.LIVE_PLACE_ID); AdminCode.ENABLED turns it off everywhere")
 	end
 	local forSale = 0
 	for _, item in MonetizationConfig.passes do

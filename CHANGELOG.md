@@ -68,6 +68,17 @@
   Blender models everywhere: imported into the game
   (`art/export/mesh-assets.json` lists them), so the server dresses the
   map and no player's device has to build them.
+- The free spin is a prize wheel: it winds up, spins with a tick past the
+  pointer and lands on what you won, with confetti. Every slice shows its
+  chance. Your coins and the "+coins" line wait until it lands, so the
+  prize stays a surprise. The 1% slice is the Lucky Lime tracer; win it
+  again and you get 250 coins instead, and the wheel tells you why. New
+  players start with one free spin.
+- Clicking on a window no longer clicks what's behind it. A click on the
+  free spin's message could press PLAY under it, one beside a "Buy it?"
+  card could press the shop's tabs or another item's button, and the
+  home screen's buttons still worked through the shop's dimmed backdrop.
+  PLAY also closes the free spin now, as it does the daily reward.
 - Specs: `Audio`, `HitFeedback` and `Balance` are new (38 in all); `Map`
   checks low cover and the gates; `Soak` now plays the same game every
   run.

@@ -5,6 +5,8 @@
 --     saved, and turns the /fw commands on for that player
 --   * the code itself never reaches the client
 --   * the Settings page's code box sends it and shows the answer
+--   * it works in Studio, on staging and in copies, never on the live
+--     place, and the box only shows where it works; ENABLED off refuses it
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local checks = 0
@@ -97,6 +99,22 @@ check(saved["Player_1"] ~= nil or next(saved) ~= nil, "saved")
 check(TestControls.allowed(me), "/fw commands on for the admin")
 local equipped = Shop.request(me, "equip", "weapon", "Thunderclapper")
 check(equipped.ok, "any weapon equips")
+
+-- Where it works: Studio, staging and copies, never the live place.
+check(AdminCode.on() and AdminCode.on("staging") and AdminCode.on("dev") and not AdminCode.on("live"), "the code works off the live place only")
+Locker.open("Settings")
+check(workspace:GetAttribute("CodesOn") == true and Locker.parts.content:FindFirstChild("CodeBox", true).Parent.Visible, "so the box shows here")
+AdminCode.ENABLED = false
+task.wait(0.3)
+check(Shop.request(me, "redeem", "rematch").reason == "disabled" and not AdminCode.isAdmin(me), "ENABLED off: refused, and nobody's an admin")
+AdminCode.ENABLED = true
+workspace:SetAttribute("CodesOn", false)
+Locker.render()
+local hidden = Locker.parts.content:FindFirstChild("CodeBox", true)
+check(hidden ~= nil and not hidden.Parent.Visible, "where codes don't work, no box")
+workspace:SetAttribute("CodesOn", true)
+Locker.render()
+check(Locker.parts.content:FindFirstChild("CodeBox", true).Parent.Visible, "and back")
 
 -- Too many wrong guesses lock the box.
 local other = Instance.new("Player")

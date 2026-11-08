@@ -128,6 +128,8 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 620, 0, 440),
 		BackgroundColor3 = C.panel,
+		-- A click on the window stays on it.
+		Active = true,
 		Parent = screen,
 	}, { UI.corner(16), UI.stroke(GOLD, 4), UI.padding(16) })
 	p.title = UI.label("SEASON", 26, { Name = "Title", TextColor3 = GOLD, Parent = panel })

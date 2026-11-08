@@ -790,6 +790,8 @@ local function build()
 		Size = UDim2.new(1, 0, 1, 0),
 		BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.45,
+		-- Clicks stop here, not on the home screen under it.
+		Active = true,
 		Parent = teamScreen,
 	})
 	local title = UI.new("Frame", {
@@ -901,6 +903,8 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 320, 0, 680),
 		BackgroundColor3 = C.panel,
+		-- A click on the menu stays on it.
+		Active = true,
 		Parent = menu,
 	}, { UI.corner(20), UI.stroke(C.stroke, 4), UI.padding(16), UI.list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center) })
 	UI.label("MENU", 34, { Name = "Title", LayoutOrder = 0, TextColor3 = C.accent, Parent = panel })
@@ -931,6 +935,7 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 380, 0, 220),
 		BackgroundColor3 = C.panel,
+		Active = true,
 		Parent = soon,
 	}, { UI.corner(20), UI.stroke(C.accent, 4), UI.padding(16) })
 	p.soonTitle = UI.label("", 34, { Name = "Title", Parent = card })

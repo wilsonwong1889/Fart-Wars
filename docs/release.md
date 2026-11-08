@@ -65,7 +65,10 @@ On staging (a private server, two or more accounts):
 Before publishing to live:
 
 8. `GameConfig.TEST_CONTROLS.ENABLED = false` (or the allow-list holds only
-   your own accounts), and `selftest`'s Release line agrees.
+   your own accounts), and `selftest`'s Release line agrees. The admin
+   code (`AdminCode`, which gives everything) never works on the live
+   place once `ReleaseConfig.LIVE_PLACE_ID` is set, and its box is hidden
+   there; set `AdminCode.ENABLED = false` too, so no server takes it.
 9. `GameConfig.MODERATION` set as intended (kicks are off by default).
 10. Every `ExperimentConfig` percent is what you mean to run.
 11. Store IDs set in `MonetizationConfig`, and the store's prices,

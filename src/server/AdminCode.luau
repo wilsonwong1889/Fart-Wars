@@ -1,15 +1,18 @@
 -- The admin code, for testing everything in a real server: typed into the
--- CODES box in Settings, it gives every weapon, Q ability and cosmetic
+-- code box in Settings, it gives every weapon, Q ability and cosmetic
 -- (saved for real), COINS coins, a full bank of free spins, and makes the
 -- player an admin for the session (the /fw test commands work for them,
--- live servers included). The code lives only here, on the server, so
+-- in published servers too). The code lives only here, on the server, so
 -- clients never see it; a few wrong guesses lock the box for the session.
+-- It never works on the live place (ReleaseConfig.LIVE_PLACE_ID, once set),
+-- and the box only shows where it works (workspace attribute CodesOn).
 --   ShopRequest:InvokeServer("redeem", code)
--- Turn ENABLED off before any public release.
+-- Turn ENABLED off before any public release all the same.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local WeaponConfig = require(Shared.Config.WeaponConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
@@ -42,8 +45,14 @@ local admins: { [Player]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 local wrong: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 local grants = 0
 
+-- Whether the code works in this server (or on `channel`): ENABLED, and
+-- not the live place.
+function AdminCode.on(channel: string?): boolean
+	return AdminCode.ENABLED and (channel or ReleaseConfig.channel(game.PlaceId)) ~= "live"
+end
+
 function AdminCode.isAdmin(player: Player): boolean
-	return AdminCode.ENABLED and admins[player] == true
+	return AdminCode.on() and admins[player] == true
 end
 
 local function addAll(list: { string }, ids: { string })
@@ -92,7 +101,7 @@ end
 
 -- One code from a client: (ok, reason).
 function AdminCode.redeem(player: Player, code: unknown): (boolean, string)
-	if not AdminCode.ENABLED then
+	if not AdminCode.on() then
 		return false, "disabled"
 	end
 	if (wrong[player] or 0) >= AdminCode.MAX_WRONG then
@@ -118,5 +127,7 @@ Players.PlayerRemoving:Connect(function(player)
 	admins[player] = nil
 	wrong[player] = nil
 end)
+-- The client shows the code box only where the code works.
+workspace:SetAttribute("CodesOn", AdminCode.on())
 
 return AdminCode
