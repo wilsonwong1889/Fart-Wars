@@ -17,6 +17,7 @@
 --   /fw mode gascontrol (the next round's mode)
 --   /fw feedback [n] (the newest player feedback, printed to the output)
 --   /fw bots   /fw bots off   /fw bots on   /fw bots fill 6   /fw bots skill 0.7
+--   /fw practice (the next PLAY goes to the practice yard)   /fw practice now
 -- Ordinary clients can't reach any of it. Turn GameConfig.TEST_CONTROLS
 -- .ENABLED off before any public release.
 local Players = game:GetService("Players")
@@ -45,6 +46,7 @@ local ChallengeService = require(Services.ChallengeService)
 local BotDirector = require(Services.BotDirector)
 local FeedbackService = require(Services.FeedbackService)
 local AchievementService = require(Services.AchievementService)
+local PracticeService = require(Services.PracticeService)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local BotConfig = require(Shared.Config.BotConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
@@ -303,6 +305,23 @@ function TestControls.bots(action: string?, value: number?): (boolean, string)
 	return true, `bots {if status.enabled then "on" else "off"}, fill to {status.fillTo}, skill {status.difficulty}: {#status.bots} bots: {line}`
 end
 
+-- The practice yard: due again (the next PLAY goes there, even on a
+-- profile that isn't saving), or "now": straight in from the home screen.
+function TestControls.practice(player: Player, action: string?): (boolean, string)
+	if not TestControls.allowed(nil) then
+		return false, "test controls are off"
+	end
+	if not FeatureFlags.PRACTICE then
+		return false, "the practice yard is off (FeatureFlags.PRACTICE)"
+	end
+	if action == "now" then
+		local ok, why = PracticeService.begin(player)
+		return ok, if ok then `{player.Name} is in the practice yard` else `can't open the practice yard ({why})`
+	end
+	PracticeService.testSetDue(player, true)
+	return true, `{player.Name}'s next PLAY goes to the practice yard`
+end
+
 -- Every gas barrel back, full.
 function TestControls.barrels(): (boolean, string)
 	if not TestControls.allowed(nil) then
@@ -386,6 +405,7 @@ local REMOTES = {
 	SendFeedback = "RemoteFunction",
 	LeaderboardRequest = "RemoteFunction",
 	Ping = "RemoteEvent",
+	Practice = "RemoteEvent",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
@@ -645,7 +665,7 @@ function TestControls.run(player: Player, text: string): string?
 		return nil
 	end
 	local command, ok, message = words[2], false,
-		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, challenges [done | reset], spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>], feedback [n]"
+		"commands: score <team> [n], end [seconds], reloadmap, idle [seconds], spawn, team <team>, resetgas, gas <n>, weapon <id>, barrels, coins <n>, xp <n>, profile, ability <id>, daily, challenges [done | reset], spins [n], selftest, stats, health, perf, mode <id>, bots [on | off | fill <n> | skill <0-1>], feedback [n], practice [now]"
 	if command == "score" and words[3] then
 		ok, message = TestControls.score(words[3], tonumber(words[4]))
 	elseif command == "end" then
@@ -694,6 +714,8 @@ function TestControls.run(player: Player, text: string): string?
 		ok, message = TestControls.bots(words[3], tonumber(words[4]))
 	elseif command == "feedback" then
 		ok, message = TestControls.feedback(tonumber(words[3]))
+	elseif command == "practice" then
+		ok, message = TestControls.practice(player, words[3])
 	end
 	Messages.send(player, "test", (if ok then "TEST: " else "TEST failed: ") .. message)
 	return message

@@ -9,8 +9,9 @@
 -- walked, so going round a corner, along a wall, up onto something or off
 -- a ledge is fine, and a gap in the server's view of it (lag) is filled
 -- by the shortest way round (see clippedThrough). Refused dashes are
--- logged. The cooldown resets with each life. Everyone else sees the
--- trail:
+-- logged. The cooldown resets with each life. A dash in the practice yard
+-- is checked the same way but only the yard hears of it (PracticeDashed),
+-- so it never counts toward anything. Everyone else sees the trail:
 --   CombatEvent { kind = "dash", player, from, direction }
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
+local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
@@ -43,8 +45,10 @@ local MAX_LAG_SECONDS = 0.5
 
 local DashService = {}
 
--- (player): a Fart Dash the server accepted.
+-- (player): a Fart Dash the server accepted in a match (challenges count
+-- these); PracticeDashed, one in the practice yard (PracticeService).
 DashService.Dashed = Signal.new()
+DashService.PracticeDashed = Signal.new()
 
 local cadences: { [Player]: Cadence.State } = {}
 local started = false
@@ -268,7 +272,8 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		reject(player, "badPayload")
 		return false
 	end
-	if not table.find(DASH.allowedStates, PlayerLifecycleService.stateOf(player) or "") then
+	local state = PlayerLifecycleService.stateOf(player)
+	if not table.find(DASH.allowedStates, state or "") then
 		reject(player, "notActive")
 		return false
 	end
@@ -294,8 +299,13 @@ function DashService.dash(player: Player, direction: unknown): boolean
 		return false
 	end
 	AFKService.markActive(player)
-	Telemetry.count("Dash.dashes")
-	DashService.Dashed:Fire(player)
+	if state == States.Player.PRACTICE then
+		Telemetry.count("Dash.practiceDashes")
+		DashService.PracticeDashed:Fire(player)
+	else
+		Telemetry.count("Dash.dashes")
+		DashService.Dashed:Fire(player)
+	end
 
 	local start = root.CFrame
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")

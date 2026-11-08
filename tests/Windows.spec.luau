@@ -47,6 +47,8 @@ local client = game.StarterPlayer.StarterPlayerScripts.Client
 run(client.ClientBootstrap)
 task.wait(0.5)
 check(Data.isLoaded(me), "the profile loaded")
+-- (Done with the practice yard already: PLAY goes straight to the teams.)
+require(server.Services.PracticeService).testSetDue(me, false)
 local Controllers = client.Controllers
 local home = require(Controllers.HomeController).parts
 local Locker = require(Controllers.LockerController)

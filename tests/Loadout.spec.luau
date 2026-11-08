@@ -87,6 +87,8 @@ local function coins(n: number)
 	task.wait(0.1)
 end
 check(Data.isLoaded(me), "Me's profile is in")
+-- (Done with the practice yard already: PLAY goes straight to the teams.)
+require(server.Services.PracticeService).testSetDue(me, false)
 task.wait(0.2)
 
 -- In and out.

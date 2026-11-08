@@ -73,6 +73,12 @@ return table.freeze({
 	-- the Players screen's INVITE button.
 	BADGES = true,
 
+	-- The practice yard (PracticeService, PracticeConfig): a profile's first
+	-- PLAY warms up there (gas the dummies, Fart Dash, blow up a barrel)
+	-- before choosing a team; skippable, and the home screen and Settings
+	-- replay it. Off: PLAY goes straight to the team screen.
+	PRACTICE = true,
+
 	-- A few seconds of protection after each spawn; firing ends it early.
 	SPAWN_PROTECTION = true,
 

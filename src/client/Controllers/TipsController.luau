@@ -60,9 +60,10 @@ function TipsController.fighting(): boolean
 	return type(gas) == "number" and gas >= 50
 end
 
--- Shows tip `id` if it's allowed now. Returns whether it showed.
+-- Shows tip `id` if it's allowed now (in a match: the practice yard has its
+-- own prompts). Returns whether it showed.
 function TipsController.show(id: string, text: string): boolean
-	if not Settings.tips or TipsController.shown[id] or not ClientState.isActive() or TipsController.fighting() then
+	if not Settings.tips or TipsController.shown[id] or not ClientState.isActive() or ClientState.inPractice() or TipsController.fighting() then
 		return false
 	end
 	TipsController.shown[id] = true
@@ -135,7 +136,7 @@ function TipsController.start()
 	task.spawn(function()
 		while true do
 			local dt = task.wait(1)
-			if ClientState.isActive() then
+			if ClientState.isActive() and not ClientState.inPractice() then
 				activeSeconds += dt
 			end
 			TipsController.check()

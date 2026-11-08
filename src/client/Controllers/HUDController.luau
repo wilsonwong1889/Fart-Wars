@@ -550,7 +550,8 @@ end
 local function renderResults()
 	local p = HUDController.parts
 	local snapshot = ClientState.snapshot
-	local show = snapshot ~= nil and snapshot.phase == Phase.RESULTS and snapshot.result ~= nil
+	-- (Not over the practice yard: it isn't in the round.)
+	local show = snapshot ~= nil and snapshot.phase == Phase.RESULTS and snapshot.result ~= nil and not ClientState.inPractice()
 	p.results.Enabled = show
 	if not show then
 		return

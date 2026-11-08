@@ -43,7 +43,8 @@ local abilities: { [string]: Ability } = {
 		input = Enum.KeyCode.LeftShift,
 		durationSeconds = 0.2,
 		cooldownSeconds = 3,
-		allowedStates = table.freeze({ "ACTIVE" }),
+		-- And in the practice yard, which teaches it.
+		allowedStates = table.freeze({ "ACTIVE", "PRACTICE" }),
 		blockedWhileExploding = true,
 		-- It's movement, not an attack: dashing out of spawn keeps protection.
 		allowedWhileProtected = true,

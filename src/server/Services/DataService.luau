@@ -121,6 +121,8 @@ export type Data = {
 	BadgesEarned: { string },
 	BadgesAwarded: { string },
 	FavoritePromptAt: number,
+	-- The practice yard: finished or skipped (PracticeService).
+	PracticeDone: boolean,
 }
 export type Profile = {
 	data: Data,
@@ -199,6 +201,7 @@ function DataService.defaults(): Data
 		BadgesEarned = {},
 		BadgesAwarded = {},
 		FavoritePromptAt = 0,
+		PracticeDone = false,
 	}
 end
 

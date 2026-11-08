@@ -45,8 +45,16 @@ function ClientState.state(): string
 	return Players.LocalPlayer:GetAttribute("State") or States.Player.MENU_SPECTATOR
 end
 
+-- Playing with an avatar: in a match, or in the practice yard (there the
+-- crosshair, firing, the dash and the camera work as in a match, with no
+-- team). inPractice says which.
 function ClientState.isActive(): boolean
-	return ClientState.state() == States.Player.ACTIVE
+	local state = ClientState.state()
+	return state == States.Player.ACTIVE or state == States.Player.PRACTICE
+end
+
+function ClientState.inPractice(): boolean
+	return ClientState.state() == States.Player.PRACTICE
 end
 
 function ClientState.teamId(): string?

@@ -30,6 +30,7 @@
 --   PrestigeService       prestige: preview, confirm, reset (flagged off)
 --   MetricsService        live metrics by segment, the onboarding funnel
 --   AwardService          the round's award cards (Top Fragger and co.)
+--   PracticeService       the practice yard: a first PLAY's warm-up
 --   RoundService          WAITING -> ACTIVE -> RESULTS (or one continuous
 --                         match), the mode each round, snapshots to clients
 --   ZoneService           Gas Control's zone: who holds it, its points
@@ -87,6 +88,7 @@ local MonetizationService = require(Services.MonetizationService)
 local PrestigeService = require(Services.PrestigeService)
 local MetricsService = require(Services.MetricsService)
 local AwardService = require(Services.AwardService)
+local PracticeService = require(Services.PracticeService)
 local RoundService = require(Services.RoundService)
 local ZoneService = require(Services.ZoneService)
 local PlayStatsService = require(Services.PlayStatsService)
@@ -133,6 +135,7 @@ MonetizationService.start()
 PrestigeService.start()
 MetricsService.start()
 AwardService.start()
+PracticeService.start()
 RoundService.start()
 ZoneService.start()
 PlayStatsService.start()
