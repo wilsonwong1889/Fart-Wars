@@ -76,6 +76,8 @@ local function panel(screen: Instance, name: string, size: UDim2): Frame
 		Size = size,
 		BackgroundColor3 = Color3.fromRGB(20, 18, 28),
 		BackgroundTransparency = 0.04,
+		-- A click on the window stays on it (not PLAY under it).
+		Active = true,
 		Parent = screen,
 	}, { UI.corner(18), UI.stroke(Color3.fromRGB(70, 66, 84), 4) })
 end
@@ -352,10 +354,12 @@ function RewardsController.start()
 	for _, name in { "Spins", "NextGiftSeconds" } do
 		player:GetAttributeChangedSignal(name):Connect(renderSpin)
 	end
-	-- PLAY closes them.
+	-- PLAY closes them. A spin still lands out of sight, and the wallet
+	-- catches up then.
 	ClientState.StateChanged:Connect(function()
 		if ClientState.isActive() then
 			RewardsController.closeDaily()
+			RewardsController.closeSpin()
 		end
 	end)
 	task.spawn(function()

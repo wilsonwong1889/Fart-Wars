@@ -7,7 +7,8 @@
 --   * gifts: a free spin per ten minutes of ACTIVE play only, capped per
 --     day (the count saved, and reset the next day), banked up to the cap
 --   * spins: one per spin, drawn by the published weights (checked over
---     many draws), paid once each, refused with none left
+--     many draws), paid once each, refused with none left; the jackpot's
+--     tracer (and where to equip it), or coins once it's owned, saying why
 --   * the client: the daily screen (ticks, today, CLAIM, the countdown),
 --     its auto-open on the home screen, the spin wheel with every chance:
 --     it lands under the pointer on whatever was drawn, shows the win,
@@ -182,6 +183,33 @@ Data.update(me, function(d)
 	d.Spins = 0
 end)
 check(Rewards.spin(me).reason == "noSpins", "no spins: refused")
+-- The jackpot: the tracer (and where to equip it), then coins once owned.
+local lime
+for _, prize in RewardsConfig.spin do
+	if prize.cosmetic then
+		lime = prize
+	end
+end
+local realDraw = Rewards.draw
+Rewards.draw = function()
+	return lime
+end
+Data.update(me, function(d)
+	d.Spins = 2
+	local owned = table.find(d.OwnedCosmetics, lime.cosmetic)
+	if owned then
+		table.remove(d.OwnedCosmetics, owned)
+	end
+end)
+local won = Rewards.spin(me)
+check(won.ok and won.cosmetic == lime.cosmetic and table.find(data().OwnedCosmetics, lime.cosmetic), "the jackpot: the tracer")
+check(won.message == `You won the {lime.label}! Equip it in LOADOUT.`, "and where to equip it: " .. won.message)
+local again = Rewards.spin(me)
+check(again.ok and again.cosmetic == nil and again.coins == RewardsConfig.DUPLICATE_COSMETIC_COINS, "again: coins instead")
+check(again.message == `You already have the {lime.label}, so it's {again.coins} coins instead!`, "and says why: " .. again.message)
+Rewards.draw = realDraw
+-- (The wheel would have landed: the wallet catches up.)
+require(server.Services.EconomyService).reveal(me)
 -- The odds over many draws match the published weights.
 local tally = {}
 local rng = Random.new(7)

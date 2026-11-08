@@ -171,6 +171,8 @@ local function build()
 		Position = UDim2.new(0.5, 0, 0.5, 0),
 		Size = UDim2.new(0, 600, 0, 400),
 		BackgroundColor3 = C.panel,
+		-- A click on the window stays on it.
+		Active = true,
 		Parent = screen,
 	}, { UI.corner(16), UI.stroke(Color3.fromRGB(255, 140, 60), 4), UI.padding(16) })
 	p.title = UI.label("PRESTIGE", 30, { Name = "Title", TextColor3 = Color3.fromRGB(255, 160, 70), Parent = panel })
