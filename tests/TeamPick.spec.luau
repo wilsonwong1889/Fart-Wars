@@ -12,6 +12,7 @@
 --     nothing; two of us against ten bots it does, and a bot crosses back
 --   * on the home screen a team the players would unbalance is still
 --     locked, even when the counts with bots look level
+--   * the hint under AUTO, two lines long, wraps and its label grows to it
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local checks = 0
@@ -128,6 +129,12 @@ check(#BotService.all() == 3 and is(TeamService.botCounts(), 2, 1), "alone: 3 bo
 check(is(ClientState.counts, 2, 1) and is(ClientState.bots, 2, 1), "the client knows which of the counts are bots")
 click(home.play)
 check(home.teamSelect.Enabled, "PLAY asks for a team")
+-- The hint under AUTO is longer than its 620 px: it wraps, and the label
+-- grows to fit, so its second line isn't cut off.
+local hint = home.teamHint
+local oneLine = game:GetService("TextService"):GetTextSize(hint.Text, hint.TextSize, hint.Font, Vector2.new(math.huge, math.huge))
+check(oneLine.X > hint.Size.X.Offset, "the team hint takes more than one line")
+check(hint.TextWrapped and hint.AutomaticSize == Enum.AutomaticSize.Y, "so it wraps, and its label grows to fit it")
 check(open("Stinkers") and open("Sharters"), "alone with bots: neither team is locked")
 check(cards.Stinkers.Count.Text == "2" and cards.Stinkers.Max.Text == "/ 10 · 🤖 2 bots", "the Stinkers card: 2, both bots: " .. cards.Stinkers.Max.Text)
 check(cards.Sharters.Count.Text == "1" and cards.Sharters.Max.Text == "/ 10 · 🤖 1 bot", "the Sharters card: 1 bot: " .. cards.Sharters.Max.Text)
