@@ -9,7 +9,9 @@
 --     ready again with each life; never while exploding
 --   * no cheat flag: shooting all through a flight, and a dash onto a pad,
 --     are neither flagged nor put back, where the same moves without a
---     launch are (so the checks still bite)
+--     launch are (so the checks still bite); a launch that arrives while
+--     the server still sees the dash's start, 23 studs out, is taken, where
+--     the same spot with no dash, or a dash from 40 out, is too far
 --   * spawn protection works as before: a launch keeps it
 --   * refused: junk and unknown pads, far from the pad, not playing
 --   * everyone else's launches (a bot's) fart from where they happen
@@ -262,6 +264,36 @@ fly(cheat, arcOf(pad), nil, nil, AbilityConfig.FartDash.checkSeconds - 0.1)
 task.wait(0.2)
 check((Telemetry.snapshot().rejects.FartDash or {}).tooFar == 1 and (cheatRoot.Position - dashFrom).Magnitude < 1, "carried off with no launch: put back")
 
+-- A Fart Dash onto a pad from further out: the client reaches the pad and
+-- launches, and its request arrives while the server's view of it, a
+-- moment behind a dash, is still back where it dashed from.
+local DASH = AbilityConfig.FartDash
+local FAR_OUT = 23
+local _, padRadius = LaunchPads.cushion(pad)
+local reach = padRadius + LaunchPadConfig.SLACK_STUDS
+check(FAR_OUT > reach and FAR_OUT < reach + DASH.speed * DASH.durationSeconds, `(beyond a launch's {reach} studs, within a dash's length more)`)
+task.wait(DASH.cooldownSeconds)
+humanoid, root = parts()
+stand(me, pad, FAR_OUT)
+local acceptedBefore = #accepted
+check(Dash.dash(me, LaunchPads.direction(pad)), `a Fart Dash at the pad from {FAR_OUT} studs out`)
+check(Pads.launch(me, pad.Name) and #accepted == acceptedBefore + 1, `the launch, with the server still seeing you {FAR_OUT} studs out: taken`)
+local farArc = arcOf(pad)
+fly(me, farArc)
+task.wait(0.1)
+check((root.Position - farArc.to).Magnitude < 1e-3, "the dash isn't put back")
+dashRejects = Telemetry.snapshot().rejects.FartDash or {}
+check((dashRejects.tooFar or 0) == 1 and (dashRejects.throughWall or 0) == 0 and #Moderation.flagsOf(me) == 0, "nor refused or flagged")
+-- The same spot with no dash: too far, as before; nor does a dash stretch
+-- a launch beyond what it covers.
+task.wait(LaunchPadConfig.COOLDOWN_SECONDS)
+stand(me, pad, FAR_OUT)
+local tooFar = rejects("tooFar")
+check(not Pads.launch(me, pad.Name) and rejects("tooFar") == tooFar + 1, `{FAR_OUT} studs out with no dash: too far`)
+task.wait(DASH.cooldownSeconds)
+stand(me, pad, 40)
+check(Dash.dash(me, LaunchPads.direction(pad)) and not Pads.launch(me, pad.Name) and rejects("tooFar") == tooFar + 2, "a Fart Dash from 40 studs out: still too far")
+
 -- Spawn protection works as before: a launch keeps it.
 task.wait(LaunchPadConfig.COOLDOWN_SECONDS)
 Lifecycle.respawn(me)
@@ -270,7 +302,7 @@ humanoid, root = parts()
 check(Lifecycle.isProtected(me), "a fresh spawn is protected")
 stand(me, pad)
 Controller.step()
-check(Controller.flight ~= nil and #accepted == 4, "launched while protected")
+check(Controller.flight ~= nil and #accepted == 5, "launched while protected")
 check(Lifecycle.isProtected(me) and (me.Character :: Model):FindFirstChild("SpawnProtection"), "still protected")
 fly(me, arcOf(pad))
 humanoid.FloorMaterial = Enum.Material.Grass
@@ -280,11 +312,12 @@ Controller.step()
 task.wait(LaunchPadConfig.COOLDOWN_SECONDS)
 check(not Pads.launch(me, 42) and not Pads.launch(me, "Nowhere") and rejects("badPayload") == 2, "junk or an unknown pad")
 local far = LaunchPads.find(map, `{if team == "Stinkers" then "Sharters" else "Stinkers"}Gutter`) :: Model
-check(not Pads.launch(me, far.Name) and rejects("tooFar") == 1, "a pad you're nowhere near")
+tooFar = rejects("tooFar")
+check(not Pads.launch(me, far.Name) and rejects("tooFar") == tooFar + 1, "a pad you're nowhere near")
 check(Gas.add(me, 100, { team = if team == "Stinkers" then "Sharters" else "Stinkers", cause = "cloud" }) and Gas.isExploding(me), "about to blow")
 stand(me, pad)
 Controller.step()
-check(Controller.flight == nil and #accepted == 4, "no launch while exploding")
+check(Controller.flight == nil and #accepted == 5, "no launch while exploding")
 check(not Pads.launch(me, pad.Name) and rejects("prohibited") == 1, "and the server agrees")
 task.wait(2)
 Lifecycle.requestSpectate(cheat)

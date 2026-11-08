@@ -1,5 +1,7 @@
 -- Starts the server. Services load in dependency order, none requires one
--- loaded after it, and each start() only wires itself up:
+-- loaded after it, and each start() only wires itself up (where one needs
+-- to hear from a service loaded after it, the line is here, after both
+-- start):
 --   DataService           player profiles: load, autosave, save on leave
 --   SoftShutdownService   a closing server saves, then moves its players
 --                         to a fresh one (through a reserved server)
@@ -123,6 +125,8 @@ CombatService.start()
 ExplosionService.start()
 BarrelService.start()
 DashService.start()
+-- A launch just after a Fart Dash reaches further.
+DashService.Dashed:Connect(LaunchPadService.dashed)
 AbilityService.start()
 ProjectileService.start()
 EconomyService.start()

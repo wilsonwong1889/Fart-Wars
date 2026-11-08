@@ -198,11 +198,13 @@ end
 
 -- Whether a root at `position` could have been launched from the pad up
 -- to `lag` seconds ago: still over or beside the cushion (within
--- `slack`), or that close to where the arc has taken it since.
-function LaunchPads.reaches(pad: Model, position: Vector3, triggerHeight: number, slack: number, lag: number): boolean
+-- `slack`, and `reach` studs more across the ground: a Fart Dash just
+-- before can leave the server's view of the avatar that far behind), or
+-- that close to where the arc has taken it since.
+function LaunchPads.reaches(pad: Model, position: Vector3, triggerHeight: number, slack: number, lag: number, reach: number?): boolean
 	local top, radius = LaunchPads.cushion(pad)
 	local up = position.Y - top.Y
-	if up >= -1 - slack and up <= triggerHeight + slack and Vector3.new(position.X - top.X, 0, position.Z - top.Z).Magnitude <= radius + slack then
+	if up >= -1 - slack and up <= triggerHeight + slack and Vector3.new(position.X - top.X, 0, position.Z - top.Z).Magnitude <= radius + slack + (reach or 0) then
 		return true
 	end
 	local arc = LaunchPads.arc(pad, top + Vector3.new(0, 3, 0), 3)

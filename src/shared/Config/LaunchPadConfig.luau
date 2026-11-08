@@ -17,7 +17,8 @@ return table.freeze({
 	-- the cushion, or that close to where the arc would have carried it in
 	-- LAG_SECONDS (the request arrives after the client launched, and the
 	-- server sees the avatar a moment late): generous, since a refused
-	-- launch would leave its flight unallowed for.
+	-- launch would leave its flight unallowed for. Just after a Fart Dash,
+	-- a dash's length further across the ground (LaunchPadService).
 	SLACK_STUDS = 12,
 	LAG_SECONDS = 0.6,
 	-- The movement checks allow a flight's length to anything they measure

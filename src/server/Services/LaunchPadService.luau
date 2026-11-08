@@ -6,7 +6,9 @@
 -- they're at that pad, and the cooldown (one launch every
 -- COOLDOWN_SECONDS from any pad, ready again with each life); refused
 -- launches are logged. A launch is movement, not an attack: it keeps
--- spawn protection, like Fart Dash.
+-- spawn protection, like Fart Dash. Just after a Fart Dash, a launch
+-- reaches as much further as a dash goes: the server's view of the avatar
+-- is a moment behind, and can still be back where the dash began.
 -- Every launch it accepts is remembered for a minute, so the movement
 -- checks (CombatService's between shots, DashService's after a dash) allow
 -- for the flight and never flag it (LaunchPadService.allowance).
@@ -25,6 +27,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
 local FeatureFlags = require(Shared.Config.FeatureFlags)
 local LaunchPadConfig = require(Shared.Config.LaunchPadConfig)
+local AbilityConfig = require(Shared.Config.AbilityConfig)
 local States = require(Shared.States)
 local Signal = require(Shared.Signal)
 local LaunchPads = require(Shared.LaunchPads)
@@ -39,6 +42,7 @@ local GasService = require(script.Parent.GasService)
 local BotService = require(script.Parent.BotService)
 
 local CONFIG = LaunchPadConfig
+local DASH = AbilityConfig.FartDash
 -- How long a flight is remembered after it lands.
 local MEMORY_SECONDS = 60
 
@@ -51,6 +55,8 @@ LaunchPadService.Launched = Signal.new()
 type Flight = { at: number, seconds: number, length: number }
 local flights: { [Player]: { Flight } } = {}
 local cadences: { [Player]: Cadence.State } = {}
+-- When each player's last Fart Dash was taken (server time).
+local dashedAt: { [Player]: number } = {}
 local botReadyAt: { [BotService.Bot]: number } = setmetatable({}, { __mode = "k" }) :: any
 local started = false
 
@@ -91,6 +97,13 @@ function LaunchPadService.allowance(player: Player, from: number, to: number): n
 	return extra
 end
 
+-- A Fart Dash the server took from `player` (DashService.Dashed: Bootstrap
+-- connects it here, as DashService requires this service and not the
+-- other way round).
+function LaunchPadService.dashed(player: Player)
+	dashedAt[player] = now()
+end
+
 -- A player's client says it launched them from the pad named `padName`.
 function LaunchPadService.launch(player: Player, padName: unknown): boolean
 	if not FeatureFlags.LAUNCH_PADS then
@@ -117,11 +130,16 @@ function LaunchPadService.launch(player: Player, padName: unknown): boolean
 		reject(player, "prohibited")
 		return false
 	end
-	if not LaunchPads.reaches(pad, root.Position, CONFIG.TRIGGER_HEIGHT, CONFIG.SLACK_STUDS, CONFIG.LAG_SECONDS) then
+	-- Up to LAG_SECONDS after a Fart Dash ends, the server's view of the
+	-- avatar can still be back where it began: the launch reaches a dash's
+	-- length further.
+	local at = now()
+	local dashing = at - (dashedAt[player] or -math.huge) <= DASH.durationSeconds + CONFIG.LAG_SECONDS
+	local reach = if dashing then DASH.speed * DASH.durationSeconds else 0
+	if not LaunchPads.reaches(pad, root.Position, CONFIG.TRIGGER_HEIGHT, CONFIG.SLACK_STUDS, CONFIG.LAG_SECONDS, reach) then
 		reject(player, "tooFar")
 		return false
 	end
-	local at = now()
 	local cadence = cadences[player] or Cadence.new()
 	cadences[player] = cadence
 	local slack = math.max(CONFIG.COOLDOWN_SECONDS * (1 - GameConfig.FIRE_INTERVAL_TOLERANCE), GameConfig.FIRE_SLACK_SECONDS)
@@ -219,6 +237,7 @@ function LaunchPadService.start()
 	Players.PlayerRemoving:Connect(function(player)
 		cadences[player] = nil
 		flights[player] = nil
+		dashedAt[player] = nil
 	end)
 	if FeatureFlags.LAUNCH_PADS then
 		Health.loop("LaunchPads", 0.1, LaunchPadService.tick)
