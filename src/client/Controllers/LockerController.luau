@@ -37,6 +37,7 @@ local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local PrestigeConfig = require(Shared.Config.PrestigeConfig)
 local DailyShopConfig = require(Shared.Config.DailyShopConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
@@ -1036,6 +1037,11 @@ local function progressionTab(content: Frame)
 	for i, id in ProgressionConfig.cosmeticOrder do
 		local cosmetic = ProgressionConfig.cosmetics[id]
 		local owned = type(profile.ownedCosmetics) == "table" and ProgressionConfig.ownsCosmetic(profile.ownedCosmetics, id)
+		-- The beta's boom shows while badges are on (FeatureFlags.BADGES),
+		-- or once it's yours.
+		if cosmetic.exclusive and not owned and not FeatureFlags.BADGES then
+			continue
+		end
 		local equipped = equippedBy[cosmetic.kind] == id
 		local color = cosmetic.tracerColor or cosmetic.trailColor or cosmetic.boomColor or C.text
 		local name = if cosmetic.kind == "emote" then `{cosmetic.emoji} {cosmetic.name}` else cosmetic.name

@@ -114,7 +114,10 @@ local preview = answer.preview
 check(preview.rank == 1 and preview.resets.level == 50 and preview.resets.xp == 1234 and preview.resets.coins == 3450, "exact numbers: level, XP, coins")
 check(preview.resets.keptCoins == 500, "coins bought in the store and not spent are kept")
 check(table.concat(preview.resets.weapons, ",") == "Spritzer,Thunderclapper", "the weapons that go")
-check(preview.keeps.cosmetics == 3 and preview.keeps.lifetimeXP == 250000 and preview.keeps.eliminations == 1500 and preview.keeps.passes == 1, "and what stays")
+-- The saved three, and the beta's boom when the spec's clock is in the beta
+-- (BadgeConfig): playing then makes a Beta Tester.
+local cosmetics = 3 + (if table.find(data().OwnedCosmetics, "BetaBoom") then 1 else 0)
+check(preview.keeps.cosmetics == cosmetics and preview.keeps.lifetimeXP == 250000 and preview.keeps.eliminations == 1500 and preview.keeps.passes == 1, "and what stays")
 check(preview.rewards.badge == "Prestige1" and preview.rewards.cosmetic == "PrestigeFlame", "what rank 1 gives")
 
 -- Tokens.

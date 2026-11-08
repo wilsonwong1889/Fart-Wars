@@ -92,9 +92,13 @@ local ProgressionConfig = {
 		GoodGame = table.freeze({ id = "GoodGame", kind = "emote", name = "GG", emoji = "🤝", text = "GG!", source = "Daily shop" }),
 		UhOh = table.freeze({ id = "UhOh", kind = "emote", name = "Uh Oh", emoji = "💦", text = "UH OH...", source = "Daily shop" }),
 		SilentButDeadly = table.freeze({ id = "SilentButDeadly", kind = "emote", name = "Silent but Deadly", emoji = "🤫", text = "SILENT BUT DEADLY...", source = "Daily shop" }),
+		-- The beta's (BadgeConfig): given once to everyone who plays during
+		-- the beta, and never anything else. `exclusive`: no shop, spin,
+		-- track or pass may ever have it.
+		BetaBoom = table.freeze({ id = "BetaBoom", kind = "boom", name = "OG Beta Boom", boomColor = Color3.fromRGB(40, 255, 200), source = "PC beta testers", exclusive = true }),
 	}),
 	-- Cosmetics in the order the locker shows them.
-	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot", "SeasonSpark", "SludgeTrail", "ToxicBoom", "BrainrotGold", "OceanBreeze", "BubblegumBlast", "PlasmaPuff", "SolarStink", "BubbleTrail", "LavaTrail", "GalaxyTrail", "ConfettiBoom", "GoldBoom", "Beans", "GoodGame", "UhOh", "SilentButDeadly" }),
+	cosmeticOrder = table.freeze({ "GoldenGas", "RainbowRot", "StinkSparkle", "LuckyLime", "StarterSwirl", "LimeTrail", "Toot", "VictoryToot", "PrestigeFlame", "PrestigeTrail", "CrownToot", "SeasonSpark", "SludgeTrail", "ToxicBoom", "BrainrotGold", "OceanBreeze", "BubblegumBlast", "PlasmaPuff", "SolarStink", "BubbleTrail", "LavaTrail", "GalaxyTrail", "ConfettiBoom", "GoldBoom", "Beans", "GoodGame", "UhOh", "SilentButDeadly", "BetaBoom" }),
 
 	-- Sanity limits on any one transaction, and how many recent ones each
 	-- profile keeps for audits.
