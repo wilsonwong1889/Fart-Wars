@@ -44,6 +44,7 @@ local LockerController = require(script.Parent.LockerController)
 local RewardsController = require(script.Parent.RewardsController)
 local PlayersController = require(script.Parent.PlayersController)
 local SeasonController = require(script.Parent.SeasonController)
+local LeaderboardController = require(script.Parent.LeaderboardController)
 local ReleaseConfig = require(Shared.Config.ReleaseConfig)
 local ProgressionConfig = require(Shared.Config.ProgressionConfig)
 local MonetizationConfig = require(Shared.Config.MonetizationConfig)
@@ -103,6 +104,8 @@ local function openTile(id: string)
 		SeasonController.open()
 	elseif id == "Players" then
 		PlayersController.open()
+	elseif id == "Leaderboard" and LeaderboardController.enabled() then
+		LeaderboardController.open()
 	elseif UIConfig.pages[id] then
 		LockerController.open(id)
 	else
@@ -1217,7 +1220,7 @@ function HomeController.switchTeam()
 end
 
 -- Screens over the home screen that Space and F leave alone.
-local OVERLAYS = { "Locker", "Loadout", "ComingSoon", "DailyRewards", "SpinWheel", "Players", "Season", "Prestige", "GameMenu" }
+local OVERLAYS = { "Locker", "Loadout", "ComingSoon", "DailyRewards", "SpinWheel", "Players", "Season", "Prestige", "Leaderboard", "GameMenu" }
 
 -- Space or F: PLAY on the home screen, AUTO on the team screen.
 local function onKey(input: InputObject, processed: boolean)

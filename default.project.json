@@ -78,6 +78,9 @@
         },
         "SendFeedback": {
           "$className": "RemoteFunction"
+        },
+        "LeaderboardRequest": {
+          "$className": "RemoteFunction"
         }
       },
       "Assets": {

@@ -36,6 +36,12 @@ return table.freeze({
 	-- GameConfig.DEFAULT_MODE. Off: every round is the default mode.
 	MODE_ROTATION = false,
 
+	-- The weekly leaderboard (LeaderboardConfig): this week's top
+	-- eliminations and round wins from the home screen's TOP tile, reset
+	-- every Monday 00:00 UTC. Players only: bots, and kills of or by bots,
+	-- never count. Off: TOP shows Coming Soon and nothing is counted.
+	LEADERBOARD = true,
+
 	-- Gas combat: the Gas Blaster (left click), the gas meter, inflation and
 	-- explosions.
 	GAS_COMBAT = true,

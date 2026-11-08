@@ -65,6 +65,7 @@ local remotes = {
 	PrestigeRequest = "RemoteFunction",
 	SettingsRequest = "RemoteFunction",
 	SendFeedback = "RemoteFunction",
+	LeaderboardRequest = "RemoteFunction",
 }
 local present = 0
 for _, child in ReplicatedStorage.Remotes:GetChildren() do

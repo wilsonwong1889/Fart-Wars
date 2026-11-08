@@ -242,7 +242,9 @@ local UIConfig = {
 	-- The locker's tabs, on the home screen and in the M menu (Loadout is
 	-- its own screen, LoadoutController).
 	menuSections = table.freeze({ "Loadout", "Weapons", "Progression", "Settings" }),
-	-- Entries that arrive in later phases.
+	-- Entries that arrive in later phases: the M menu lists them, and they
+	-- say Coming Soon until their screen is switched on (the Leaderboard's
+	-- is FeatureFlags.LEADERBOARD).
 	comingSoon = table.freeze({ "Leaderboard" }),
 	-- How each locker page looks on its buttons, tabs and header.
 	pages = table.freeze({

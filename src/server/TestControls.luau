@@ -383,6 +383,7 @@ local REMOTES = {
 	PrestigeRequest = "RemoteFunction",
 	SettingsRequest = "RemoteFunction",
 	SendFeedback = "RemoteFunction",
+	LeaderboardRequest = "RemoteFunction",
 }
 
 -- Checks, on the real server, what the specs can't: the place's settings,
