@@ -154,6 +154,24 @@ end
 check(Settings.hudScale == 0.8, "down to 80%")
 Settings.hudScale = 1
 UI.applyScale()
+-- UI holds the panels' UIScales strongly (Roblox can collect a weak
+-- table's instances while they're on screen, and HUD SIZE then changed
+-- nothing mid-session), and lets each go once it leaves the game.
+check(not string.find((Client.UI :: any).Source, "__mode", 1, true), "UI keeps the UIScales in a strong table")
+local probe = UI.new("Frame", { Name = "Probe", Size = UDim2.new(0, 100, 0, 40), Parent = hudScreen })
+task.wait()
+local probeScale = probe:FindFirstChild("HudScale") :: UIScale
+check(probeScale and probeScale.Scale == 1, "a new panel takes the HUD size")
+probeScale.Parent = nil
+Settings.hudScale = 1.1
+UI.applyScale()
+check(probeScale.Scale == 1, "out of the game, it's let go")
+probeScale.Parent = probe
+check(probeScale.Scale == 1.1, "back in, it follows again, at the size of the moment")
+probe:Destroy()
+Settings.hudScale = 1
+UI.applyScale()
+check(probeScale.Scale == 1.1, "destroyed, it's let go")
 
 -- At every HUD size, on a 768 or 820 tall screen, nothing runs into
 -- anything. The stand-ins lay nothing out, so `rect` works out where a

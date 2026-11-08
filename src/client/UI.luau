@@ -87,8 +87,10 @@ end
 
 -- The HUD size (Settings.hudScale): every panel on every screen grows or
 -- shrinks around its own anchor, so corner panels stay in their corners.
--- Full-screen backdrops are left alone.
-local scaled: { UIScale } = setmetatable({}, { __mode = "v" }) :: any
+-- Full-screen backdrops are left alone. The panels' UIScales are kept
+-- here, and not weakly: Roblox can collect an instance's Lua side even
+-- while it's on screen, which would empty a weak table.
+local scaled: { [UIScale]: true } = {}
 
 local function scale(item: Instance)
 	if not item:IsA("GuiObject") or item:FindFirstChild("HudScale") then
@@ -101,15 +103,27 @@ local function scale(item: Instance)
 	uiScale.Name = "HudScale"
 	uiScale.Scale = Settings.hudScale
 	uiScale.Parent = item
-	table.insert(scaled, uiScale)
+	-- In the list while it's in the game (at the size of the moment when it
+	-- comes back), out once it leaves or is destroyed, so nothing leaks.
+	local function follow()
+		if uiScale:IsDescendantOf(game) then
+			uiScale.Scale = Settings.hudScale
+			scaled[uiScale] = true
+		else
+			scaled[uiScale] = nil
+		end
+	end
+	follow()
+	uiScale.AncestryChanged:Connect(follow)
+	uiScale.Destroying:Connect(function()
+		scaled[uiScale] = nil
+	end)
 end
 
 -- Applies Settings.hudScale everywhere.
 function UI.applyScale()
-	for _, uiScale in scaled do
-		if uiScale.Parent then
-			uiScale.Scale = Settings.hudScale
-		end
+	for uiScale in scaled do
+		uiScale.Scale = Settings.hudScale
 	end
 end
 
