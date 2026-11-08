@@ -57,6 +57,11 @@
   cosmetics a day for 200 to 1,800 coins each: the same in every server,
   new at midnight UTC, with a countdown. Click one to preview it on your
   own gun, bought or not; if you can't buy it yet, it says why.
+- Any of today's cosmetics can be a gift: GIFT on its card lists
+  everyone else in the server (friends first, and who has it already),
+  and your coins buy it for them to keep. They get a banner saying who
+  it's from. A gift needs both players' progress to be saving, and
+  Roblox to allow both accounts to trade items bought with coins.
 - The lobby's TODAY IN THE SHOP panel leads with a card of up to three
   of today's cosmetics you don't own and the time left (click it for the
   daily shop), then the Starter Pack, your next gun, the daily reward,
@@ -112,17 +117,6 @@
   card could press the shop's tabs or another item's button, and the
   home screen's buttons still worked through the shop's dimmed backdrop.
   PLAY also closes the free spin now, as it does the daily reward.
-- The shop is one page (Featured, Weapons, Daily, Coins) with a rail to
-  jump between its parts. The Daily part sells five cosmetics for coins,
-  the same for everyone and new at midnight UTC; the lobby shows today's
-  and the time left, and any of them can be looked at on your own gun
-  first. Any of today's cosmetics can be a gift: GIFT on its card lists
-  everyone else in the server (friends first, and who has it already),
-  and your coins buy it for them to keep. They get a banner saying who
-  it's from. A gift needs both players' progress to be saving, and
-  Roblox to allow both accounts to trade items bought with coins.
-- Hold E for a wheel of the emotes you own; tap E for the one equipped.
-  The loading screen is readable again (it had gone almost black).
 - Specs: `Audio`, `HitFeedback` and `Balance` are new (38 in all); `Map`
   checks low cover and the gates; `Soak` now plays the same game every
   run.
