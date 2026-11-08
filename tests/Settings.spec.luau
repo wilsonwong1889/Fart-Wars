@@ -13,7 +13,9 @@
 --   * the client: saved choices back on joining, with their effects (low
 --     detail, HUD size, field of view, sensitivity, the crosshair), shown on
 --     the Settings page; changes there saved shortly after, in one save
---     however many clicks, and an honest client never refused
+--     however many clicks, and an honest client never refused; the page
+--     stays scrolled where it was through the clicks, and starts at the
+--     top when it's opened anew
 --   * field of view and sensitivity in third and first person (V), with
 --     the M menu open and closed, the mouse freed with Alt and locked
 --     again; off the avatar (the home screen's shots) the usual field of
@@ -370,9 +372,14 @@ check(list().CrosshairColorRow.CrosshairColor.Text == "CROSSHAIR CYAN" and list(
 check(list().LowDetailRow.LowDetail.Text == "LOW DETAIL: ON" and list().HudSizeRow.HudSize.Text == "HUD SIZE 110%", "and the rest")
 check(string.find(list().SaveNote.Text, "Saved to your profile", 1, true) ~= nil, "it says the settings are saved")
 local savesBefore = counter("Settings.saves")
+-- Scrolled down to the view rows (under the fold on a short window): each
+-- click redraws the page, and the list stays where it was.
+local SCROLLED = Vector2.new(0, 260)
+list().CanvasPosition = SCROLLED
 click(list().FieldOfViewRow.FieldOfViewUp)
 frame()
 check(Settings.fieldOfView == 95 and cam.FieldOfView == 95 and list().FieldOfViewRow.FieldOfView.Text == "FIELD OF VIEW 95", "FIELD OF VIEW +: 95, at once, with the menu open")
+check(list().CanvasPosition == SCROLLED, "and the list stays scrolled where it was")
 click(list().SensitivityRow.SensitivityDown)
 frame()
 check(Settings.sensitivity == 0.4 and UserInputService.MouseDeltaSensitivity == 0.4 and list().SensitivityRow.Sensitivity.Text == "SENSITIVITY 0.4x", "SENSITIVITY -: 0.4x, at once")
@@ -389,6 +396,16 @@ for _ = 1, 3 do
 	click(list().FieldOfViewRow.FieldOfViewDown)
 end
 check(Settings.fieldOfView == 95, "and back down to 95")
+check(list().CanvasPosition == SCROLLED, "every click kept the list where it was scrolled")
+-- A page opened anew starts at the top: from another page, or closed and
+-- opened again.
+Locker.open("Weapons")
+Locker.open("Settings")
+check(list().CanvasPosition == Vector2.zero, "another page and back: the list from the top")
+list().CanvasPosition = SCROLLED
+Locker.close()
+Locker.open("Settings")
+check(Locker.isOpen and list().CanvasPosition == Vector2.zero, "closed and opened again: from the top")
 
 -- Everything closed: locked, with the new view; Alt frees it and locks it again.
 press(Enum.KeyCode.M)

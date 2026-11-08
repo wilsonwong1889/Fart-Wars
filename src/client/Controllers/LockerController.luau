@@ -1484,9 +1484,27 @@ local function settingsTab(content: Frame)
 end
 
 local TABS = { Weapons = shopTab, Progression = progressionTab, Settings = settingsTab }
--- The page drawn last, and where the shop was scrolled to (kept when it's
--- drawn again for new coins or a purchase).
+-- The page drawn last. Drawn again (new coins, a purchase, a click on one
+-- of its settings), its lists stay scrolled where they were; a page opened
+-- anew (open forgets it) starts at the top.
 local drawnTab: string? = nil
+
+-- Puts a list back at `position`. A canvas that sizes itself is measured
+-- only once the layout has run, and is too short to scroll that far till
+-- then, so it's set again as the canvas grows into it.
+local function scrollBack(scroll: ScrollingFrame, position: Vector2)
+	scroll.CanvasPosition = position
+	if scroll.AutomaticCanvasSize == Enum.AutomaticSize.None then
+		return
+	end
+	local grown: RBXScriptConnection
+	grown = scroll:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(function()
+		scroll.CanvasPosition = position
+		if scroll.AbsoluteCanvasSize.Y - scroll.AbsoluteWindowSize.Y >= position.Y then
+			grown:Disconnect()
+		end
+	end)
+end
 
 render = function()
 	local p = LockerController.parts
@@ -1505,7 +1523,16 @@ render = function()
 	UI.paint(p.header, page.color)
 	p.title.Text = `{page.icon} {page.label}`
 	p.wallet.Text = `💰 {UI.commas(number("Coins", 0))}`
-	local scrolled = if drawnTab == "Weapons" and LockerController.tab == "Weapons" and p.shop then p.shop.CanvasPosition else nil
+	-- Where the page's lists (the shop, the settings, the cosmetics) are
+	-- scrolled to, by name, to put back once it's drawn again.
+	local scrolled: { [string]: Vector2 } = {}
+	if drawnTab == LockerController.tab then
+		for _, item in p.content:GetDescendants() do
+			if item:IsA("ScrollingFrame") then
+				scrolled[item.Name] = item.CanvasPosition
+			end
+		end
+	end
 	for _, child in p.content:GetChildren() do
 		child:Destroy()
 	end
@@ -1514,8 +1541,10 @@ render = function()
 	TABS[LockerController.tab](p.content)
 	drawnTab = LockerController.tab
 	p.rail.Visible = LockerController.tab == "Weapons"
-	if scrolled and p.shop then
-		p.shop.CanvasPosition = scrolled
+	for _, item in p.content:GetDescendants() do
+		if item:IsA("ScrollingFrame") and scrolled[item.Name] then
+			scrollBack(item, scrolled[item.Name])
+		end
 	end
 	lightRail()
 	for _, preview in previews do
