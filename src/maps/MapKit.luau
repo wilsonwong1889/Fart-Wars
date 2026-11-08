@@ -1,15 +1,17 @@
 -- The pieces maps are built from (masterplan 6.1's map pipeline), so a
--- new arena reuses the same spawn, cover, barrel and marker prefabs and
--- keeps the same rules: everything anchored, markers out of the way of
--- players, rays and touches, and one half mirrored onto the other across
--- z = 0 so neither team has the better side. Not a map itself:
--- MapConfig never lists it.
+-- new arena reuses the same spawn, cover, barrel, launch pad and marker
+-- prefabs and keeps the same rules: everything anchored, markers out of
+-- the way of players, rays and touches, and one half mirrored onto the
+-- other across z = 0 so neither team has the better side. Not a map
+-- itself: MapConfig never lists it.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local TeamConfig = require(Shared.Config.TeamConfig)
 local MapConfig = require(Shared.Config.MapConfig)
 local UIConfig = require(Shared.Config.UIConfig)
+local LaunchPadConfig = require(Shared.Config.LaunchPadConfig)
+local LaunchPads = require(Shared.LaunchPads)
 
 local MapKit = {}
 
@@ -201,6 +203,76 @@ function MapKit.gasBarrels(barrels: Instance, spot: Vector3, theme: MapConfig.Th
 	end
 end
 
+-- A launch pad (LaunchPads) at `at` on the ground, on the Stinkers' half,
+-- and its mirror on the Sharters': a giant whoopee cushion that throws
+-- whoever steps on it to `to` (on the ground), its arc peaking `apex`
+-- studs up. Each is a Model in `parent` named after its half and `name`
+-- (StinkersAlley, ShartersAlley), with the cushion (Pad, which you walk
+-- on), a glowing rim, two neon chevrons pointing the way it throws (decor:
+-- flat on the ground, walked through) and the Target: an invisible column
+-- on the landing spot, as tall as the arc's top, so the map's scaling
+-- moves the landing and raises the peak with everything else.
+function MapKit.launchPad(parent: Instance, name: string, at: Vector3, to: Vector3, apex: number): (Model, Model)
+	assert(parent.Name == LaunchPads.FOLDER, `launch pads go in a {LaunchPads.FOLDER} folder`)
+	local look = LaunchPadConfig
+	local direction = Vector3.new(to.X - at.X, 0, to.Z - at.Z).Unit
+	local right = direction:Cross(Vector3.yAxis)
+	-- The Stinkers' pad, part by part: { name, size, frame, props }.
+	local parts: { { any } } = {}
+	local function add(partName: string, size: Vector3, frame: CFrame, props: Props)
+		table.insert(parts, { partName, size, frame, props })
+	end
+	local center = Vector3.new(at.X, 0, at.Z)
+	add("Pad", Vector3.new(0.8, 6, 6), CFrame.new(center + Vector3.new(0, 0.4, 0)) * MapKit.UPRIGHT, {
+		Shape = Enum.PartType.Cylinder,
+		Color = look.CUSHION_COLOR,
+		Material = Enum.Material.SmoothPlastic,
+		CanTouch = false,
+	})
+	add("PadRim", Vector3.new(0.5, 7, 7), CFrame.new(center + Vector3.new(0, 0.25, 0)) * MapKit.UPRIGHT, MapKit.decor(look.RIM_COLOR, Enum.Material.Neon, {
+		Shape = Enum.PartType.Cylinder,
+		CastShadow = false,
+	}))
+	-- Two chevrons, ">" shapes pointing along the throw, poking out of the
+	-- cushion's top. Each bar stands on the ground under a stud tall, so
+	-- the scaling leaves it flat with the cushion (turned off the axes, a
+	-- whole stud would come out a hair over and be scaled up).
+	for _, tip in { 1.9, 0.4 } do
+		for _, side in { -1, 1 } do
+			local axis = (direction + right * side).Unit
+			local bar = center + direction * tip - axis * 0.75 + Vector3.new(0, 0.45, 0)
+			add("PadArrow", Vector3.new(0.4, 0.9, 1.5), CFrame.lookAt(bar, bar + axis), MapKit.decor(look.ARROW_COLOR, Enum.Material.Neon, {
+				CastShadow = false,
+			}))
+		end
+	end
+	add("Target", Vector3.new(2, apex, 2), CFrame.new(to.X, apex / 2, to.Z), {
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+	})
+	local function build(half: string, place: (CFrame) -> CFrame): Model
+		local pad = Instance.new("Model")
+		pad.Name = `{half}{name}`
+		pad:SetAttribute("Half", half)
+		for _, entry in parts do
+			local partName, size, frame, props = entry[1], entry[2], entry[3], entry[4]
+			local p = MapKit.part(pad, partName, size, place(frame), props)
+			if partName == "PadRim" then
+				MapKit.light(p, look.RIM_COLOR, 8)
+			end
+		end
+		pad.PrimaryPart = pad:FindFirstChild("Pad") :: BasePart
+		pad.Parent = parent
+		return pad
+	end
+	return build("Stinkers", function(frame)
+		return frame
+	end), build("Sharters", MapKit.mirror)
+end
+
 -- Fixed spectator views: { from, lookAt } each.
 function MapKit.cameraViews(cameras: Instance, views: { { Vector3 } })
 	for i, view in views do
@@ -219,9 +291,10 @@ end
 --     wall an avatar can hide behind stays that low instead of becoming
 --     one nobody can shoot or lob over
 -- Lights reach `factor` times further, up to Roblox's limit, so a lamp
--- still lights what it lit in the layout. Rotations must be quarter turns
--- (all the kit makes). The map keeps the factor as its Scale attribute, so
--- the dressing's modules grow with it.
+-- still lights what it lit in the layout. Rotations must be quarter turns,
+-- or any turn about the vertical (a launch pad's chevrons): all the kit
+-- makes. The map keeps the factor as its Scale attribute, so the
+-- dressing's modules grow with it.
 function MapKit.scale(model: Model, factor: number)
 	if factor == 1 then
 		return

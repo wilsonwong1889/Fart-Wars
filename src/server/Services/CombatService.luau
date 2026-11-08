@@ -34,6 +34,7 @@ local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
 local BotService = require(script.Parent.BotService)
+local LaunchPadService = require(script.Parent.LaunchPadService)
 
 local CombatService = {}
 
@@ -124,12 +125,14 @@ local function checkAccuracy(player: Player, entry: Shooter, at: number)
 end
 
 -- Logs a shooter whose head moved further since the last shot than
--- running and dashing allow (a teleport, or a lagging client); the first
--- time in a session it's flagged for review.
+-- running, dashing and any launch pad's throw in between allow (a
+-- teleport, or a lagging client); the first time in a session it's
+-- flagged for review.
 local function checkMovement(player: Player, entry: Shooter, head: Vector3, at: number)
 	if entry.lastHead and entry.lastShotAt then
 		local dash = AbilityConfig.FartDash
 		local allowed = (GameConfig.WALK_SPEED + (dash.speed :: number)) * (at - entry.lastShotAt) + 8
+			+ LaunchPadService.allowance(player, entry.lastShotAt, at)
 		if (head - entry.lastHead).Magnitude > allowed then
 			local studs = math.floor((head - entry.lastHead).Magnitude)
 			Telemetry.count("Combat.impossibleMovement")

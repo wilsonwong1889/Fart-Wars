@@ -208,6 +208,18 @@ neither side has a better layout (`src/maps/BrainrotBattlefield.luau`):
   sightlines, and counts only walls and cover).
 - **Gas barrels** sit in the contested middle, never by a spawn, one
   `GasBarrel` model each in the `Barrels` folder.
+- **Launch pads** (`FeatureFlags.LAUNCH_PADS`): giant whoopee cushions that
+  fart whoever steps on one forward and up along a fixed arc, with a
+  puff, a sound and a green cloud. Four a half, mirrored: one at the start
+  of each side lane beside the spawn room, thrown up the lane to just
+  short of its gap into the plaza, and one at each front corner of the
+  spawn room, thrown into Porcelain Plaza short of the throne. Every arc
+  stays on its own half, under the gates and clear of the walls and
+  cover. A pad is a `LaunchPads` model (the cushion, and the `Target`
+  column standing on the landing spot as tall as the arc's peak); the
+  client launches its own avatar and the server checks it
+  (`LaunchPadService`), with a short cooldown, and its movement checks
+  allow for the flight. Bots take a pad they walk onto its way.
 - `Zones` marks the lanes and spawn areas, `CameraPoints` holds the home
   screen's fixed views, and `Bounds` is the playable box.
 
@@ -314,7 +326,8 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
 | `Windows` | every window (the team picker, the menu, Coming Soon, the shop and its "Buy it?", the loadout, Players, the daily reward, the free spin, the season, prestige) takes the clicks on it, so none reach what's under it; PLAY closes the daily reward and the free spin, a spin still going landing out of sight and the wallet catching up |
 | `Soak` | 20 players for 20 minutes with everything on (shooting, every weapon and ability, shopping, spectating, AFK, junk payloads, leaving and rejoining), the same seeded game every run: no errors anywhere, team caps, avatars only for ACTIVE players, sane gas, coins, levels and ownership, rounds turning over, every profile saved and released, and no departed player left in memory |
-| `Map` | the MapBase contract, symmetry, lanes, cover heights (low cover at avatar height, the rest scaled; `MapKit.scale`'s KeepHeight on its own), spawn sightlines (standing, up on low cover, up on anything on the enemy half), the lane gates (a sign per lane per half reading both ways, lit, in sight of the spawn exits, decor above the dividers, a few dozen parts), barrel placement, reloading |
+| `Map` | the MapBase contract, symmetry, lanes, cover heights (low cover at avatar height, the rest scaled; `MapKit.scale`'s KeepHeight on its own), spawn sightlines (standing, up on low cover, up on anything on the enemy half), the lane gates (a sign per lane per half reading both ways, lit, in sight of the spawn exits, decor above the dividers, a few dozen parts), barrel placement, launch pads (placement and mirroring; every arc flown from all over each cushion with an avatar's box: clear of walls and cover, under the dividers' tops and the gates, on its own half, landing on open ground far from the other team's spawn), reloading |
+| `LaunchPads` | stepping onto a pad: the kick and push along its arc, the server told and agreeing, the fart, puff and cloud, slowing to walking speed on landing; the cooldown on both sides; no cheat flag for shooting through a flight or dashing onto a pad, where the same moves without a launch are caught; spawn protection kept; junk, far, exploding and spectating refused; others' launches heard where they happen; bots taking a pad their way (not backing off against one), their cooldown, and their brain planning again from the landing |
 | `TeamBalance`, `Modes`, `Structure` | the team rules, game modes and the clock, the project's shape and config |
 
 A spec fails on any error in a background thread, not just its own checks.

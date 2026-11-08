@@ -33,6 +33,11 @@ return table.freeze({
 	-- Shift: Fart Dash, everyone's (the unlockable abilities are on Q).
 	FART_DASH = true,
 
+	-- Launch pads: giant whoopee cushions on the map that fart whoever
+	-- steps on one forward and up, toward the fight (LaunchPadConfig).
+	-- Off: the map has none.
+	LAUNCH_PADS = true,
+
 	-- Coins, XP and levels for playing. Off, nothing is paid (stats still
 	-- count, and saving still runs): for playtests of the combat alone.
 	PROGRESSION = true,

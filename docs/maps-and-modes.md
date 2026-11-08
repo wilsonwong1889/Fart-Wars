@@ -51,8 +51,10 @@ Model made in Studio with the same name, plus an entry in `MapConfig`.
 `MapKit` has the pieces: `mirror` (every half is mirrored across z = 0),
 `part`, `marker` (invisible, never in anyone's way), `pair` (a part and
 its mirror, optionally in each team's colour), `cylinder`, `spawnPads`,
-`gasBarrels`, `cameraViews` and `controlZone`. Build one half and mirror
-it, and the fairness checks follow.
+`gasBarrels`, `launchPad` (a launch pad and its mirror: the cushion and
+the landing spot with the arc's peak, `LaunchPads`), `cameraViews` and
+`controlZone`. Build one half and mirror it, and the fairness checks
+follow.
 
 The contract (`MapBase.validate`): `Spawns/<team>` with at least one
 SpawnLocation each, inside `Bounds`; `CameraPoints`; every part anchored;
@@ -69,6 +71,10 @@ Each arena has to pass, like Brainrot Battlefield does (the `Map` spec):
 - spawn safety: no sightline from the lanes or the enemy half to a spawn
   pad, and `safeSpawn` picks away from enemies
 - barrels in contested ground, never by a spawn
+- launch pads (if it has any): every arc clears the walls and cover with
+  room round an avatar, stays on its own half, peaks below anything you
+  could stand on, and lands on open ground, never near the other team's
+  spawn
 
 Then on staging: engagement time (`firsts.shot` and `firsts.hit` per
 session, compared with Brainrot Battlefield), spawn deaths (deaths in the

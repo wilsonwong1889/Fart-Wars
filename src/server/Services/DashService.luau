@@ -22,6 +22,7 @@ local MapService = require(script.Parent.MapService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
+local LaunchPadService = require(script.Parent.LaunchPadService)
 
 local DASH = AbilityConfig.FartDash
 local CHECK_SECONDS = DASH.checkSeconds :: number
@@ -58,6 +59,14 @@ function DashService.throughWall(from: Vector3, to: Vector3): boolean
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { walls }
 	return workspace:Raycast(from, to - from, params) ~= nil
+end
+
+-- Whether a launch pad threw the player between two server times
+-- (LaunchPadService knows every launch it took). A dash's check leaves
+-- that travel to the launch's own allowance, so a dash onto a pad is
+-- neither put back nor flagged.
+function DashService.launchedDuring(player: Player, from: number, to: number): boolean
+	return LaunchPadService.allowance(player, from, to) > 0
 end
 
 function DashService.dash(player: Player, direction: unknown): boolean
@@ -111,6 +120,9 @@ function DashService.dash(player: Player, direction: unknown): boolean
 	})
 	task.delay(CHECK_SECONDS, function()
 		if player.Character ~= character or not root.Parent then
+			return
+		end
+		if DashService.launchedDuring(player, at, now()) then
 			return
 		end
 		local travelled = horizontal(root.Position - start.Position).Magnitude

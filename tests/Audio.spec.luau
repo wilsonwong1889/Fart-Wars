@@ -47,7 +47,7 @@ for name, id in AudioConfig do
 		check(mix.range == nil or RANGES[mix.range] ~= nil, `{name}'s range is one of the kinds`)
 	end
 end
-check(ids == 19, "all 19 sounds kept")
+check(ids == 20, "all 20 sounds kept")
 for name in MIX do
 	check(type(AudioConfig[name]) == "string", `the mix for {name} is for a sound`)
 end
