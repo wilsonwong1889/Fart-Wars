@@ -11,7 +11,7 @@ export type Snapshot = {
 	activePlayersByTeam: { [string]: number },
 	-- How many of activePlayersByTeam are bots.
 	botsByTeam: { [string]: number }?,
-	result: { winner: string?, draw: boolean, scores: { [string]: number } }?,
+	result: { winner: string?, draw: boolean, scores: { [string]: number }, mode: string? }?,
 	mode: string,
 	modeName: string?,
 	objective: string?, -- "eliminations" or "zone"

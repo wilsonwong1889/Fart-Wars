@@ -842,9 +842,8 @@ function BotBrain.pickGoal(self: Brain, kind: string): Vector3
 		end
 		return if best then best.Position else self:patrolPoint()
 	elseif kind == "zone" then
-		local zone = activeZone() :: BasePart
-		local size = zone.Size
-		return zone.CFrame:PointToWorldSpace(Vector3.new(self.rng:NextNumber(-0.35, 0.35) * size.X, -size.Y / 2, self.rng:NextNumber(-0.35, 0.35) * size.Z))
+		-- Open ground somewhere in the zone, never inside the throne.
+		return ZoneService.spot(self.rng) or self:patrolPoint()
 	elseif kind == "chase" and self.lastSeenPosition then
 		return self.lastSeenPosition
 	end

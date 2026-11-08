@@ -113,12 +113,17 @@ local GameConfig = {
 	-- small servers).
 	MODE_ROTATION = table.freeze({ "TeamElimination", "GasControl" }),
 	ROTATION_MIN_PLAYERS = 6,
-	-- Gas Control's zone: every TICK_SECONDS, a team alone in it scores
-	-- POINTS; a player holding it earns COINS and XP every REWARD_SECONDS,
-	-- at most REWARDS_PER_ROUND times a round.
+	-- Gas Control's zone (ZoneService), counted every TICK_SECONDS. A team
+	-- alone in it takes it in CAPTURE_SECONDS[n] with n of them in it (the
+	-- last entry for more); then, while it has the zone to itself, it
+	-- scores POINTS every POINT_SECONDS. A player in it while their team
+	-- scores earns COINS and XP every REWARD_SECONDS of scoring, at most
+	-- REWARDS_PER_ROUND times a round.
 	ZONE = table.freeze({
-		TICK_SECONDS = 1,
+		TICK_SECONDS = 0.25,
+		CAPTURE_SECONDS = table.freeze({ 6, 4, 3 }),
 		POINTS = 1,
+		POINT_SECONDS = 1,
 		REWARD_SECONDS = 10,
 		COINS = 2,
 		XP = 5,

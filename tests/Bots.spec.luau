@@ -415,12 +415,18 @@ check(Round.phase() == "ACTIVE" and Round.getMode().id == "GasControl", "a Gas C
 local zone = Zone.parts()
 check(zone ~= nil, "the map has a zone")
 tootsBody:PivotTo(CFrame.new((zone :: BasePart).Position))
-Zone.tick(1)
+-- A capture takes a few seconds (GameConfig.ZONE.CAPTURE_SECONDS).
+for _ = 1, 3 * GameConfig.ZONE.CAPTURE_SECONDS[1] do
+	if Zone.state() == teamB then
+		break
+	end
+	Zone.tick(1)
+end
 local owner, contested = Zone.state()
-check(owner == teamB and not contested and workspace:GetAttribute(`Zone_{teamB}`) == 1, "a bot alone in the zone holds it for its team")
+check(owner == teamB and not contested and workspace:GetAttribute(`Zone_{teamB}`) == 1, "a bot alone in the zone takes it for its team")
 ada.Character:PivotTo(CFrame.new((zone :: BasePart).Position + Vector3.new(1, 0, 0)))
 Zone.tick(1)
 owner, contested = Zone.state()
-check(owner == nil and contested, "a player against a bot contests it")
+check(owner == teamB and contested, "a player against a bot contests it")
 
 return { status = "PASS", checks = checks }

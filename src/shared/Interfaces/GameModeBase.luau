@@ -3,7 +3,8 @@
 -- mode needs no change to the round manager. GameModeBase.new fills in the
 -- defaults: most points wins, level scores are a draw.
 export type Scores = { [string]: number }
-export type Result = { winner: string?, draw: boolean, scores: Scores }
+-- RoundService adds `mode` (the mode's id) to the result it publishes.
+export type Result = { winner: string?, draw: boolean, scores: Scores, mode: string? }
 export type ScoreEvent = {
 	team: string, -- the team the point goes to
 	source: string, -- "elimination", "zone", or "test" from the test-only controls
