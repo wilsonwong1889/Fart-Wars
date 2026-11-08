@@ -16,6 +16,9 @@
 --   ProgressEvent { kind = "levelUp", level, unlocks = { text }, coins }
 --   ProgressEvent { kind = "mastery", weapon, badge, eliminations, coins }
 -- The HUD reads player attributes: Coins, Level, XP, XPToNext, LifetimeXP.
+-- hold() keeps those attributes and the events back from the client for a
+-- moment (the money itself moves at once), so the spin wheel's prize isn't
+-- given away before it lands; reveal() or a timer lets them through.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -66,6 +69,8 @@ type Session = {
 	-- Combat coins in the last minute, for the anomaly check.
 	recent: { { at: number, coins: number } },
 	flagged: boolean,
+	-- While a hold is on: the events waiting for reveal().
+	held: { Event }?,
 }
 local sessions: { [Player]: Session } = {}
 -- (Set below.) A session for a player in the game, if there isn't one yet:
@@ -101,6 +106,10 @@ end
 
 -- Refreshes the HUD attributes from the profile.
 function EconomyService.publish(player: Player)
+	local session = sessions[player]
+	if session and session.held then
+		return
+	end
 	local profile = DataService.get(player)
 	if not profile then
 		return
@@ -133,12 +142,48 @@ local function withProfile(player: Player, change: (Data, { Event }) -> ())
 	local remote = progressEvent()
 	local changed = false
 	for _, event in events do
-		remote:FireClient(player, event)
+		if session.held then
+			table.insert(session.held, event)
+		else
+			remote:FireClient(player, event)
+		end
 		changed = changed or event.kind == "levelUp" or event.kind == "mastery"
 	end
 	if changed then
 		EconomyService.Changed:Fire(player)
 	end
+end
+
+-- Lets the client see what hold() kept back.
+function EconomyService.reveal(player: Player)
+	local session = sessions[player]
+	local held = session and session.held
+	if not (session and held) then
+		return
+	end
+	session.held = nil
+	EconomyService.publish(player)
+	local remote = progressEvent()
+	for _, event in held do
+		remote:FireClient(player, event)
+	end
+end
+
+-- Keeps the client's wallet and progress events as they are until
+-- reveal(), or `seconds` at most. Only the telling waits: every change is
+-- in the profile, and saves, as usual.
+function EconomyService.hold(player: Player, seconds: number)
+	local session = sessions[player]
+	if not session then
+		return
+	end
+	local held = session.held or {}
+	session.held = held
+	task.delay(seconds, function()
+		if session.held == held then
+			EconomyService.reveal(player)
+		end
+	end)
 end
 
 local function addToLedger(player: Player, data: Data, id: string, reason: string, coins: number, xp: number)

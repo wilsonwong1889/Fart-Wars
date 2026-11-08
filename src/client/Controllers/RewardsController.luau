@@ -319,6 +319,8 @@ function RewardsController.spin()
 	end
 	if answer and answer.ok and p.prizes[answer.prize] then
 		p.spinner:spinTo(answer.prize)
+		-- It's landed: the wallet can show the prize now.
+		task.spawn(ask, "reveal")
 		Audio.play(if answer.cosmetic then "levelUp" else "coins")
 		p.spinner:celebrate(answer.prize, winText(answer))
 	else
