@@ -79,7 +79,8 @@ Before publishing to live:
 9. `GameConfig.MODERATION` set as intended (kicks are off by default).
 10. Every `ExperimentConfig` percent is what you mean to run.
 11. Store IDs set in `MonetizationConfig`, and the store's prices,
-    contents and the Starter Pack's description match the game.
+    contents and the Starter Pack's description match the game. Badge
+    IDs set in `BadgeConfig`, and its beta dates the real ones.
 12. Game Settings: devices are **Computer** only; Max Players 20;
     DataStores and API access as intended; the content maturity
     questionnaire is filled in; private-server and permission settings

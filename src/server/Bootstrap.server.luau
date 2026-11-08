@@ -40,6 +40,8 @@
 --   FeedbackService       players' bug reports and ideas, for the developer
 --   LeaderboardService    the weekly leaderboard: counts written in batches,
 --                         boards read on demand and cached
+--   AchievementService    Roblox badges (Beta Tester, achievements), the beta's
+--                         boom, the favorite prompt
 --   BotDirector           bots fill the server to four: who, where, their brains
 --   PingService           team pings (Ping): checked, rate-limited, team-only
 --   TestControls          test-only commands (Studio / allow-list)
@@ -93,6 +95,7 @@ local ChallengeService = require(Services.ChallengeService)
 local EventService = require(Services.EventService)
 local FeedbackService = require(Services.FeedbackService)
 local LeaderboardService = require(Services.LeaderboardService)
+local AchievementService = require(Services.AchievementService)
 local BotDirector = require(Services.BotDirector)
 local PingService = require(Services.PingService)
 local TestControls = require(script.Parent.TestControls)
@@ -138,6 +141,7 @@ ChallengeService.start()
 EventService.start()
 FeedbackService.start()
 LeaderboardService.start()
+AchievementService.start()
 BotDirector.start()
 PingService.start()
 TestControls.start()

@@ -115,6 +115,12 @@ export type Data = {
 	-- (SettingsConfig; SettingsService saves them). Unpicked ones aren't
 	-- here and stay at their defaults.
 	Settings: { [string]: any },
+	-- Roblox badges (BadgeConfig keys): earned here, and taken by Roblox
+	-- (awarded, or theirs already); earned and not yet taken is retried.
+	-- When the favorite prompt was shown (os.time), 0 if never.
+	BadgesEarned: { string },
+	BadgesAwarded: { string },
+	FavoritePromptAt: number,
 }
 export type Profile = {
 	data: Data,
@@ -190,6 +196,9 @@ function DataService.defaults(): Data
 		SeasonProgress = {},
 		SeasonDone = {},
 		Settings = {},
+		BadgesEarned = {},
+		BadgesAwarded = {},
+		FavoritePromptAt = 0,
 	}
 end
 

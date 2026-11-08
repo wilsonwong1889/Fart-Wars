@@ -44,6 +44,7 @@ local RewardsService = require(Services.RewardsService)
 local ChallengeService = require(Services.ChallengeService)
 local BotDirector = require(Services.BotDirector)
 local FeedbackService = require(Services.FeedbackService)
+local AchievementService = require(Services.AchievementService)
 local AbilityConfig = require(Shared.Config.AbilityConfig)
 local BotConfig = require(Shared.Config.BotConfig)
 local MapBase = require(Shared.Interfaces.MapBase)
@@ -464,6 +465,10 @@ function TestControls.selftest(player: Player?): (boolean, string)
 		forSale += if item.id ~= 0 then 1 else 0
 	end
 	expect(forSale > 0, "Store", `{forSale} items set up`, "no pass or product IDs in MonetizationConfig yet: the store shows everything as unavailable", "WARN")
+	-- Roblox badges (BadgeConfig) and the beta window.
+	for _, line in AchievementService.checks() do
+		report(line[1], line[2], line[3])
+	end
 	-- The Blender art: meshes imported, images uploaded (art/README.md).
 	local meshes, problems = 0, {}
 	for _, id in WeaponConfig.order do

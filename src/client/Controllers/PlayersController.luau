@@ -4,14 +4,16 @@
 -- server for review). The note at the bottom says how to report through
 -- Roblox too (Esc > Report), which is what reaches Roblox moderation.
 -- Bots on the field are listed after the players, marked BOT, with nothing
--- to block, hide or report. The mouse is free while it's open (MouseLock
--- "Players").
+-- to block, hide or report. INVITE (FeatureFlags.BADGES) opens Roblox's
+-- invite prompt, or says why it can't; nothing is paid for invites. The
+-- mouse is free while it's open (MouseLock "Players").
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local GameConfig = require(Shared.Config.GameConfig)
+local FeatureFlags = require(Shared.Config.FeatureFlags)
 local TeamConfig = require(Shared.Config.TeamConfig)
 local UIConfig = require(Shared.Config.UIConfig)
 local Client = script.Parent.Parent
@@ -34,6 +36,21 @@ PlayersController.MESSAGES = table.freeze({
 })
 PlayersController.NOTE = "Reports here go to the game's team. For Roblox to act, report through the Roblox menu too: "
 	.. "Esc > Report. Blocking also mutes them in chat."
+PlayersController.INVITE_MESSAGES = table.freeze({
+	unavailable = "Roblox won't let you send invites right now.",
+	error = "The invite didn't open. Try again in a moment.",
+})
+PlayersController.EMPTY = "Nobody else is here yet."
+PlayersController.EMPTY_INVITE = "Nobody else is here yet. INVITE your friends to get gassed!"
+
+-- Roblox's invite calls (test seams): whether this player may send
+-- invites, and the prompt.
+PlayersController.canInvite = function(): boolean
+	return game:GetService("SocialService"):CanSendGameInviteAsync(Players.LocalPlayer)
+end
+PlayersController.promptInvite = function()
+	game:GetService("SocialService"):PromptGameInvite(Players.LocalPlayer)
+end
 
 PlayersController.parts = {} :: { [string]: any }
 PlayersController.isOpen = false
@@ -48,6 +65,9 @@ local render: () -> ()
 function PlayersController.open()
 	PlayersController.isOpen = true
 	PlayersController.parts.screen.Enabled = true
+	if PlayersController.parts.inviteNote then
+		PlayersController.parts.inviteNote.Text = ""
+	end
 	MouseLock.setFree("Players", true)
 	render()
 end
@@ -57,6 +77,23 @@ function PlayersController.close()
 	PlayersController.reporting = nil
 	PlayersController.parts.screen.Enabled = false
 	MouseLock.setFree("Players", false)
+end
+
+-- INVITE: Roblox's invite prompt, if Roblox allows this player to send
+-- invites. Returns "prompted", "unavailable" or "error".
+function PlayersController.invite(): string
+	local p = PlayersController.parts
+	local checked, can = pcall(PlayersController.canInvite)
+	local answer = "prompted"
+	if not checked or can ~= true then
+		answer = "unavailable"
+	elseif not pcall(PlayersController.promptInvite) then
+		answer = "error"
+	end
+	if p.inviteNote then
+		p.inviteNote.Text = PlayersController.INVITE_MESSAGES[answer] or ""
+	end
+	return answer
 end
 
 function PlayersController.block(other: Player)
@@ -260,10 +297,34 @@ local function build()
 		Parent = panel,
 	})
 	UI.onClick(close, PlayersController.close)
+	if FeatureFlags.BADGES then
+		local invite = UI.button("INVITE", C.accent, {
+			Name = "Invite",
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -48, 0, 0),
+			Size = UDim2.new(0, 110, 0, 40),
+			TextSize = 18,
+			TextColor3 = C.panel,
+			Parent = panel,
+		})
+		UI.onClick(invite, PlayersController.invite)
+		p.invite = invite
+		-- Why an invite didn't open: a line of its own under the header.
+		p.inviteNote = UI.label("", 13, {
+			Name = "InviteNote",
+			Position = UDim2.new(0, 0, 0, 44),
+			Size = UDim2.new(1, 0, 0, 16),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = C.muted,
+			Font = UIConfig.bodyFont,
+			Parent = panel,
+		})
+	end
+	local listTop = if FeatureFlags.BADGES then 64 else 48
 	local list = UI.new("ScrollingFrame", {
 		Name = "List",
-		Position = UDim2.new(0, 0, 0, 48),
-		Size = UDim2.new(1, 0, 1, -120),
+		Position = UDim2.new(0, 0, 0, listTop),
+		Size = UDim2.new(1, 0, 1, -(listTop + 72)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 6,
@@ -272,9 +333,9 @@ local function build()
 		Parent = panel,
 	}, { UI.list(Enum.FillDirection.Vertical, 6) })
 	p.list = list
-	p.empty = UI.label("Nobody else is here yet.", 16, {
+	p.empty = UI.label(if FeatureFlags.BADGES then PlayersController.EMPTY_INVITE else PlayersController.EMPTY, 16, {
 		Name = "Empty",
-		Position = UDim2.new(0, 0, 0, 60),
+		Position = UDim2.new(0, 0, 0, listTop + 12),
 		TextColor3 = C.muted,
 		Font = UIConfig.bodyFont,
 		Visible = false,

@@ -66,6 +66,13 @@ return table.freeze({
 	-- last the session, as before.
 	SAVED_SETTINGS = true,
 
+	-- Reasons to come back (AchievementService, BadgeConfig): the Beta
+	-- Tester badge and its boom for playing in the beta, Roblox badges for
+	-- a first elimination, a first chain reaction and levels 10, 25 and 50
+	-- (once each, retried), the favorite prompt (once, never mid-fight) and
+	-- the Players screen's INVITE button.
+	BADGES = true,
+
 	-- A few seconds of protection after each spawn; firing ends it early.
 	SPAWN_PROTECTION = true,
 
