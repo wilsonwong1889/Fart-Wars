@@ -11,6 +11,8 @@
 -- "Ability" (the equipped id) and "AbilityReadyAt" (server time), and
 -- everyone sees it used:
 --   CombatEvent { kind = "ability", player, ability, position }
+-- Bots use theirs through useAsBot (the one their life carries, on the
+-- same rules and cooldowns; the event names the bot's id).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -23,6 +25,7 @@ local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
+local BotService = require(script.Parent.BotService)
 local ExplosionService = require(script.Parent.ExplosionService)
 
 local AbilityService = {}
@@ -32,6 +35,8 @@ AbilityService.COOLDOWN_TOLERANCE_SECONDS = 0.5
 
 local equipped: { [Player]: string } = {}
 local cadences: { [Player]: Cadence.State } = {}
+-- Bots' cooldowns, by avatar (so each life starts fresh).
+local botCadences: { [Model]: Cadence.State } = setmetatable({}, { __mode = "k" }) :: any
 local started = false
 
 local function now(): number
@@ -145,6 +150,64 @@ function AbilityService.use(player: Player): boolean
 		Telemetry.count("Ability.vented", GasService.vent(player, ability.vent))
 	elseif ability.radius and ability.gas then
 		task.spawn(pulse, player, ability, player.Character :: Model)
+	end
+	return true
+end
+
+-- A bot's Gas Pulse: the same wind-up, then the ring, for its team;
+-- cancelled if that life ends or blows up first.
+local function pulseAsBot(bot: BotService.Bot, ability: AbilityConfig.Ability, character: Model)
+	task.wait(ability.durationSeconds)
+	local root = BotService.rootOf(bot)
+	if bot.character ~= character or not root or BotService.isExploding(bot) then
+		Telemetry.count("Ability.botPulseCancelled")
+		return
+	end
+	ExplosionService.blast({
+		position = root.Position,
+		radius = ability.radius :: number,
+		gas = ability.gas :: number,
+		ownerBot = bot.id,
+		ownerTeam = bot.team,
+		cause = "pulse",
+		depth = 0,
+		sourceBot = bot.id,
+	})
+end
+
+-- Q from a bot (BotBrain): the ability its life carries, on a player's
+-- rules (alive, exploding, protection, something to vent, the cooldown).
+-- Returns whether it went off.
+function AbilityService.useAsBot(bot: BotService.Bot): boolean
+	local ability = bot.ability and AbilityConfig[bot.ability]
+	local character = bot.character
+	local root = BotService.rootOf(bot)
+	if not (ability and ability.input == Enum.KeyCode.Q and character and root) then
+		return false
+	end
+	if (ability.blockedWhileExploding and BotService.isExploding(bot))
+		or (not ability.allowedWhileProtected and BotService.isProtected(bot))
+	then
+		return false
+	end
+	if ability.vent and BotService.gasOf(bot) <= 0 then
+		return false
+	end
+	local at = now()
+	local cadence = botCadences[character] or Cadence.new()
+	botCadences[character] = cadence
+	if not Cadence.take(cadence, ability.cooldownSeconds, AbilityService.COOLDOWN_TOLERANCE_SECONDS, at) then
+		return false
+	end
+	if ability.endsProtection then
+		BotService.endProtection(bot)
+	end
+	Telemetry.count(`Ability.bot{ability.id}`)
+	combatEvent():FireAllClients({ kind = "ability", player = bot.id, ability = ability.id, position = root.Position })
+	if ability.vent then
+		Telemetry.count("Ability.botVented", BotService.vent(bot, ability.vent))
+	elseif ability.radius and ability.gas then
+		task.spawn(pulseAsBot, bot, ability, character)
 	end
 	return true
 end

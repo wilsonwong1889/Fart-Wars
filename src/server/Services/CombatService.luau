@@ -9,8 +9,9 @@
 -- shots are logged for review, not punished. Lobbed weapons (the Stink
 -- Lobber) pass the same checks, then hand the throw to ProjectileService.
 -- A shot that hits a bot gasses it through BotService instead. Bots fire
--- the Gas Blaster through fireAsBot: the same cast, range, gas and
--- headshots, one shot per fire interval, only while a round is on.
+-- the gun their life carries through fireAsBot: the same cast, range, gas
+-- and headshots as a player's, one shot per fire interval, only while a
+-- round is on; a bot's lob goes to ProjectileService the same way.
 --   CombatEvent { kind = "shot", shooter, from, to }                 all clients
 --   CombatEvent { kind = "hit", victim, gas, headshot, blocked }     the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
@@ -42,6 +43,8 @@ local CombatService = {}
 CombatService.PartHit = Signal.new()
 -- (shooter, from, direction, weapon): a lobbed weapon fired.
 CombatService.Lobbed = Signal.new()
+-- (bot, from, direction, weapon): a bot's lobbed weapon fired.
+CombatService.BotLobbed = Signal.new()
 
 type Shooter = {
 	weapon: string,
@@ -56,8 +59,9 @@ type Shooter = {
 	movementFlagged: boolean,
 }
 local shooters: { [Player]: Shooter } = {}
--- When each bot last fired.
-local botShotAt: { [BotService.Bot]: number } = setmetatable({}, { __mode = "k" }) :: any
+-- When each bot last fired, by its avatar (each life's gun starts ready,
+-- as a player's does on spawning).
+local botShotAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 local started = false
 
 local function now(): number
@@ -262,10 +266,11 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	})
 end
 
--- One Gas Blaster shot from `bot` toward `direction`, server-side: cast from
--- its head like a player's, the same range, gas (with its fall-off) and
--- headshots, gas through GasService (a player) or BotService (a bot), at
--- most one shot per fire interval. Only from a live bot that isn't
+-- One shot from `bot` toward `direction` with the gun its life carries,
+-- server-side: cast from its head like a player's, the same range, gas
+-- (with its fall-off) and headshots, gas through GasService (a player) or
+-- BotService (a bot); a lob is thrown (BotLobbed, ProjectileService). At
+-- most one per the gun's fire interval. Only from a live bot that isn't
 -- exploding, and only while a round is on (scores are open exactly then).
 -- Firing ends its spawn protection. Returns whether a shot went out.
 function CombatService.fireAsBot(bot: BotService.Bot, direction: Vector3): boolean
@@ -280,18 +285,22 @@ function CombatService.fireAsBot(bot: BotService.Bot, direction: Vector3): boole
 	if not (head and head:IsA("BasePart")) then
 		return false
 	end
-	local weapon = WeaponConfig.weapons.GasBlaster
+	local weapon = BotService.weaponOf(bot)
 	local at = now()
-	local last = botShotAt[bot]
+	local last = botShotAt[character]
 	if last and at - last < weapon.fireInterval then
 		return false
 	end
-	botShotAt[bot] = at
+	botShotAt[character] = at
 	BotService.endProtection(bot)
 	Telemetry.count("Combat.botShots")
 
 	local from = head.Position
 	local unit = direction.Unit
+	if weapon.projectile == "lob" then
+		CombatService.BotLobbed:Fire(bot, from, unit, weapon)
+		return true
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character }

@@ -560,9 +560,9 @@ local function onCombatEvent(event: { [string]: any })
 			local _, color = nameOf(event.shooter)
 			local shooter = Combatants.get(event.shooter)
 			WeaponFxController.tracer(event.shooter, event.from, event.to, tracerColorOf(shooter and shooter.player, color))
-			-- Their gun's sound, from where they fired (a bot's is the default).
-			local player = shooter and shooter.player
-			local gun = WeaponConfig.weapons[(player and player:GetAttribute("Weapon")) :: any] or WeaponConfig.weapons[WeaponConfig.default]
+			-- Their gun's sound, from where they fired (a bot's is the gun its
+			-- life carries, like anyone's).
+			local gun = WeaponConfig.weapons[(shooter and shooter.weapon) :: any] or WeaponConfig.weapons[WeaponConfig.default]
 			Audio.play(gun.fireSound, event.from)
 		end
 	elseif event.kind == "hit" then

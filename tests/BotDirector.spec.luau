@@ -55,11 +55,13 @@ task.wait(1)
 print("after join:", line())
 check(#Bots.all() == 3, "3 bots for one human")
 check(#workspace.Bots:GetChildren() == 3, "3 avatars in workspace.Bots: " .. #workspace.Bots:GetChildren())
+local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
 for _, model in workspace.Bots:GetChildren() do
-	check(model:FindFirstChild("HeldWeapon"), "holding the gun")
+	local gun = model:FindFirstChild("HeldWeapon")
+	check(gun and gun:GetAttribute("Weapon") == model:GetAttribute("Weapon"), "holding its life's gun")
 	check(CollectionService:HasTag(model, "Bot"), "tagged")
-	check(model:FindFirstChildOfClass("Humanoid").WalkSpeed == 16, "walk speed")
-	print(model.Name, model:GetPivot().Position)
+	check(model:FindFirstChildOfClass("Humanoid").WalkSpeed == WeaponConfig.weapons[gun:GetAttribute("Weapon")].walkSpeed, "at that gun's walk speed")
+	print(model.Name, model:GetAttribute("Weapon"), model:GetPivot().Position)
 end
 play(ada)
 task.wait(1)
@@ -121,11 +123,13 @@ check(Bots.isAlive(victim) and victim.character ~= old and old.Parent == nil, "r
 for _, model in workspace.Bots:GetChildren() do
 	print(model.Name, model:GetPivot().Position)
 end
--- Two enemy bots face to face in the open: they fight.
+-- Two enemy bots face to face in the open: they fight (shots, or stink
+-- bombs), each with its own gun.
 local shots = {}
 Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
-	if player.Name == "Ada" and event.kind == "shot" and event.shooter < 0 then
-		table.insert(shots, { shooter = event.shooter, at = workspace:GetServerTimeNow() })
+	if player.Name == "Ada" and (event.kind == "shot" or event.kind == "lob") and event.shooter < 0 then
+		local shooter = Bots.get(event.shooter)
+		table.insert(shots, { shooter = event.shooter, at = workspace:GetServerTimeNow(), weapon = shooter and shooter.weapon })
 	end
 end)
 local a, b
@@ -154,7 +158,8 @@ check(#shots > 3, "they shoot each other")
 local last = {}
 for _, shot in shots do
 	if last[shot.shooter] then
-		check(shot.at - last[shot.shooter] >= 0.3 - 1e-6, "never faster than the gun: " .. (shot.at - last[shot.shooter]))
+		local interval = WeaponConfig.weapons[shot.weapon].fireInterval
+		check(shot.at - last[shot.shooter] >= interval - 1e-6, `never faster than the gun ({shot.weapon}): {shot.at - last[shot.shooter]}`)
 	end
 	last[shot.shooter] = shot.at
 end

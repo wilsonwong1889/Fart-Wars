@@ -13,6 +13,9 @@
 --     the other team's don't
 --   * a bot's gun moves: its shots kick it, puff at its muzzle and draw the
 --     bolt in its team's colour; a bot you hit flashes white
+--   * a bot's gun is the one its life carries: Combatants says which, its
+--     shots kick that gun and sound like it, a Lobber's throws draw the arc;
+--     its dashes and its Q are heard like anyone's
 --   * the scoreboard and the Players screen list bots, with nothing to
 --     block or report
 --   * CombatEvents naming ids nobody knows (or no id) don't error
@@ -52,6 +55,7 @@ run(game.StarterPlayer.StarterPlayerScripts.Client.ClientBootstrap)
 local Client = game.StarterPlayer.StarterPlayerScripts.Client
 local Controllers = Client.Controllers
 local Combatants = require(Client.Combatants)
+local Audio = require(Client.Audio)
 local CombatUI = require(Controllers.CombatController)
 local Effects = require(Controllers.EffectsController)
 local Fx = require(Controllers.WeaponFxController)
@@ -69,15 +73,16 @@ if me:GetAttribute("TeamId") ~= "Stinkers" then
 end
 check(me:GetAttribute("TeamId") == "Stinkers" and me.Character, "I'm on the field for the Stinkers")
 
--- A stand-in bot's avatar, the way the server builds one: holding the Gas
--- Blaster, then tagged.
+-- A stand-in bot's avatar, the way the server builds one: holding its gun,
+-- then tagged. Given a `weapon`, it holds that and says so (the life's
+-- "Weapon"); else the Gas Blaster, saying nothing.
 local folder = workspace:FindFirstChild("Bots")
 if not folder then
 	folder = Instance.new("Folder")
 	folder.Name = "Bots"
 	folder.Parent = workspace
 end
-local function spawnBot(id: number, team: string, name: string, x: number): Model
+local function spawnBot(id: number, team: string, name: string, x: number, weapon: string?): Model
 	local avatar = Instance.new("Model")
 	avatar.Name = name
 	local root = Instance.new("Part")
@@ -94,10 +99,10 @@ local function spawnBot(id: number, team: string, name: string, x: number): Mode
 	humanoid.DisplayName = name
 	humanoid.Parent = avatar
 	avatar.PrimaryPart = root
-	for key, value in { BotId = id, TeamId = team, DisplayName = name, Gas = 0, GasStage = 0 } do
+	for key, value in { BotId = id, TeamId = team, DisplayName = name, Gas = 0, GasStage = 0, Weapon = weapon } do
 		avatar:SetAttribute(key, value)
 	end
-	local tool = WeaponModel.tool("GasBlaster", "Gas Blaster")
+	local tool = WeaponModel.tool(weapon or "GasBlaster")
 	tool.Handle.CFrame = CFrame.new(x + 1, 3.5, -1)
 	tool.Parent = avatar
 	avatar.Parent = folder
@@ -212,6 +217,51 @@ local blasts = Effects.blastParticles
 Remotes.CombatEvent:FireClient(me, { kind = "explosion", victim = -902, killer = -901, position = Vector3.new(-20, 3, 0) })
 task.wait()
 check(Effects.blastParticles == blasts + 1, "a bot's explosion bursts like anyone's")
+
+-- A bot's gun is the one its life carries.
+check(Combatants.get(-901).weapon == "GasBlaster", "Combatants knows the gun in a bot's hands")
+local clapper = spawnBot(-903, "Sharters", "[BOT] Clapper", 40, "Thunderclapper")
+local lobber = spawnBot(-904, "Sharters", "[BOT] Lobber", 60, "StinkLobber")
+task.wait(0.1)
+check(Combatants.get(-903).weapon == "Thunderclapper" and Combatants.get(-904).weapon == "StinkLobber", "and the one its life carries")
+local played = {}
+local play = Audio.play
+Audio.play = function(name, ...)
+	table.insert(played, name)
+	return play(name, ...)
+end
+Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = -903, from = Vector3.new(40, 4.5, 0), to = Vector3.new(40, 4.5, -60) })
+task.wait()
+local clapperGun = clapper:FindFirstChild("HeldWeapon") :: Tool
+check(Fx.states[clapperGun] and Fx.states[clapperGun].weapon == "Thunderclapper" and Fx.states[clapperGun].kick > 0, "its shot kicks the Thunderclapper in its hands")
+check(table.find(played, "thunderclapper") and not table.find(played, "blaster"), "and sounds like one")
+table.clear(played)
+Remotes.CombatEvent:FireClient(me, {
+	kind = "lob",
+	shooter = -904,
+	from = Vector3.new(60, 4.5, 0),
+	to = Vector3.new(60, 0, -60),
+	path = { Vector3.new(60, 4.5, 0), Vector3.new(60, 20, -30), Vector3.new(60, 0, -60) },
+	flight = 1.2,
+})
+task.wait()
+local lobberGun = lobber:FindFirstChild("HeldWeapon") :: Tool
+check(Fx.states[lobberGun] and Fx.states[lobberGun].weapon == "StinkLobber" and Fx.states[lobberGun].kick > 0, "a bot's throw kicks its Stink Lobber")
+local arc = false
+for _, child in workspace:GetChildren() do
+	if child.Name == "LobArc" then
+		arc = true
+	end
+end
+check(arc and table.find(played, "lobber"), "draws the arc and sounds the throw")
+table.clear(played)
+Remotes.CombatEvent:FireClient(me, { kind = "dash", player = -903, from = Vector3.new(40, 3, 0), direction = Vector3.new(1, 0, 0) })
+Remotes.CombatEvent:FireClient(me, { kind = "ability", player = -904, ability = "GasPulse", position = Vector3.new(60, 3, 0) })
+task.wait()
+check(table.find(played, "dash") and table.find(played, "pulse"), "its dashes and its Q are heard like anyone's")
+Audio.play = play
+clapper:Destroy()
+lobber:Destroy()
 
 -- The scoreboard and the Players screen.
 HUD.renderScoreboard()
