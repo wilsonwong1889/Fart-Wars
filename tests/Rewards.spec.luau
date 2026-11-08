@@ -12,6 +12,8 @@
 --     its auto-open on the home screen, the spin wheel with every chance:
 --     it lands under the pointer on whatever was drawn, shows the win,
 --     settles back after a refusal, and spins briefly with Reduce Motion
+--   * a spin's prize is paid at once, but the wallet and the "+coins" line
+--     wait until the wheel lands (or a timer, if the client never says)
 --     shown, the top-right buttons
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -218,7 +220,21 @@ end)
 Rewards.publish(me)
 task.wait(0.3) -- past the rate limit
 local spinsBefore = data().Spins
-UI.spin()
+local shownCoins, shownXP = me:GetAttribute("Coins"), me:GetAttribute("LifetimeXP")
+local toasts = 0
+ReplicatedStorage.Remotes.ProgressEvent.OnClientEvent:Connect(function(event)
+	if event.kind == "grant" then
+		toasts += 1
+	end
+end)
+task.spawn(UI.spin)
+task.wait(2)
+check(data().Spins == spinsBefore - 1 and UI.busy, "mid-spin: the spin is spent")
+check(me:GetAttribute("Coins") == shownCoins and me:GetAttribute("LifetimeXP") == shownXP and toasts == 0, "and nothing gives the prize away yet")
+while UI.busy do
+	task.wait(0.1)
+end
+check(me:GetAttribute("Coins") == data().Coins and me:GetAttribute("LifetimeXP") == data().LifetimeXP and toasts == 1, "it lands: the wallet and the line catch up")
 local landed = RewardsConfig.spin[wheel:under(wheel.rotation)]
 check(data().Spins == spinsBefore - 1 and not UI.busy, "SPIN uses one and finishes")
 check(string.find(UI.parts.spinNote.Text, landed.label, 1, true), `the server's prize is the one under the pointer: {landed.label}`)
@@ -235,6 +251,17 @@ task.wait(0.3)
 local rest = wheel.rotation
 UI.spin()
 check(math.abs(wheel.rotation - rest) < 0.01 and string.find(UI.parts.spinNote.Text, "No free spins", 1, true), "a refused spin settles back and says why")
+-- The wallet's wait: longer than a spin, and it ends by itself if the
+-- client never says the wheel landed; the money moves at once either way.
+check(SpinWheel.WIND_UP_SECONDS + SpinWheel.SECONDS < RewardsConfig.SPIN_REVEAL_SECONDS, "the wait outlasts a whole spin")
+local Economy = require(server.Services.EconomyService)
+local before = data().Coins
+Economy.hold(me, RewardsConfig.SPIN_REVEAL_SECONDS)
+Economy.testGrant(me, 100, 0)
+task.wait(RewardsConfig.SPIN_REVEAL_SECONDS - 0.5)
+check(data().Coins == before + 100 and me:GetAttribute("Coins") == before, "held: paid, not shown")
+task.wait(0.7)
+check(me:GetAttribute("Coins") == before + 100, "shown when the wait runs out")
 -- Reduce Motion: a short spin, the same landing.
 Settings.reduceMotion = true
 local started = os.clock()

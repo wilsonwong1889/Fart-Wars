@@ -15,8 +15,10 @@
 -- profiles can't claim: it would be lost and claimable again. Studio is the
 -- exception (unsavedInStudio): there nothing saves anyway, and the daily,
 -- gifts and spins should still be testable without API access.
---   RewardsRequest:InvokeServer("status" | "claimDaily" | "spin")
+--   RewardsRequest:InvokeServer("status" | "claimDaily" | "spin" | "reveal")
 --     -> { ok, reason, message, ... }
+-- A spin's prize is paid at once, but the client's wallet waits (see
+-- EconomyService.hold) until "reveal", sent when the wheel lands.
 --   ProgressEvent { kind = "gift", spins }
 -- Player attributes for the HUD: DailyReady, DailyDay (1-7), Spins,
 -- NextGiftSeconds (nil when no more gifts today).
@@ -259,6 +261,7 @@ function RewardsService.spin(player: Player): Result
 			coins += RewardsConfig.DUPLICATE_COSMETIC_COINS
 		end
 	end
+	EconomyService.hold(player, RewardsConfig.SPIN_REVEAL_SECONDS)
 	EconomyService.grant(player, `spin:{number}`, "spin", coins, xp)
 	Telemetry.count("Rewards.spins")
 	Telemetry.count(`Rewards.prize.{prize.id}`)
@@ -322,6 +325,9 @@ function RewardsService.request(player: Player, action: unknown): Result
 	end
 	if action == "status" then
 		return RewardsService.status(player)
+	elseif action == "reveal" then
+		EconomyService.reveal(player)
+		return result(true, "revealed")
 	end
 	if not limiter:allow(player, "rewards") then
 		Telemetry.reject("RewardsRequest", player, "rateLimited")
