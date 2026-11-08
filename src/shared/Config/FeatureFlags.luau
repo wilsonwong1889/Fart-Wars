@@ -46,6 +46,12 @@ return table.freeze({
 	-- Teammates outlined in their team colour.
 	TEAMMATE_HIGHLIGHTS = true,
 
+	-- Finding your way on the big map (CompassConfig): the compass strip at
+	-- the top of the screen, markers over far-off teammates (and arrows to
+	-- ones in trouble off the screen), and team pings on Z or the middle
+	-- mouse button. Off: none of it, and the server ignores pings.
+	COMPASS = true,
+
 	-- Bots (BotDirector): while fewer than BotConfig.FILL_TO people are in
 	-- the server (and at least one is), "[BOT]" players fill it up, keeping
 	-- the teams level; each human who joins takes a bot's place. Kills of or

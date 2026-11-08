@@ -30,6 +30,7 @@
 --   SeasonService         the free seasonal track and weekly challenges
 --   EventService          live events: Bean Rain (flagged off)
 --   BotDirector           bots fill the server to four: who, where, their brains
+--   PingService           team pings (Ping): checked, rate-limited, team-only
 --   TestControls          test-only commands (Studio / allow-list)
 -- Telemetry (logs, counters, rejected requests, flags) is used by all of
 -- them; Moderation (started first, so banned players are turned away
@@ -74,6 +75,7 @@ local ZoneService = require(Services.ZoneService)
 local SeasonService = require(Services.SeasonService)
 local EventService = require(Services.EventService)
 local BotDirector = require(Services.BotDirector)
+local PingService = require(Services.PingService)
 local TestControls = require(script.Parent.TestControls)
 local Moderation = require(script.Parent.Moderation)
 local Health = require(script.Parent.Health)
@@ -110,6 +112,7 @@ ZoneService.start()
 SeasonService.start()
 EventService.start()
 BotDirector.start()
+PingService.start()
 TestControls.start()
 
 if Players.MaxPlayers ~= GameConfig.MAX_PLAYERS then

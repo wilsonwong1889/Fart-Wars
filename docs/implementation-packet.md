@@ -115,13 +115,15 @@ reason.
 | `ReportPlayer` | client → server (RemoteFunction) | `targetUserId: number`, `reason: "Cheating" \| "Harassment" \| "Griefing" \| "Other"`; returns `{ ok, reason }` (`sent`, `already`, `tooMany`, `notHere`, `badPayload`) |
 | `PrestigeRequest` | client → server (RemoteFunction) | `action: "preview" \| "confirm"`, `token: string?` (from the preview); returns `{ ok, reason, message, preview?, token?, rank? }` |
 | `ClientReport` | client → server | `{ fps?, ping?, errors?, quality? }` (numbers; one every 25 s at most) |
+| `Ping` | client → server | `position: Vector3` (the spot under the crosshair, inside the map; one every 1.2 s at most) |
+| `Ping` | server → team | `{ from, position, endsAt }` (the pinger's user ID, the spot, server time): to the pinger's team only, the pinger included |
 | `ProfileUpdate` | server → one | `{ ownedWeapons, equippedWeapon, unlockedAbilities, equippedAbility?, ownedCosmetics, equippedCosmetic?, badges, mastery = { [weapon] = { eliminations, claimed } }, stats = { eliminations, deaths, bestStreak, playtime, lifetimeXP }, pending, saving }` |
 | `ProgressEvent` | server → one | `{ kind = "grant", id, reason, coins, xp }`, `{ kind = "levelUp", level, unlocks = { text }, coins, repeated? }`, `{ kind = "mastery", weapon, badge, eliminations, coins }`; reasons: `elimination`, `assist`, `chainBonus`, `alpha`, `participation`, `levelCap`, `levelCapRepeat`, `mastery`, `test` |
 | `CombatEvent` | server → all / one | `{ kind = "shot", shooter, from, to }` (all), `{ kind = "hit", victim, gas, headshot, blocked }` (shooter), `{ kind = "damaged", attacker, from }` (victim), `{ kind = "explosion", victim, position, killer? }` (all), `{ kind = "elimination", event, victim, killer?, team?, assists, cause }` (all), `{ kind = "dash", player, from, direction }` (all), `{ kind = "alpha", player, text }` (all), `{ kind = "barrel", position, radius }` (all), `{ kind = "lob", shooter, from, to, path, flight }` (all), `{ kind = "cloud", position, radius, endsAt, team }` (all), `{ kind = "ability", player, ability, position }` (all); players as user IDs |
 
 Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 `tooFast`, `duplicate`, `exploding`, `prohibited`, `cooldown`, `tooFar`,
-`disabled`, `notEquipped`, `noGas`, `throughWall`. Shop answers (`reason`): `bought`,
+`disabled`, `notEquipped`, `noGas`, `throughWall`, `outOfBounds`. Shop answers (`reason`): `bought`,
 `now`, `respawn`, `profile`, `busy`, `loading`, `notSaving`, `unknown`,
 `owned`, `level`, `coins`, `saveFailed`, `notOwned`, `badPayload`,
 `rateLimited`.
