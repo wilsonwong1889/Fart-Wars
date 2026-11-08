@@ -88,7 +88,7 @@
 - Specs: `TeamPick`, `BotArsenal`, `LaunchPads`, `Compass`, `CompassOff`,
   `GasNumbers`, `ChainCallouts`, `Awards`, `Challenges`, `Leaderboard`,
   `Badges`, `Settings`, `Feedback`, `SoftShutdown`, `DashCheck` and
-  `ChatSpace` are new (63 in all).
+  `ChatSpace` are new (64 in all, with 0.13.0's `Gift`).
 
 ## 0.13.0: a bigger battlefield, mouse aim, sound in the world, a range for every gun
 
