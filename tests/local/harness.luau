@@ -2132,10 +2132,17 @@ METHODS = {
 			local old = self.Character
 			if old then
 				fireIfExists(self, "CharacterRemoving", old)
-				-- Destroyed, as Roblox does with Workspace's
-				-- PlayerCharacterDestroyBehavior Enabled (default.project.json
-				-- sets it; Roblox's default only takes it out of the world).
-				destroy(old)
+				-- As Roblox does by default: out of the world, not destroyed,
+				-- so the specs prove the game destroys old bodies itself.
+				-- Destroyed if a spec turns Workspace's
+				-- PlayerCharacterDestroyBehavior on (default.project.json
+				-- does, in the real place).
+				local behavior = game:GetService("Workspace").PlayerCharacterDestroyBehavior
+				if behavior == Enum.PlayerCharacterDestroyBehavior.Enabled then
+					destroy(old)
+				else
+					setParent(old, nil)
+				end
 			end
 			local character = newInstance("Model")
 			character.Name = self.Name

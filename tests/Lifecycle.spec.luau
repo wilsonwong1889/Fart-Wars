@@ -324,4 +324,26 @@ for _, p in playing do
 	check(type(protectedUntil) == "number" and math.abs(protectedUntil - workspace:GetServerTimeNow() - (GameConfig.SPAWN_PROTECTION_SECONDS - (os.clock() - times[p]))) < 1e-3, `{p.Name}'s protection counts from their own spawn`)
 end
 
+-- With Workspace's PlayerCharacterDestroyBehavior on, as default.project.json
+-- sets it (the checks above run with Roblox's default, so they prove the
+-- game clears old bodies itself), Roblox destroys the old body the moment
+-- the new one loads; a respawn and a new round go just the same.
+workspace.PlayerCharacterDestroyBehavior = Enum.PlayerCharacterDestroyBehavior.Enabled
+local respawned = playing[1]
+local oldBody = respawned.Character :: Model
+local gone = false
+oldBody.Destroying:Connect(function()
+	gone = true
+end)
+Lifecycle.respawn(respawned)
+check(gone and respawned.Character ~= oldBody and onOwnSpawn(respawned), "a respawn: the old body destroyed at once, the new one on a spawn")
+check(RoundService.testEndPhaseIn(0), "a round on: the buzzer")
+task.wait(0.5)
+check(RoundService.testEndPhaseIn(0), "and the next round")
+task.wait(0.5 + SPREAD)
+for _, p in playing do
+	check(avatars(p.Name) == 1 and onOwnSpawn(p) and not Lifecycle.awaitingSpawn(p), `{p.Name}: one avatar, on a spawn of the new round`)
+end
+workspace.PlayerCharacterDestroyBehavior = nil
+
 return { status = "PASS", checks = checks }
