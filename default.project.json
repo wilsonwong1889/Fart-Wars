@@ -46,6 +46,9 @@
         "CombatEvent": {
           "$className": "RemoteEvent"
         },
+        "Shots": {
+          "$className": "UnreliableRemoteEvent"
+        },
         "ProgressEvent": {
           "$className": "RemoteEvent"
         },
@@ -137,7 +140,9 @@
     },
     "Workspace": {
       "$properties": {
-        "StreamingEnabled": false
+        "StreamingEnabled": false,
+        "PlayerCharacterDestroyBehavior": "Enabled",
+        "ReplicateInstanceDestroySetting": "Enabled"
       }
     },
     "TextChatService": {

@@ -195,7 +195,7 @@ check(not toots:FindFirstChild("TeammateOutline") and not toots:FindFirstChild("
 local tool = toots:FindFirstChild("HeldWeapon") :: Tool
 check(tool and Fx.states[tool], "the bot's gun is animated from the moment it's held")
 ShotFx.clear()
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = -901, from = Vector3.new(20, 4.5, 0), to = Vector3.new(20, 4.5, -40) })
+Remotes.Shots:FireClient(me, { -901 }, { Vector3.new(20, 4.5, 0) }, { Vector3.new(20, 4.5, -40) })
 task.wait()
 check(Fx.states[tool].kick > 0 and tool.Handle.Muzzle:FindFirstChild("MuzzleFx"), "its shot kicks the gun and puffs at its muzzle")
 local bolt = nil
@@ -230,7 +230,7 @@ Audio.play = function(name, ...)
 	table.insert(played, name)
 	return play(name, ...)
 end
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = -903, from = Vector3.new(40, 4.5, 0), to = Vector3.new(40, 4.5, -60) })
+Remotes.Shots:FireClient(me, { -903 }, { Vector3.new(40, 4.5, 0) }, { Vector3.new(40, 4.5, -60) })
 task.wait()
 local clapperGun = clapper:FindFirstChild("HeldWeapon") :: Tool
 check(Fx.states[clapperGun] and Fx.states[clapperGun].weapon == "Thunderclapper" and Fx.states[clapperGun].kick > 0, "its shot kicks the Thunderclapper in its hands")
@@ -324,7 +324,7 @@ Remotes.CombatEvent:FireClient(me, { kind = "elimination", killer = me.UserId, v
 task.wait(0.05)
 check(string.find(lastLine().Text, "[BOT] Toots", 1, true), "so a late kill feed line still names it")
 Remotes.CombatEvent:FireClient(me, { kind = "hit", victim = -901, gas = 20, headshot = false, blocked = false })
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = -901, from = Vector3.new(20, 4.5, 0), to = Vector3.new(20, 4.5, -40) })
+Remotes.Shots:FireClient(me, { -901 }, { Vector3.new(20, 4.5, 0) }, { Vector3.new(20, 4.5, -40) })
 task.wait()
 local reborn = spawnBot(-901, "Sharters", "[BOT] Toots", 24)
 task.wait(0.1)
@@ -339,7 +339,6 @@ PlayersUI.close()
 for _, event in {
 	{ kind = "elimination", killer = -777, victim = -778, assists = { -779 } },
 	{ kind = "elimination", victim = -778 },
-	{ kind = "shot", shooter = -777, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -30) },
 	{ kind = "hit", victim = -777, gas = 20 },
 	{ kind = "damaged", attacker = -777, from = Vector3.new(0, 5, 0) },
 	{ kind = "explosion", victim = -778, killer = -777, position = Vector3.new(0, 3, 0) },
@@ -348,6 +347,26 @@ for _, event in {
 } do
 	Remotes.CombatEvent:FireClient(me, event)
 end
+-- A shot from nobody known, and batches that don't add up (they come
+-- unreliably, a frame's worth at a time: ShotFeed): ignored, nothing breaks.
+local ShotFeed = require(game.StarterPlayer.StarterPlayerScripts.Client.ShotFeed)
+local heardShots = 0
+ShotFeed.Shot:Connect(function()
+	heardShots += 1
+end)
+Remotes.Shots:FireClient(me, { -777 }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -30) })
+check(heardShots == 1, "a shot from an id nobody knows is still a shot")
+for _, junk in {
+	{ { -777, -778 }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -30) } },
+	{ { "-777" }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -30) } },
+	{ { -777 }, { "here" }, { Vector3.new(0, 5, -30) } },
+	{ {}, {}, {} },
+	{ -777, Vector3.new(0, 5, 0), Vector3.new(0, 5, -30) },
+} do
+	check(not ShotFeed.receive(junk[1], junk[2], junk[3]) or #junk[1] == 1, "a batch that doesn't add up is no batch")
+	Remotes.Shots:FireClient(me, junk[1], junk[2], junk[3])
+end
+check(heardShots == 1, "and none of it is a shot")
 task.wait(0.1)
 check(string.find(lastLine().Text, "Someone", 1, true), "an id nobody knows is Someone")
 

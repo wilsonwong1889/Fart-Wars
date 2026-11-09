@@ -21,8 +21,10 @@
 -- It all happens on each client from the shots the server announces (and
 -- your own as you fire), by moving the gun's grip weld and its parts'
 -- welds locally; nothing here changes what the server sees. Reduce motion
--- keeps a little recoil and none of the other movement; reduced effects
--- halve the particles and drop the lights and smoke; and no more than
+-- keeps a little recoil and none of the other movement; thinned-out
+-- effects (Detail's rule: Reduced effects or Low detail, graphics quality
+-- 3 or lower, or a struggling frame rate on Automatic) halve the particles
+-- and drop the lights, smoke and hit flash; and no more than
 -- MAX_PARTICLES_PER_FRAME are emitted a frame.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -38,6 +40,8 @@ local Client = script.Parent.Parent
 local ClientState = require(Client.ClientState)
 local Combatants = require(Client.Combatants)
 local Settings = require(Client.Settings)
+local Detail = require(Client.Detail)
+local ShotFeed = require(Client.ShotFeed)
 local ShotFx = require(Client.ShotFx)
 local WeaponSkin = require(Client.WeaponSkin)
 
@@ -101,7 +105,7 @@ local started = false
 local WHITE = Color3.new(1, 1, 1)
 
 local function reducedEffects(): boolean
-	return Settings.reducedEffects or Settings.lowDetail
+	return Detail.reducedEffects()
 end
 
 -- Emits up to `count` particles from `emitter`, within this frame's budget.
@@ -678,6 +682,8 @@ function WeaponFxController.start()
 			onCombatEvent(event)
 		end
 	end)
+	-- Everyone's shots (ShotFeed: unreliable, a frame's worth at a time).
+	ShotFeed.listen(onCombatEvent)
 	RunService.RenderStepped:Connect(WeaponFxController.step)
 	pcall(function()
 		RunService:BindToRenderStep("FartWarsCameraKick", Enum.RenderPriority.Camera.Value + 1, kickCamera)

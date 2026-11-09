@@ -40,6 +40,24 @@
   every client (each respawn stayed in memory, gun and all), a body's gas
   warning stops pulsing with it, and the server keeps a minute of shot
   history, not all of it.
+- Effects thin out by one rule everywhere: with Reduced effects or Low
+  detail on, at a Roblox graphics quality of 3 or lower, and on Automatic
+  (most players) while the frame rate is under 40 and for 20 seconds
+  after. Before, only explosions, puffs and launch pads looked at the
+  quality (and never on Automatic); the guns' particles, lights and smoke
+  and the shots' bursts, rings, splats, lights and trails didn't at all.
+- Round starts don't hitch: the new round's spawns come over half a
+  second, the teams taking turns, not every avatar to every client in one
+  frame (each one's spawn protection starts at its own spawn; till your
+  turn, your last round's avatar sits out, ungassable and unable to
+  fire). The Gas Blaster that every life is handed is nine parts, not
+  fifty, and looks the same at a glance.
+- Big fights are lighter on the network: shots go a frame's worth at a
+  time, unreliably (hits, damage and eliminations don't), so on a poor
+  connection a lost shot is a missing bolt and hit markers no longer wait
+  behind a queue of other people's shots. Roblox now destroys old bodies
+  itself, on every client too (Workspace's PlayerCharacterDestroyBehavior
+  and ReplicateInstanceDestroySetting).
 
 ## 0.14.0: a practice yard, bots with every gun, launch pads, daily challenges and round awards
 

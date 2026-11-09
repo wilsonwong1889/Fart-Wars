@@ -15,7 +15,8 @@
 -- practice yard (State PRACTICE) a shot passes the same checks and is cast
 -- the same way, but only reaches the yard (PracticeHit): no gas to players
 -- or bots, no stats, no funnel step, nothing lobbed.
---   CombatEvent { kind = "shot", shooter, from, to }                 all clients
+--   Shots (shooters, froms, tos)   every shot, all clients (unreliable,
+--                                  a frame's worth at a time: ShotFeed)
 --   CombatEvent { kind = "hit", victim, gas, headshot, blocked, amount, position }   the shooter
 --   CombatEvent { kind = "damaged", attacker, from }                 the victim
 -- (player values are user IDs, a bot's its negative ID; positions Vector3s;
@@ -35,6 +36,7 @@ local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Profiler = require(Server.Profiler)
 local Cadence = require(Server.Cadence)
+local ShotFeed = require(Server.ShotFeed)
 local MatchScoreService = require(script.Parent.MatchScoreService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local AFKService = require(script.Parent.AFKService)
@@ -186,7 +188,7 @@ local function practiceShot(player: Player, character: Model, from: Vector3, uni
 	params.FilterDescendantsInstances = { character }
 	local result = workspace:Raycast(from, unit * weapon.range, params)
 	local to = if result then result.Position else from + unit * weapon.range
-	combatEvent():FireClient(player, { kind = "shot", shooter = player.UserId, from = from, to = to })
+	ShotFeed.add(player.UserId, from, to, player)
 	if result then
 		CombatService.PracticeHit:Fire(player, result.Instance, weapon, from, result.Position)
 	end
@@ -251,6 +253,13 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		Telemetry.count("Combat.shotsBetweenRounds")
 		return
 	end
+	-- The same for the moment a new round's spawns take (they're spread
+	-- out): the last round's avatar sits out until this player's turn.
+	if PlayerLifecycleService.awaitingSpawn(player) then
+		AFKService.markActive(player)
+		Telemetry.count("Combat.shotsAwaitingSpawn")
+		return
+	end
 	checkMovement(player, entry, head.Position, at)
 	entry.lastShotAt = at
 	table.insert(entry.shots, at)
@@ -278,7 +287,7 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 	params.FilterDescendantsInstances = { character :: Model }
 	local result = workspace:Raycast(from, unit * weapon.range, params)
 	local to = if result then result.Position else from + unit * weapon.range
-	combatEvent():FireAllClients({ kind = "shot", shooter = player.UserId, from = from, to = to })
+	ShotFeed.add(player.UserId, from, to)
 	if not result then
 		return
 	end
@@ -357,7 +366,7 @@ function CombatService.fireAsBot(bot: BotService.Bot, direction: Vector3): boole
 	params.FilterDescendantsInstances = { character }
 	local result = workspace:Raycast(from, unit * weapon.range, params)
 	local to = if result then result.Position else from + unit * weapon.range
-	combatEvent():FireAllClients({ kind = "shot", shooter = bot.id, from = from, to = to })
+	ShotFeed.add(bot.id, from, to)
 	if not result then
 		return true
 	end
@@ -402,6 +411,7 @@ function CombatService.start()
 		return
 	end
 	started = true
+	ShotFeed.start()
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local fireWeapon = remotes:WaitForChild("FireWeapon") :: RemoteEvent
 	fireWeapon.OnServerEvent:Connect(Telemetry.guard("Combat", Profiler.wrap("Combat.fire", CombatService.fire)))

@@ -112,11 +112,20 @@ local blocker = workspace:Raycast(Vector3.new(LANE_X, 4.5, -200), Vector3.new(0,
 check(blocker == nil, `nothing stands in Bean Alley's outer edge ({blocker and blocker.Instance.Name})`)
 
 local heard = {}
-Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
+local function hear(player: Player, event: any)
 	heard[player] = heard[player] or {}
 	table.insert(heard[player], event)
+end
+Remotes.CombatEvent.FiredToClient:Connect(hear)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed).
+local ShotFeed = require(game.ServerScriptService.Server.ShotFeed)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	for i, shooter in shooters do
+		hear(player, { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] })
+	end
 end)
 local function last(player: Player, kind: string): any
+	ShotFeed.flush() -- the frame's shots, sent
 	local list = heard[player] or {}
 	for i = #list, 1, -1 do
 		if list[i].kind == kind then

@@ -43,11 +43,21 @@ local TestControls = require(server.TestControls)
 local Remotes = ReplicatedStorage.Remotes
 
 local heard: { [Player]: { any } } = {}
-Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
+local function hear(player: Player, event: any)
 	heard[player] = heard[player] or {}
 	table.insert(heard[player], event)
+end
+Remotes.CombatEvent.FiredToClient:Connect(hear)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed): each one
+-- heard as it was sent.
+local ShotFeed = require(server.ShotFeed)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	for i, shooter in shooters do
+		hear(player, { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] })
+	end
 end)
 local function last(player: Player, kind: string): any
+	ShotFeed.flush() -- the frame's shots, sent
 	local list = heard[player] or {}
 	for i = #list, 1, -1 do
 		if list[i].kind == kind then
@@ -57,6 +67,7 @@ local function last(player: Player, kind: string): any
 	return nil
 end
 local function count(player: Player, kind: string): number
+	ShotFeed.flush()
 	local n = 0
 	for _, event in heard[player] or {} do
 		if event.kind == kind then
@@ -119,7 +130,8 @@ local ada = join("Ada")
 local bo = join("Bo")
 local adaTeam, boTeam = ada:GetAttribute("TeamId"), bo:GetAttribute("TeamId")
 check(adaTeam and boTeam and adaTeam ~= boTeam, "two players on opposite teams")
-task.wait(0.5)
+-- The round starts as Bo joins, its spawns spread over half a second.
+task.wait(0.5 + require(ReplicatedStorage.Shared.Config.GameConfig).ROUND_SPAWN_SPREAD_SECONDS)
 check(RoundService.phase() == "ACTIVE", "a round is on")
 check(ada:GetAttribute("Weapon") == "GasBlaster", "everyone spawns with the Gas Blaster")
 check(bo.Character:GetAttribute("Gas") == 0 and bo.Character:GetAttribute("GasStage") == 0, "with an empty gas meter")

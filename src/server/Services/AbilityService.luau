@@ -124,6 +124,11 @@ function AbilityService.use(player: Player): boolean
 		Telemetry.count("Ability.betweenRounds")
 		return false
 	end
+	-- So does an avatar waiting out a new round's spawns.
+	if PlayerLifecycleService.awaitingSpawn(player) then
+		Telemetry.count("Ability.awaitingSpawn")
+		return false
+	end
 	local root = rootOf(player)
 	if not root then
 		reject(player, "dead")

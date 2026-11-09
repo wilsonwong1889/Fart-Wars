@@ -240,4 +240,88 @@ for _, p in churn do
 	end
 end
 
+-- A new round: every active player starts again from a spawn, but spread
+-- over half a second with the teams taking turns, not all in one frame
+-- (each new avatar is sent to every client); till their turn, the last
+-- round's avatar sits out.
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local RoundService = require(server.Services.RoundService)
+local Gas = require(server.Services.GasService)
+local Telemetry = require(server.Telemetry)
+local SPREAD = GameConfig.ROUND_SPAWN_SPREAD_SECONDS
+check(SPREAD > 0 and SPREAD < GameConfig.SPAWN_PROTECTION_SECONDS, "a round's spawns take a moment, well inside spawn protection")
+check(RoundService.testEndPhaseIn(0), "the buzzer")
+task.wait(0.5)
+check(RoundService.phase() == "RESULTS", "the results")
+local playing: { Player } = {}
+local onTeam = { Stinkers = 0, Sharters = 0 }
+for _, p in Players:GetPlayers() do
+	if p:GetAttribute("State") == "ACTIVE" then
+		table.insert(playing, p)
+		onTeam[p:GetAttribute("TeamId")] += 1
+	end
+end
+check(#playing >= 10 and onTeam.Stinkers > 0 and onTeam.Sharters > 0, `{#playing} playing, on both teams`)
+local spawns: { { player: Player, at: number, team: string } } = {}
+local startedAt: number? = nil
+local inFirstFrame = 0
+local spawned = Lifecycle.Spawned:Connect(function(p)
+	table.insert(spawns, { player = p, at = os.clock(), team = p:GetAttribute("TeamId") })
+end)
+local phased = RoundService.PhaseChanged:Connect(function(phase)
+	if phase == "ACTIVE" then
+		startedAt = os.clock()
+		inFirstFrame = #spawns
+	end
+end)
+check(RoundService.testEndPhaseIn(0), "the next round")
+while not startedAt do
+	task.wait()
+end
+local start = startedAt :: number
+check(inFirstFrame == 1, `one spawn as the round starts, not all {#playing} at once ({inFirstFrame})`)
+-- Someone still to come: protected, nothing gasses them, nothing they fire
+-- goes out.
+local waiting, enemy
+for _, p in playing do
+	if Lifecycle.awaitingSpawn(p) then
+		waiting = p
+	end
+end
+for _, p in playing do
+	if waiting and p:GetAttribute("TeamId") ~= waiting:GetAttribute("TeamId") then
+		enemy = p
+	end
+end
+check(waiting and enemy and waiting.Character, "someone waiting their turn, in the last round's avatar")
+local dropped = Telemetry.snapshot().counters["Combat.shotsAwaitingSpawn"] or 0
+check(Lifecycle.isProtected(waiting) and not Gas.add(waiting, 50, { attacker = enemy, cause = "shot" }), "it sits out: no gas lands on it")
+Remotes.FireWeapon.OnServerEvent:Fire(waiting, Vector3.new(0, 0, 1), 1e6)
+check((Telemetry.snapshot().counters["Combat.shotsAwaitingSpawn"] or 0) == dropped + 1, "and its shots are dropped, not fired from where the last round left it")
+task.wait(SPREAD + 0.1)
+spawned:Disconnect()
+phased:Disconnect()
+local times: { [Player]: number } = {}
+for _, entry in spawns do
+	check(times[entry.player] == nil, `{entry.player.Name} spawns once`)
+	times[entry.player] = entry.at
+end
+check(#spawns == #playing, `all {#playing} have a fresh avatar`)
+local last = spawns[#spawns].at - start
+check(last >= SPREAD - 1e-6 and last <= SPREAD + 1e-6, `the last one half a second in ({last} s)`)
+local gap = SPREAD / (#playing - 1)
+for i = 2, #spawns do
+	local apart = spawns[i].at - spawns[i - 1].at
+	check(math.abs(apart - gap) < 1e-6, `evenly spread, {gap} s apart, never two in the same frame`)
+end
+local turns = 2 * math.min(onTeam.Stinkers, onTeam.Sharters)
+for i = 2, turns do
+	check(spawns[i].team ~= spawns[i - 1].team, "the teams take turns")
+end
+for _, p in playing do
+	local protectedUntil = p.Character and p.Character:GetAttribute("ProtectedUntil")
+	check(not Lifecycle.awaitingSpawn(p) and onOwnSpawn(p), `{p.Name} is on a spawn of this round`)
+	check(type(protectedUntil) == "number" and math.abs(protectedUntil - workspace:GetServerTimeNow() - (GameConfig.SPAWN_PROTECTION_SECONDS - (os.clock() - times[p]))) < 1e-3, `{p.Name}'s protection counts from their own spawn`)
+end
+
 return { status = "PASS", checks = checks }

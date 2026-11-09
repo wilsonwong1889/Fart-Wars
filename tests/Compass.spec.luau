@@ -363,7 +363,7 @@ check(marker.Text.TextColor3 == TeamConfig.teams[mine].color, "in our colour too
 
 -- In a fight, or blowing up.
 place(ada, Vector3.new(0, 3, 20))
-Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 20), to = Vector3.new(0, 5, 40) })
+Remotes.Shots:FireAllClients({ ada.UserId }, { Vector3.new(0, 5, 20) }, { Vector3.new(0, 5, 40) })
 CompassUI.render()
 check(CompassUI.troubleOf(ada.Character) == "fight" and markerText(ada) == `{symbol} {WORDS.fight}`, "she fired: in a fight")
 task.wait(MARKERS.fightSeconds + 0.1)
@@ -380,7 +380,7 @@ ada.Character:SetAttribute("ExplodesAt", workspace:GetServerTimeNow() + 1)
 CompassUI.render()
 check(markerText(ada) == `{symbol} {WORDS.boom}`, "counting down: blowing up")
 check(#CompassUI.shown.arrows == 0, "she's on the screen: no arrow")
-Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = bo.UserId, from = Vector3.new(20, 5, 20), to = Vector3.new(0, 5, 0) })
+Remotes.Shots:FireAllClients({ bo.UserId }, { Vector3.new(20, 5, 20) }, { Vector3.new(0, 5, 0) })
 CompassUI.render()
 check(not hasMarker(bo) and #CompassUI.shown.arrows == 0, "Bo fighting means no arrow for him")
 
@@ -397,7 +397,7 @@ ada.Character:SetAttribute("ExplodesAt", nil)
 place(ada, Vector3.new(0, 3, -230))
 CompassUI.render()
 check(#CompassUI.shown.arrows == 0, "behind me and fine: no arrow")
-Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, -230), to = Vector3.new(0, 5, -260) })
+Remotes.Shots:FireAllClients({ ada.UserId }, { Vector3.new(0, 5, -230) }, { Vector3.new(0, 5, -260) })
 CompassUI.render()
 local index = arrowOf(ada)
 local arrow = index and p.arrows[index]
@@ -406,14 +406,14 @@ check(arrow.Position.Y.Offset > VIEWPORT.Y / 2 + 100 and near(arrow.Position.X.O
 check(near(math.abs(arrow.Pointer.Rotation), 180, 1) and arrow.Text.Text == `{symbol} {WORDS.fight}`, "pointing down, with our symbol")
 -- Facing south, east is on your left.
 place(ada, Vector3.new(200, 3, -190))
-Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = ada.UserId, from = Vector3.new(200, 5, -190), to = Vector3.new(200, 5, -160) })
+Remotes.Shots:FireAllClients({ ada.UserId }, { Vector3.new(200, 5, -190) }, { Vector3.new(200, 5, -160) })
 CompassUI.render()
 index = arrowOf(ada)
 arrow = index and p.arrows[index]
 check(arrow and arrow.Position.X.Offset < 200 and near(arrow.Pointer.Rotation, -90, 5), "off to the left: at the left, pointing left")
 -- Four in trouble behind me: three arrows, blowing up first, then the nearest.
 local fight = function(player: Player)
-	Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = player.UserId, from = Vector3.new(0, 5, -230), to = Vector3.new(0, 5, -240) })
+	Remotes.Shots:FireAllClients({ player.UserId }, { Vector3.new(0, 5, -230) }, { Vector3.new(0, 5, -240) })
 end
 place(ada, Vector3.new(-10, 3, -215))
 place(dee, Vector3.new(10, 3, -220))
@@ -533,7 +533,7 @@ check(ownPin().Caption.TextTransparency > 0.3, "and fades at the end")
 Settings.reduceMotion = true
 check(ownPin().Caption.TextTransparency == 0, "with Reduce motion, no fade")
 place(ada, Vector3.new(0, 3, 20))
-Remotes.CombatEvent:FireAllClients({ kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 20), to = Vector3.new(0, 5, 40) })
+Remotes.Shots:FireAllClients({ ada.UserId }, { Vector3.new(0, 5, 20) }, { Vector3.new(0, 5, 40) })
 local still = true
 for _ = 1, 6 do
 	task.wait(0.05)

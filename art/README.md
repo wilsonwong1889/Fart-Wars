@@ -54,7 +54,11 @@ The held gun is always built from the Blender model's measurements
 - **The stand-in** is built from the same blocks, cylinders and balls the
   Blender model is made of, in the same colours: the shape is right,
   without the bevels and round edges. It's what you see for the first
-  moment, and if meshes can't be built.
+  moment, and if meshes can't be built. A piece made with
+  `standin=False` is in the meshes only: the Gas Blaster's stand-in is
+  the nine pieces of its outline (grip, body, canister and gas, collar,
+  barrel, pump, horn and its glow), since every life's gun is sent to
+  every client.
 - **Imported meshes** (optional, below) win over everything: each sized
   and placed from the model's measurements, so the import's scale or
   position doesn't matter.

@@ -191,6 +191,61 @@ shoot(AIM)
 task.wait(0.05)
 check(counter("Combat.shotsBy.highPing") == 1 and counter("Combat.hitsBy.highPing") == 1, "shots and hits at high ping counted")
 check(counter("Combat.shotsBy.lowPing") > 5 and counter("Combat.hitsBy.lowPing") > 5, "and at low ping")
+Combat.pingOf = function()
+	return 0.05
+end
+
+-- Shots on the wire (ShotFeed): unreliable, so a lost one is only a
+-- picture and never holds up a hit marker behind it, and a frame's worth
+-- at a time as flat arrays (twenty Spritzers fire about 200 a second: that
+-- was 200 reliable events a second to every client). Hits, damage and
+-- eliminations stay reliable.
+local ShotFeed = require(server.ShotFeed)
+local RunService = game:GetService("RunService")
+type Batch = { shooters: { number }, froms: { Vector3 }, tos: { Vector3 } }
+local batches: { [Player]: { Batch } } = {}
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	batches[player] = batches[player] or {}
+	table.insert(batches[player], { shooters = shooters, froms = froms, tos = tos })
+end)
+local reliableShots = 0
+Remotes.CombatEvent.FiredToClient:Connect(function(_, event)
+	if event.kind == "shot" then
+		reliableShots += 1
+	end
+end)
+check(Remotes.Shots.ClassName == "UnreliableRemoteEvent" and Remotes.CombatEvent.ClassName == "RemoteEvent", "shots go unreliably, everything else on CombatEvent")
+task.wait(1)
+resetBo()
+RunService.Heartbeat:Fire(1 / 60)
+table.clear(batches)
+local hitsBefore = hits[ada] or 0
+shoot(AIM)
+check(ShotFeed.pending() == 1 and batches[bo] == nil, "a shot waits for the end of the frame")
+check((hits[ada] or 0) == hitsBefore + 1, "while its hit has already gone to the shooter, reliably")
+RunService.Heartbeat:Fire(1 / 60)
+local one = batches[bo] and batches[bo][1]
+check(ShotFeed.pending() == 0 and #batches[bo] == 1 and #batches[ada] == 1 and #batches[me] == 1, "then goes to every client, in one event each")
+check(#one.shooters == 1 and one.shooters[1] == ada.UserId and #one.froms == 1 and #one.tos == 1, "as flat arrays: who fired")
+check((one.froms[1] - ada.Character.Head.Position).Magnitude < 1e-3 and (one.tos[1] - one.froms[1]).Unit:Dot(AIM) > 0.99, "from where, and where it stopped")
+-- A busy frame: everyone's shots in it, split so no event is over the
+-- 900 bytes an unreliable event may carry (the stand-in drops one that is).
+table.clear(batches)
+for i = 1, 45 do
+	ShotFeed.add(-1000 - i, Vector3.new(i, 5, 0), Vector3.new(i, 5, -40))
+end
+RunService.Heartbeat:Fire(1 / 60)
+local sizes, order = {}, true
+local nextId = -1001
+for _, batch in batches[bo] or {} do
+	table.insert(sizes, #batch.shooters)
+	for i, shooter in batch.shooters do
+		order = order and shooter == nextId and batch.froms[i].X == -1000 - shooter
+		nextId -= 1
+	end
+end
+check(table.concat(sizes, ",") == "20,20,5" and order, `45 shots in a frame: three events, every shot in order ({table.concat(sizes, ",")})`)
+check(reliableShots == 0, "and not one shot as a reliable CombatEvent")
 
 -- Budgets: stink clouds on the server.
 local lobber = WeaponConfig.weapons.StinkLobber
@@ -200,10 +255,27 @@ end
 task.wait(1.5)
 check(Projectiles.cloudCount() == GameConfig.BUDGET.MAX_CLOUDS, `at most {GameConfig.BUDGET.MAX_CLOUDS} clouds at once`)
 check(counter("Projectile.cloudsCapped") == 6, "the oldest end early, counted")
--- Tracers and effects on the client.
-for i = 1, 100 do
-	Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = 2, from = Vector3.new(0, 5, i), to = Vector3.new(30, 5, i) })
+-- Tracers and effects on the client: 100 shots in a frame, five events,
+-- and every one of them reaches each thing on the client that shows shots
+-- (the bolt from CombatController, the gun's kick from WeaponFxController).
+local Fx = require(game.StarterPlayer.StarterPlayerScripts.Client.Controllers.WeaponFxController)
+local bolts, kicks = 0, 0
+local tracer, fired = Fx.tracer, Fx.fired
+Fx.tracer = function(...)
+	bolts += 1
+	return tracer(...)
 end
+Fx.fired = function(...)
+	kicks += 1
+	return fired(...)
+end
+table.clear(batches)
+for i = 1, 100 do
+	ShotFeed.add(2, Vector3.new(0, 5, i), Vector3.new(30, 5, i))
+end
+RunService.Heartbeat:Fire(1 / 60)
+Fx.tracer, Fx.fired = tracer, fired
+check(#batches[me] == 5 and bolts == 100 and kicks == 100, `100 shots in a frame: five events, and all 100 drawn ({#batches[me]} events, {bolts} bolts, {kicks} kicks)`)
 local parts = 0
 for _, child in workspace:GetChildren() do
 	if child.Name == "Tracer" then

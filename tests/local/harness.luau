@@ -236,6 +236,11 @@ local Enum = setmetatable({}, {
 for _, name in { "Right", "Top", "Back", "Left", "Bottom", "Front" } do
 	local _ = Enum.NormalId[name]
 end
+-- The graphics quality's values are Roblox's: Automatic 0, then 1 to 10.
+local _ = Enum.SavedQualitySetting.Automatic
+for level = 1, 10 do
+	local _ = Enum.SavedQualitySetting[`QualityLevel{level}`]
+end
 
 ----------------------------------------------------------------------------
 -- Datatypes
@@ -1658,6 +1663,62 @@ local function tagSignal(kind, tag)
 	return list[tag]
 end
 
+-- About how many bytes a remote's arguments take, by the sizes Roblox's
+-- remotes are measured at: a number 9, a Vector3 13, a boolean 2, a string
+-- its length and 2, a table 2 and its keys and values, and so on.
+local PAYLOAD_LIMIT = 900
+local function payloadBytes(value, seen)
+	local kind = type(value)
+	local mt = getmetatable(value)
+	local name = type(mt) == "table" and rawget(mt, "__type") or nil
+	if name == "Vector3" or name == "Color3" then
+		return 13
+	elseif name == "Vector2" then
+		return 9
+	elseif name == "CFrame" then
+		return 25
+	elseif name == "EnumItem" then
+		return 4
+	elseif name == "Instance" then
+		return 9
+	elseif kind == "number" then
+		return 9
+	elseif kind == "boolean" or kind == "nil" then
+		return 2
+	elseif kind == "string" then
+		return 2 + #value
+	elseif kind == "table" then
+		seen = seen or {}
+		if seen[value] then
+			return 0
+		end
+		seen[value] = true
+		local total = 2
+		local count = #value
+		for key, item in value do
+			if not (type(key) == "number" and key >= 1 and key <= count and key % 1 == 0) then
+				total += payloadBytes(key, seen)
+			end
+			total += payloadBytes(item, seen)
+		end
+		return total
+	end
+	return 9
+end
+-- Whether an unreliable event's payload is small enough to go (Roblox
+-- drops anything over 900 bytes); warns when it isn't.
+local function unreliableFits(remote, ...)
+	local total = 0
+	for i = 1, select("#", ...) do
+		total += payloadBytes((select(i, ...)))
+	end
+	if total > PAYLOAD_LIMIT then
+		table.insert(log, `warning: {records[remote].props.Name}: unreliable event dropped, its payload is too large ({total} bytes, the most is {PAYLOAD_LIMIT})`)
+		return false
+	end
+	return true
+end
+
 METHODS = {
 	Instance = {
 		GetChildren = function(self)
@@ -2071,10 +2132,10 @@ METHODS = {
 			local old = self.Character
 			if old then
 				fireIfExists(self, "CharacterRemoving", old)
-				-- As Roblox does by default: out of the world, not destroyed
-				-- (Workspace.PlayerCharacterDestroyBehavior); whoever's done
-				-- with it destroys it.
-				setParent(old, nil)
+				-- Destroyed, as Roblox does with Workspace's
+				-- PlayerCharacterDestroyBehavior Enabled (default.project.json
+				-- sets it; Roblox's default only takes it out of the world).
+				destroy(old)
 			end
 			local character = newInstance("Model")
 			character.Name = self.Name
@@ -2172,10 +2233,38 @@ METHODS = {
 			end
 		end,
 	},
+	-- The same loop back as RemoteEvent's (nothing is lost here), except
+	-- that a payload over Roblox's 900 bytes is dropped, with a warning, as
+	-- Roblox drops it (the size reckoned as Roblox's remotes count it: see
+	-- payloadBytes).
 	UnreliableRemoteEvent = {
-		FireServer = function() end,
-		FireClient = function() end,
-		FireAllClients = function() end,
+		FireServer = function(self, ...)
+			local localPlayer = game:GetService("Players").LocalPlayer
+			if localPlayer and unreliableFits(self, ...) then
+				signal(self, "OnServerEvent"):Fire(localPlayer, ...)
+			end
+		end,
+		FireClient = function(self, player, ...)
+			if not unreliableFits(self, ...) then
+				return
+			end
+			signal(self, "FiredToClient"):Fire(player, ...)
+			if player == game:GetService("Players").LocalPlayer then
+				signal(self, "OnClientEvent"):Fire(...)
+			end
+		end,
+		FireAllClients = function(self, ...)
+			if not unreliableFits(self, ...) then
+				return
+			end
+			local players = game:GetService("Players")
+			for _, player in players:GetPlayers() do
+				signal(self, "FiredToClient"):Fire(player, ...)
+			end
+			if players.LocalPlayer then
+				signal(self, "OnClientEvent"):Fire(...)
+			end
+		end,
 	},
 	RemoteFunction = {
 		InvokeServer = function(self, ...)
@@ -2685,6 +2774,8 @@ local function show(...)
 	return table.concat(parts, " ", 1, parts.n)
 end
 
+local userGameSettings = { SavedQualityLevel = Enum.SavedQualitySetting.Automatic }
+
 local function makeGlobals(workspace)
 	local globals = {
 		game = game,
@@ -2718,9 +2809,11 @@ local function makeGlobals(workspace)
 		settings = function()
 			return { Physics = {}, Rendering = {}, Network = {} }
 		end,
+		-- One UserGameSettings for the session, on Automatic graphics
+		-- quality, which a spec can change (SavedQualityLevel).
 		UserSettings = function()
-			return { GameSettings = {}, GetService = function()
-				return {}
+			return { GameSettings = userGameSettings, GetService = function()
+				return userGameSettings
 			end }
 		end,
 		version = function()

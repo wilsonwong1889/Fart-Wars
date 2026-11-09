@@ -244,6 +244,13 @@ local function event(payload: { [string]: any }): { Heard }
 		CombatEvent.OnClientEvent:Fire(payload)
 	end)
 end
+-- A shot comes in a batch on the Shots remote (ShotFeed), a batch of one here.
+local Shots = ReplicatedStorage.Remotes.Shots
+local function shot(shooter: number, from: Vector3, to: Vector3): { Heard }
+	return listen(function()
+		Shots.OnClientEvent:Fire({ shooter }, { from }, { to })
+	end)
+end
 local eye = Vector3.new(0, 10, 0)
 camera.CFrame = CFrame.new(eye)
 local function inWorld(got: Heard, name: string, position: Vector3, kind: string): boolean
@@ -261,11 +268,11 @@ end
 
 -- Shots.
 local from = eye + Vector3.new(40, 0, 0)
-local got = event({ kind = "shot", shooter = ada.UserId, from = from, to = from + Vector3.new(0, 0, 30) })
+local got = shot(ada.UserId, from, from + Vector3.new(0, 0, 30))
 check(#got == 1 and inWorld(got[1], "spritzer", from, "shot"), "another player's shot: their gun's sound, from where they fired")
-got = event({ kind = "shot", shooter = 999, from = from, to = from + Vector3.new(0, 0, 30) })
+got = shot(999, from, from + Vector3.new(0, 0, 30))
 check(#got == 1 and inWorld(got[1], WeaponConfig.weapons[WeaponConfig.default].fireSound, from, "shot"), "a shooter who's gone: the default gun's")
-got = event({ kind = "shot", shooter = me.UserId, from = from, to = from + Vector3.new(0, 0, 30) })
+got = shot(me.UserId, from, from + Vector3.new(0, 0, 30))
 check(#got == 0, "my own shot isn't heard again when the server announces it")
 me.Character:PivotTo(CFrame.new(0, 3, -30 * MapConfig.BrainrotBattlefield.scale))
 got = listen(function()

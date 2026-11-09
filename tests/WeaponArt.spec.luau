@@ -155,7 +155,51 @@ for _, weld in handle:GetChildren() do
 	welds += if weld:IsA("WeldConstraint") then 1 else 0
 end
 check(parts == standins and welds == parts, `every piece there and welded ({parts})`)
-check(moving == 6, `the pump's four pieces and the needle's two move ({moving})`)
+check(moving == 1, `the pump moves ({moving} piece)`)
+-- The stand-in is what the server builds every held gun from, so every
+-- client is sent it with each life, and sees it until the meshes are
+-- built: a handful of parts, fewer than any other gun's, with the whole
+-- gun's outline and colours at a glance.
+local function standinOf(id: string): { any }
+	local list = {}
+	for _, piece in WeaponArt[id].pieces do
+		if piece.standin ~= false then
+			table.insert(list, piece)
+		end
+	end
+	return list
+end
+local function outline(pieces: { any }): Vector3
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, piece in pieces do
+		local half = piece.size / 2
+		for _, x in { -1, 1 } do
+			for _, y in { -1, 1 } do
+				for _, z in { -1, 1 } do
+					local corner = piece.cframe * Vector3.new(half.X * x, half.Y * y, half.Z * z)
+					lo, hi = lo:Min(corner), hi:Max(corner)
+				end
+			end
+		end
+	end
+	return hi - lo
+end
+local blasterStandin = standinOf("GasBlaster")
+check(#blasterStandin <= 10, `the Gas Blaster's stand-in is a handful of parts ({#blasterStandin} of its {#WeaponArt.GasBlaster.pieces} pieces)`)
+for _, id in WeaponConfig.order do
+	if id ~= "GasBlaster" then
+		check(#blasterStandin < #standinOf(id), `fewer than the {id}'s ({#standinOf(id)})`)
+	end
+end
+local standinSize, gunSize = outline(blasterStandin), outline(WeaponArt.GasBlaster.pieces)
+check(standinSize.X > gunSize.X * 0.85 and standinSize.Y > gunSize.Y * 0.85 and standinSize.Z > gunSize.Z * 0.85, `the whole gun's outline, near enough ({standinSize} of {gunSize})`)
+local shown = {}
+for _, piece in blasterStandin do
+	shown[piece.role] = true
+end
+for role in WeaponArt.GasBlaster.roles do
+	check(shown[role], `and its colours: some {role}`)
+end
 local muzzle = handle:FindFirstChild("Muzzle") :: Attachment
 check(muzzle and (muzzle.CFrame.Position - WeaponArt.GasBlaster.muzzle).Magnitude < 1e-3, "a Muzzle attachment at the barrel's end")
 check(muzzle.CFrame.UpVector:Dot(Vector3.new(0, 0, -1)) > 0.99, "pointing down the barrel")
@@ -271,7 +315,7 @@ check((weld.C1.Position).Magnitude < 1e-3 and weld.C1.LookVector:Dot(Vector3.new
 
 -- Recoil.
 local emitted = Fx.emitted
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -20) })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -20) })
 task.wait()
 frames(1 / 60)
 local kicked = weld.C1:Inverse()
@@ -285,7 +329,7 @@ check(weld.C1.Position.Magnitude < 0.01, "and it settles")
 local impacts = workspace:FindFirstChild("WeaponFx")
 check(impacts and impacts:FindFirstChild("Impact1") and (impacts.Impact1.WorldPosition - Vector3.new(0, 5, -20)).Magnitude < 1e-3, "a puff where the shot hit")
 local impactAt = impacts.Impact1.WorldPosition
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -WeaponConfig.weapons.GasBlaster.range) })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -WeaponConfig.weapons.GasBlaster.range) })
 task.wait()
 check(impacts.Impact2.WorldPosition.Magnitude < 1e-3 and (impacts.Impact1.WorldPosition - impactAt).Magnitude < 1e-3, "a shot that hit nothing leaves no puff")
 
@@ -299,7 +343,7 @@ local muzzleAt = handle.CFrame * (handle:FindFirstChild("Muzzle") :: Attachment)
 local from = muzzleAt.Position + Vector3.new(0, 1.5, 0)
 local direction = Vector3.new(0, 0, -1)
 local bursts = 0
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = from, to = from + direction * WeaponConfig.weapons.GasBlaster.range })
+Remotes.Shots:FireClient(me, { ada.UserId }, { from }, { from + direction * WeaponConfig.weapons.GasBlaster.range })
 task.wait()
 local bolt: BasePart? = nil
 for _, part in ShotFx.tracers do
@@ -347,7 +391,7 @@ wall.Anchored = true
 wall.Size = Vector3.new(30, 30, 2)
 wall.CFrame = CFrame.new(Vector3.new(0, 5, -41) + UP)
 wall.Parent = workspace
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) + UP }, { Vector3.new(0, 5, -40) + UP })
 task.wait()
 local splat: BasePart? = nil
 for _, part in ShotFx.splats do
@@ -365,7 +409,7 @@ check(splatPart.Transparency < 0.5, "it stays a moment")
 frames(SHOT.SPLAT_SECONDS * 0.6)
 check(splatPart.Transparency == 1, "then fades")
 local root = (me.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = root.Position + Vector3.new(0, 0, 20), to = root.Position + Vector3.new(0, 0, 0.9) })
+Remotes.Shots:FireClient(me, { ada.UserId }, { root.Position + Vector3.new(0, 0, 20) }, { root.Position + Vector3.new(0, 0, 0.9) })
 task.wait()
 local onPlayer = 0
 for _, part in ShotFx.splats do
@@ -377,7 +421,7 @@ frames(1)
 -- Reduced effects: no bursts or splats, but the bolt still shows.
 Settings.reducedEffects = true
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) + UP }, { Vector3.new(0, 5, -40) + UP })
 task.wait()
 local flying, flashing = ShotFx.showing()
 check(flying == 1 and flashing == 0, "reduced effects: the bolt, nothing else")
@@ -400,7 +444,7 @@ for name, art in ShotArt do
 end
 ShotFx.clear()
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) + UP }, { Vector3.new(0, 5, -40) + UP })
 task.wait()
 local meshBolt, meshBurst, meshSplat
 for _, part in ShotFx.tracers do
@@ -647,7 +691,7 @@ check((ring :: BasePart).Size.X > ringSize and (ring :: BasePart).Transparency >
 frames(SHOT.RING_SECONDS)
 check((ring :: BasePart).Transparency == 1, "then gone")
 local trailed = ShotFx.trailed
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0) + UP, to = Vector3.new(0, 5, -40) + UP })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) + UP }, { Vector3.new(0, 5, -40) + UP })
 task.wait()
 local lit = false
 for _, part in ShotFx.tracers do
@@ -684,7 +728,7 @@ check(smoke.Rate == 0, "until it cools")
 task.wait(0.2)
 Settings.reducedEffects = true
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -100) })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -100) })
 task.wait()
 local quiet = true
 for _, part in ShotFx.tracers do
@@ -696,6 +740,40 @@ frames(0.1)
 check(quiet and not blasterFlash.Enabled, "reduced effects: no lights")
 check(ShotFx.trailed == trailed, "and no trail")
 Settings.reducedEffects = false
+frames(1)
+
+-- Without the setting, this PC thins effects out the same way, by one rule
+-- (Detail) for every effect: at a Roblox graphics quality of 3 or lower,
+-- and on Automatic (most players') while it's struggling, under 40 frames
+-- a second lately and for 20 seconds after.
+local Detail = require(Client.Detail)
+local Effects = require(Client.Controllers.EffectsController)
+local userGame = UserSettings():GetService("UserGameSettings")
+local function thin(): boolean
+	task.wait(0.1) -- the last shot's flash of light has gone out
+	local reduced = Detail.reducedEffects()
+	local burst = ShotFx.burst(CFrame.new(Vector3.new(0, 5, 0) + UP), gas, 1)
+	Fx.fired(ada.UserId)
+	check(Effects.reduced() == reduced and (burst == nil) == reduced and blasterFlash.Enabled ~= reduced, "the explosions, the guns and the shots go by the same rule")
+	return reduced
+end
+check(userGame.SavedQualityLevel == Enum.SavedQualitySetting.Automatic and not thin(), "on Automatic at 60 frames a second: everything")
+userGame.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel3
+check(thin() and Effects.reduced(), "graphics quality 3: thinned out (no clouds or puffs either)")
+userGame.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel4
+check(not thin(), "quality 4: everything")
+userGame.SavedQualityLevel = Enum.SavedQualitySetting.Automatic
+frames(3, 1 / 30)
+check(thin(), "on Automatic at 30 frames a second: thinned out")
+frames(10)
+check(thin(), "and still, ten seconds after it's back up to 60")
+frames(15)
+check(not thin(), "everything again once it has stayed up for 20 seconds")
+frames(5, 1 / 50)
+check(not thin(), "50 frames a second isn't struggling")
+userGame.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+check(thin(), "and quality 1 thins out whatever the frame rate")
+userGame.SavedQualityLevel = Enum.SavedQualitySetting.Automatic
 frames(1)
 
 -- Built in the game, so nothing has to be imported: each client builds
@@ -821,7 +899,7 @@ task.wait(0.2)
 grip(ada)
 frames(0.5)
 Fx.fired(ada.UserId)
-Remotes.CombatEvent:FireClient(me, { kind = "shot", shooter = ada.UserId, from = Vector3.new(0, 5, 0), to = Vector3.new(0, 5, -60) })
+Remotes.Shots:FireClient(me, { ada.UserId }, { Vector3.new(0, 5, 0) }, { Vector3.new(0, 5, -60) })
 task.wait()
 local runtimeBolt, runtimeRing
 for _, part in ShotFx.tracers do

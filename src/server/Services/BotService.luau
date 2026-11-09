@@ -538,6 +538,17 @@ function BotService.isProtected(bot: Bot): boolean
 	return type(protectedUntil) == "number" and now() < protectedUntil
 end
 
+-- A new round's spawns are spread out (BotDirector): till its turn, a
+-- bot's body from the last round sits out, `seconds` at most. Nothing
+-- gasses it (it counts as protected, with no ForceField to show for it).
+function BotService.sitOut(bot: Bot, seconds: number)
+	local character = bot.character
+	if character and current(bot) then
+		local until_ = tonumber(character:GetAttribute("ProtectedUntil")) or 0
+		character:SetAttribute("ProtectedUntil", math.max(until_, now() + seconds))
+	end
+end
+
 -- Attacking gives up the rest of the protection.
 function BotService.endProtection(bot: Bot)
 	local character = bot.character

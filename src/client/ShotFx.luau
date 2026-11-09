@@ -14,9 +14,11 @@
 -- Each comes from a fixed pool (GameConfig.BUDGET.MAX_TRACERS bolts,
 -- WeaponFx.SHOT's bursts, rings and splats), reused oldest first, so a
 -- server full of Spritzers costs a fixed number of parts; none can be hit,
--- touched or collided with. Reduced effects and reduce motion leave out
--- the bursts, rings, splats, lights and trails; the bolt always shows,
--- since it says where the shot went.
+-- touched or collided with. Thinned-out effects (Detail's rule: Reduced
+-- effects or Low detail, graphics quality 3 or lower, or a struggling
+-- frame rate on Automatic) and reduce motion leave out the bursts, rings,
+-- splats, lights and trails; the bolt always shows, since it says where
+-- the shot went.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -27,6 +29,7 @@ local ArtAssets = require(Shared.Config.ArtAssets)
 local WeaponModel = require(Shared.WeaponModel)
 local MeshBuilder = require(Shared.MeshBuilder)
 local Settings = require(script.Parent.Settings)
+local Detail = require(script.Parent.Detail)
 
 local SHOT = WeaponFx.SHOT
 local WHITE = Color3.new(1, 1, 1)
@@ -74,7 +77,7 @@ local trailEmitters: { [string]: ParticleEmitter } = {}
 local trailAt: Attachment? = nil
 
 local function reduced(): boolean
-	return Settings.reducedEffects or Settings.lowDetail or Settings.reduceMotion
+	return Settings.reduceMotion or Detail.reducedEffects()
 end
 
 local function fxFolder(): Folder

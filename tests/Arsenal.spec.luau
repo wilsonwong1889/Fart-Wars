@@ -61,7 +61,17 @@ Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
 		table.insert(heard, event)
 	end
 end)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed).
+local ShotFeed = require(game.ServerScriptService.Server.ShotFeed)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	if player.Name == "Me" then
+		for i, shooter in shooters do
+			table.insert(heard, { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] })
+		end
+	end
+end)
 local function lastHeard(kind: string): any
+	ShotFeed.flush() -- the frame's shots, sent
 	for i = #heard, 1, -1 do
 		if heard[i].kind == kind then
 			return heard[i]

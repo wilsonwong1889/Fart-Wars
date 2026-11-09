@@ -54,6 +54,8 @@ local remotes = {
 	FartDash = "RemoteEvent",
 	LaunchPad = "RemoteEvent",
 	CombatEvent = "RemoteEvent",
+	-- Every shot, unreliable and a frame's worth at a time (ShotFeed).
+	Shots = "UnreliableRemoteEvent",
 	ProgressEvent = "RemoteEvent",
 	UseAbility = "RemoteEvent",
 	ShopRequest = "RemoteFunction",
@@ -74,7 +76,7 @@ for _, child in ReplicatedStorage.Remotes:GetChildren() do
 	check(remotes[child.Name] == child.ClassName, `{child.Name} is a planned {remotes[child.Name] or "?"}`)
 	present += 1
 end
-check(present == 25, "all twenty-five remotes, nothing else")
+check(present == 26, "all twenty-six remotes, nothing else")
 
 local FeatureFlags = require(shared.Config.FeatureFlags)
 check(FeatureFlags.MATCH_MODE == "Rounds", "5-minute rounds by default")

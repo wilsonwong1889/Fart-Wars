@@ -67,19 +67,19 @@ WEAPONS = [
 ]
 
 
-def trigger(b, y):
+def trigger(b, y, standin=True):
     # The guard is a ring on its side: the stand-in model (parts) leaves it out.
     b.ring("Metal", 0.13, 0.028, (0, y, 0.06), axis="X", standin=False)
-    b.box("Trim", (0.06, 0.07, 0.17), (0, y + 0.02, 0.1), bevel=0.02, rotation=(-15, 0, 0))
+    b.box("Trim", (0.06, 0.07, 0.17), (0, y + 0.02, 0.1), bevel=0.02, rotation=(-15, 0, 0), standin=standin)
 
 
-def tube(b, role, points, radius):
+def tube(b, role, points, radius, standin=True):
     """A bent tube (a hose) through `points` (Blender y, z at x = 0), one
     rounded block per stretch."""
     for (y0, z0), (y1, z1) in zip(points, points[1:]):
         length = math.hypot(y1 - y0, z1 - z0) + radius
         angle = math.degrees(math.atan2(z1 - z0, y1 - y0))
-        b.box(role, (2 * radius, length, 2 * radius), (0, (y0 + y1) / 2, (z0 + z1) / 2), bevel=radius * 0.9, rotation=(angle, 0, 0))
+        b.box(role, (2 * radius, length, 2 * radius), (0, (y0 + y1) / 2, (z0 + z1) / 2), bevel=radius * 0.9, rotation=(angle, 0, 0), standin=standin)
 
 
 def gas_blaster(b):
@@ -88,64 +88,71 @@ def gas_blaster(b):
     (a part of its own) drops as it fires; glowing vents and a glowing
     ring at the back; a ribbed barrel with a pump grip under it (its own
     part: it pumps on every shot), ending in a horn that glows with gas;
-    building-brick studs and bolts on the receiver."""
+    building-brick studs and bolts on the receiver.
+
+    Its stand-in (the parts the server builds every held gun from, sent
+    to every client with each life) is the nine pieces that make its
+    outline and colours: the grip, the body, the canister and its gas, the
+    collar, barrel and pump, and the horn glowing with gas. The rest of
+    its detail (`detail`: about forty more pieces) is in the meshes only."""
+    detail = {"standin": False}
     # The grip, with finger ridges and a pommel, angled back.
     b.box("Grip", (0.32, 0.42, 0.85), (0, -0.04, -0.15), bevel=0.12, rotation=(-15, 0, 0), segments=4)
     for y, z in ((0.215, -0.011), (0.15, -0.252), (0.085, -0.494)):
-        b.cyl("Grip", 0.065, 0.3, (0, y, z), axis="X", vertices=16)
-    b.box("Trim", (0.36, 0.48, 0.1), (0, -0.156, -0.6), bevel=0.04, rotation=(-15, 0, 0))
+        b.cyl("Grip", 0.065, 0.3, (0, y, z), axis="X", vertices=16, **detail)
+    b.box("Trim", (0.36, 0.48, 0.1), (0, -0.156, -0.6), bevel=0.04, rotation=(-15, 0, 0), **detail)
     # The receiver: a rounded body, a stripe round it, the back cap, its
     # disc and the glowing ring round that, and a ready light on top.
     b.box("Body", (0.54, 1.25, 0.52), (0, 0.35, 0.45), bevel=0.16, segments=4)
-    b.box("Trim", (0.565, 0.86, 0.1), (0, 0.38, 0.3), bevel=0.04)
-    b.box("Body", (0.46, 0.3, 0.46), (0, -0.38, 0.45), bevel=0.13, segments=4)
-    b.cyl("Trim", 0.16, 0.06, (0, -0.545, 0.45), vertices=28)
-    b.ring("Gas", 0.165, 0.024, (0, -0.565, 0.45), standin=False)
-    b.cyl("Metal", 0.06, 0.03, (0, -0.585, 0.45), vertices=6, bevel=0)
-    b.ball("Gas", 0.055, (0, -0.42, 0.68))
+    b.box("Trim", (0.565, 0.86, 0.1), (0, 0.38, 0.3), bevel=0.04, **detail)
+    b.box("Body", (0.46, 0.3, 0.46), (0, -0.38, 0.45), bevel=0.13, segments=4, **detail)
+    b.cyl("Trim", 0.16, 0.06, (0, -0.545, 0.45), vertices=28, **detail)
+    b.ring("Gas", 0.165, 0.024, (0, -0.565, 0.45), **detail)
+    b.cyl("Metal", 0.06, 0.03, (0, -0.585, 0.45), vertices=6, bevel=0, **detail)
+    b.ball("Gas", 0.055, (0, -0.42, 0.68), **detail)
     # Vents on both sides of the front: a dark panel, three glowing slots.
-    b.box("Metal", (0.565, 0.42, 0.22), (0, 0.72, 0.48), bevel=0.05)
+    b.box("Metal", (0.565, 0.42, 0.22), (0, 0.72, 0.48), bevel=0.05, **detail)
     for y in (0.6, 0.72, 0.84):
-        b.box("Gas", (0.585, 0.055, 0.15), (0, y, 0.48), bevel=0.02)
+        b.box("Gas", (0.585, 0.055, 0.15), (0, y, 0.48), bevel=0.02, **detail)
     # Bolts through the back of the body, showing on both sides.
     for z in (0.37, 0.62):
-        b.cyl("Metal", 0.032, 0.565, (0, -0.17, z), axis="X", vertices=6, bevel=0)
+        b.cyl("Metal", 0.032, 0.565, (0, -0.17, z), axis="X", vertices=6, bevel=0, **detail)
     # Studs on top, in front of and behind the canister.
     for y in (-0.19, 0.85):
         for x in (-0.12, 0.12):
-            b.cyl("Body", 0.075, 0.08, (x, y, 0.735), axis="Z", vertices=16, bevel=0.015)
+            b.cyl("Body", 0.075, 0.08, (x, y, 0.735), axis="Z", vertices=16, bevel=0.015, **detail)
     # The pressure gauge on the right: a dark bezel, a bright face, and the
     # needle (with its hub and tail, centred on the face so it turns there).
-    b.cyl("Metal", 0.14, 0.07, (0.275, 0.12, 0.5), axis="X", vertices=28)
-    b.cyl("Trim", 0.11, 0.03, (0.305, 0.12, 0.5), axis="X", vertices=28, bevel=0)
-    b.box("Metal", (0.018, 0.02, 0.17), (0.326, 0.12, 0.5), bevel=0, rotation=(-35, 0, 0), part="Needle")
-    b.cyl("Metal", 0.026, 0.024, (0.326, 0.12, 0.5), axis="X", vertices=12, bevel=0, part="Needle")
+    b.cyl("Metal", 0.14, 0.07, (0.275, 0.12, 0.5), axis="X", vertices=28, **detail)
+    b.cyl("Trim", 0.11, 0.03, (0.305, 0.12, 0.5), axis="X", vertices=28, bevel=0, **detail)
+    b.box("Metal", (0.018, 0.02, 0.17), (0.326, 0.12, 0.5), bevel=0, rotation=(-35, 0, 0), part="Needle", **detail)
+    b.cyl("Metal", 0.026, 0.024, (0.326, 0.12, 0.5), axis="X", vertices=12, bevel=0, part="Needle", **detail)
     # The canister: glass with gas inside, caps, clamps, a rail under it,
     # and the valve and hose down to the barrel.
-    b.box("Metal", (0.18, 0.9, 0.08), (0, 0.3, 0.75), bevel=0.03)
+    b.box("Metal", (0.18, 0.9, 0.08), (0, 0.3, 0.75), bevel=0.03, **detail)
     b.cyl("Glass", 0.21, 0.8, (0, 0.3, 0.98))
     b.cyl("Gas", 0.16, 0.7, (0, 0.3, 0.98), bevel=0)
     for y in (-0.1, 0.7):
-        b.cyl("Metal", 0.225, 0.09, (0, y, 0.98))
+        b.cyl("Metal", 0.225, 0.09, (0, y, 0.98), **detail)
     for y in (0.06, 0.54):
-        b.box("Metal", (0.12, 0.1, 0.2), (0, y, 0.8), bevel=0.02)
-    b.cyl("Trim", 0.07, 0.12, (0, 0.8, 0.98), vertices=16)
-    b.ring("Trim", 0.09, 0.025, (0, 0.86, 0.98))
-    tube(b, "Grip", [(0.86, 0.98), (0.98, 0.94), (1.05, 0.83), (1.06, 0.7)], 0.045)
+        b.box("Metal", (0.12, 0.1, 0.2), (0, y, 0.8), bevel=0.02, **detail)
+    b.cyl("Trim", 0.07, 0.12, (0, 0.8, 0.98), vertices=16, **detail)
+    b.ring("Trim", 0.09, 0.025, (0, 0.86, 0.98), **detail)
+    tube(b, "Grip", [(0.86, 0.98), (0.98, 0.94), (1.05, 0.83), (1.06, 0.7)], 0.045, **detail)
     # The barrel: a collar out of the body, cooling rings, and the pump,
     # ridged underneath, with room to slide back.
     b.cyl("Trim", 0.22, 0.18, (0, 1.02, 0.47))
     b.cyl("Metal", 0.12, 0.95, (0, 1.55, 0.47))
     for y in (1.3, 1.5, 1.7):
-        b.ring("Trim", 0.13, 0.035, (0, y, 0.47))
+        b.ring("Trim", 0.13, 0.035, (0, y, 0.47), **detail)
     b.box("Grip", (0.26, 0.44, 0.17), (0, 1.52, 0.265), bevel=0.07, part="Pump")
     for y in (1.4, 1.52, 1.64):
-        b.cyl("Grip", 0.032, 0.27, (0, y, 0.19), axis="X", vertices=12, bevel=0, part="Pump")
+        b.cyl("Grip", 0.032, 0.27, (0, y, 0.19), axis="X", vertices=12, bevel=0, part="Pump", **detail)
     # The horn: flared, a rim, and gas glowing inside.
     b.cyl("Trim", 0.3, 0.32, (0, 2.18, 0.47), radius2=0.13)
-    b.ring("Trim", 0.29, 0.035, (0, 2.34, 0.47))
+    b.ring("Trim", 0.29, 0.035, (0, 2.34, 0.47), **detail)
     b.cyl("Gas", 0.24, 0.02, (0, 2.347, 0.47), bevel=0)
-    trigger(b, 0.12)
+    trigger(b, 0.12, **detail)
     return (0, 2.37, 0.47)
 
 

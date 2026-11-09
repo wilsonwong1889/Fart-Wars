@@ -174,7 +174,21 @@ the Output window help).
       (shrunk if it must be), clear of the weapons and the emotes; BACK puts
       it top left again; in a match it's top left at its normal size.
 - [ ] Roblox graphics quality 1: effects thin out, the game stays smooth.
-      Settings → Reduced effects does the same at any quality.
+      Settings → Reduced effects does the same at any quality. On
+      Automatic, a PC under 40 frames a second (Studio's frame rate cap,
+      or a busy fight on a slow laptop) thins them out too, and they come
+      back 20 seconds after it's over 40 again.
+- [ ] A full server's round start (bots on): no hitch on any client as
+      everyone respawns; the spawns come over half a second, and nobody
+      still standing where the last round left them can shoot or be
+      gassed till their own spawn.
+- [ ] A big fight on a poor connection (a phone's hotspot, say): hit
+      markers keep up; at worst a few of the other players' bolts are
+      missing (shots are unreliable, hits aren't).
+- [ ] Workspace's PlayerCharacterDestroyBehavior and
+      ReplicateInstanceDestroySetting say Enabled (Rojo sets them):
+      respawns, team switches, a new round and leaving mid-countdown all
+      work as before (the explosion where the body was, the kill counted).
 - [ ] Settings → Sound effects off: silence; turning the volume down
       turns every sound down, near and far.
 - [ ] Settings → Tips off: no more tips.

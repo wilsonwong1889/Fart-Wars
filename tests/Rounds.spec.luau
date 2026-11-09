@@ -220,7 +220,7 @@ for _, remote in Remotes:GetChildren() do
 end
 table.sort(names)
 check(
-	table.concat(names, ",") == "ClientReport,CombatEvent,Emote,FartDash,FireWeapon,LaunchPad,LeaderboardRequest,Ping,Practice,PrestigeRequest,ProfileUpdate,ProgressEvent,ReportPlayer,RequestPlay,RequestSpectate,RequestTeam,RewardsRequest,RoundSnapshot,RoundUpdate,SendFeedback,SettingsRequest,ShopRequest,TeamUpdate,UIMessage,UseAbility",
+	table.concat(names, ",") == "ClientReport,CombatEvent,Emote,FartDash,FireWeapon,LaunchPad,LeaderboardRequest,Ping,Practice,PrestigeRequest,ProfileUpdate,ProgressEvent,ReportPlayer,RequestPlay,RequestSpectate,RequestTeam,RewardsRequest,RoundSnapshot,RoundUpdate,SendFeedback,SettingsRequest,ShopRequest,Shots,TeamUpdate,UIMessage,UseAbility",
 	"exactly the planned remotes"
 )
 check(type(Remotes.RoundSnapshot.OnServerInvoke) == "function", "the snapshot can be asked for")
