@@ -12,8 +12,12 @@
 -- turns up for anyone else is removed. Every match spawn is at the team's
 -- safest pad, with a few seconds of protection (the character's
 -- "ProtectedUntil" attribute and a ForceField) that firing ends early; the
--- practice yard has no need of it. In continuous play, joining is PLAY.
--- Clients see their state as the Player's "State" attribute.
+-- practice yard has no need of it. A new round's spawns are spread over
+-- GameConfig.ROUND_SPAWN_SPREAD_SECONDS, the teams taking turns; until a
+-- player's turn, the last round's avatar sits out (awaitingSpawn: counted
+-- as protected, and CombatService and AbilityService drop what it tries).
+-- In continuous play, joining is PLAY. Clients see their state as the
+-- Player's "State" attribute.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -26,6 +30,7 @@ local Signal = require(Shared.Signal)
 local Server = script.Parent.Parent
 local Messages = require(Server.Messages)
 local RateLimit = require(Server.RateLimit)
+local Spread = require(Server.Spread)
 local Telemetry = require(Server.Telemetry)
 local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
@@ -51,6 +56,9 @@ export type Runtime = {
 	lastSpawnAt: number?,
 	-- The spawn (its token) whose avatar is loading right now, if any.
 	loadingSpawn: number?,
+	-- A new round began and this player's spawn in it hasn't come yet (the
+	-- round's spawns are spread out).
+	roundSpawnPending: boolean,
 	-- Disconnected on leaving: a connection on the Player that refers back
 	-- to it would keep a departed player in memory.
 	characterAdded: RBXScriptConnection?,
@@ -133,7 +141,19 @@ function PlayerLifecycleService.protect(character: Model)
 	end)
 end
 
+-- Whether a new round has begun and this player's spawn in it hasn't come
+-- yet: the last round's avatar sits out till then.
+function PlayerLifecycleService.awaitingSpawn(player: Player): boolean
+	local runtime = runtimes[player]
+	return runtime ~= nil and runtime.roundSpawnPending and runtime.state == PlayerState.ACTIVE
+end
+
+-- Protected: a fresh spawn's few seconds, and an avatar waiting out a new
+-- round's spawns (nothing gasses it, and bots leave it alone).
 function PlayerLifecycleService.isProtected(player: Player): boolean
+	if PlayerLifecycleService.awaitingSpawn(player) then
+		return true
+	end
 	local character = player.Character
 	local protectedUntil = character and character:GetAttribute("ProtectedUntil")
 	return type(protectedUntil) == "number" and now() < protectedUntil
@@ -181,6 +201,7 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	runtime.spawnToken += 1
 	local teamId = TeamService.teamOf(player)
 	if not teamId then
+		runtime.roundSpawnPending = false
 		return
 	end
 	runtime.teamId = teamId
@@ -195,6 +216,8 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	if runtime.loadingSpawn == token then
 		runtime.loadingSpawn = nil
 	end
+	-- The new avatar is in (or isn't coming): a round's wait is over.
+	runtime.roundSpawnPending = false
 	if not ok then
 		warn(`[Lifecycle] couldn't spawn {player.Name}: {err}`)
 	end
@@ -375,6 +398,7 @@ function PlayerLifecycleService.toSpectator(player: Player, state: string): bool
 		return false
 	end
 	runtime.spawnToken += 1
+	runtime.roundSpawnPending = false
 	removeCharacter(player)
 	if state == PlayerState.AFK_SPECTATOR then
 		runtime.sessionStats.afkMoves += 1
@@ -425,20 +449,49 @@ local function freshlySpawned(runtime: Runtime, at: number): boolean
 		or (runtime.lastSpawnAt ~= nil and at - runtime.lastSpawnAt < GameConfig.SPAWN_PROTECTION_SECONDS)
 end
 
+-- A player's spawn in a new round, if it's still to come (a team switch
+-- or a spectate meanwhile has seen to it).
+local function roundSpawn(player: Player)
+	local runtime = runtimes[player]
+	if runtime and runtime.roundSpawnPending and runtime.state == PlayerState.ACTIVE then
+		spawnPlayer(player, runtime)
+	end
+end
+
 -- A new round: everyone's round stats start again and every active player
--- starts from their team's spawn, except one who has only just got there
--- (PLAY under the results a moment before: a second avatar straight after
--- the first was a double drop).
+-- starts from their team's spawn, spread over ROUND_SPAWN_SPREAD_SECONDS
+-- with the teams taking turns (all at once, every client was sent every
+-- avatar in one frame). Each waits out its turn in the last round's
+-- avatar, sitting out (awaitingSpawn). One who has only just got to their
+-- spawn (PLAY under the results a moment before) keeps that avatar: a
+-- second straight after the first was a double drop.
 function PlayerLifecycleService.beginRound(id: number)
 	roundId = id
 	local at = now()
+	local byTeam: { [string]: { Player } } = {}
 	for player, runtime in runtimes do
 		runtime.activeSecondsThisRound = 0
 		runtime.currentRoundId = id
 		if runtime.state == PlayerState.ACTIVE and not freshlySpawned(runtime, at) then
-			task.spawn(spawnPlayer, player, runtime)
+			runtime.roundSpawnPending = true
+			local team = TeamService.teamOf(player) or ""
+			byTeam[team] = byTeam[team] or {}
+			table.insert(byTeam[team], player)
 		end
 	end
+	-- In a known order before the shuffle, so a test run goes the same way
+	-- every time.
+	local groups = {}
+	for _, team in TeamConfig.order do
+		table.insert(groups, byTeam[team] or {})
+	end
+	table.insert(groups, byTeam[""] or {})
+	for _, group in groups do
+		table.sort(group, function(a, b)
+			return a.UserId < b.UserId
+		end)
+	end
+	Spread.over(GameConfig.ROUND_SPAWN_SPREAD_SECONDS, Spread.alternate(groups), roundSpawn)
 end
 
 -- Adds round time to everyone ACTIVE (spectators' clocks are paused).
@@ -487,6 +540,7 @@ local function onJoin(player: Player)
 		preferredTeam = nil,
 		sessionStats = { plays = 0, roundsPlayed = 0, afkMoves = 0, switches = 0 },
 		spawnToken = 0,
+		roundSpawnPending = false,
 	}
 	runtimes[player] = runtime
 	player.Neutral = true

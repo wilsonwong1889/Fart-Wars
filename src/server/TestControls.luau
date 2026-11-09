@@ -392,6 +392,7 @@ local REMOTES = {
 	FartDash = "RemoteEvent",
 	LaunchPad = "RemoteEvent",
 	CombatEvent = "RemoteEvent",
+	Shots = "UnreliableRemoteEvent",
 	ProgressEvent = "RemoteEvent",
 	UseAbility = "RemoteEvent",
 	ShopRequest = "RemoteFunction",
@@ -427,6 +428,14 @@ function TestControls.selftest(player: Player?): (boolean, string)
 	expect(Players.MaxPlayers == GameConfig.MAX_PLAYERS, "Max Players", `{Players.MaxPlayers}`, `{Players.MaxPlayers}; set it to {GameConfig.MAX_PLAYERS} in Game Settings > Places`)
 	expect(Players.CharacterAutoLoads == false, "Character auto-loading", "off", "on: avatars would spawn without PLAY")
 	expect(workspace.StreamingEnabled == false, "Streaming", "off", "on: the code-built map and spawn checks expect it off")
+	-- Old bodies and players destroyed, and the destroy reaching every
+	-- client (default.project.json sets both; Rojo has to sync them).
+	local destroys = false
+	pcall(function()
+		destroys = workspace.PlayerCharacterDestroyBehavior == Enum.PlayerCharacterDestroyBehavior.Enabled
+			and workspace.ReplicateInstanceDestroySetting == Enum.ReplicateInstanceDestroySetting.Enabled
+	end)
+	expect(destroys, "Destroying", "old bodies destroyed, on every client too", "set Workspace's PlayerCharacterDestroyBehavior and ReplicateInstanceDestroySetting to Enabled (default.project.json has them; is Rojo syncing?)", "WARN")
 	local map, entry = MapService.current()
 	if map and entry then
 		local ok, problems = MapBase.validate(map, entry, TeamConfig.order)

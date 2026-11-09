@@ -111,7 +111,9 @@ local myTeam = me:GetAttribute("TeamId")
 local otherTeam = if myTeam == "Stinkers" then "Sharters" else "Stinkers"
 TeamService.testSetTeam(foe, otherTeam)
 TeamService.testSetTeam(mate, myTeam)
-task.wait(0.2)
+-- A round started as Foe joined, and its spawns are spread out: everyone
+-- is on a spawn of this round before anyone is moved.
+task.wait(0.2 + require(ReplicatedStorage.Shared.Config.GameConfig).ROUND_SPAWN_SPREAD_SECONDS)
 check(TeamService.teamOf(foe) == otherTeam and TeamService.teamOf(mate) == myTeam, "a foe and a teammate")
 
 -- What the newest number goes through: its pop, its rise and its fade.

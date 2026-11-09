@@ -62,7 +62,17 @@ Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
 		table.insert(heard, event)
 	end
 end)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed).
+local ShotFeed = require(game.ServerScriptService.Server.ShotFeed)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	if player.Name == "Ada" then
+		for i, shooter in shooters do
+			table.insert(heard, { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] })
+		end
+	end
+end)
 local function last(kind: string): any
+	ShotFeed.flush() -- the frame's shots, sent
 	for i = #heard, 1, -1 do
 		if heard[i].kind == kind then
 			return heard[i]
@@ -71,6 +81,7 @@ local function last(kind: string): any
 	return nil
 end
 local function count(kind: string): number
+	ShotFeed.flush()
 	local n = 0
 	for _, event in heard do
 		if event.kind == kind then

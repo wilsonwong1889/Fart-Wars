@@ -128,12 +128,25 @@ end
 -- Two enemy bots face to face in the open: they fight (shots, or stink
 -- bombs), each with its own gun.
 local shots = {}
+local function heard(id: number)
+	local shooter = Bots.get(id)
+	table.insert(shots, { shooter = id, at = workspace:GetServerTimeNow(), weapon = shooter and shooter.weapon })
+end
 Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
-	if player.Name == "Ada" and (event.kind == "shot" or event.kind == "lob") and event.shooter < 0 then
-		local shooter = Bots.get(event.shooter)
-		table.insert(shots, { shooter = event.shooter, at = workspace:GetServerTimeNow(), weapon = shooter and shooter.weapon })
+	if player.Name == "Ada" and event.kind == "lob" and event.shooter < 0 then
+		heard(event.shooter)
 	end
 end)
+-- Shots go out a frame's worth at a time (ShotFeed); timed here as the
+-- server casts them, for the rate of fire.
+local ShotFeed = require(server.ShotFeed)
+local cast = ShotFeed.add
+ShotFeed.add = function(shooter: number, from: Vector3, to: Vector3, onlyTo: Player?)
+	if shooter < 0 then
+		heard(shooter)
+	end
+	return cast(shooter, from, to, onlyTo)
+end
 local a, b
 for _, bot in Bots.all() do
 	if bot.team == "Stinkers" and not a then a = bot end
@@ -182,11 +195,52 @@ for _, bot in Bots.all() do
 	end
 end
 check(gassed > 0, "gas on them before the round ends")
+-- The new round's spawns, as they come: spread over half a second like the
+-- players', not all in one frame; the bots still to come wait in their old
+-- bodies, sitting out.
+local SPREAD = require(ReplicatedStorage.Shared.Config.GameConfig).ROUND_SPAWN_SPREAD_SECONDS
+local respawns: { { bot: any, at: number } } = {}
+local roundAt: number? = nil
+local sittingOut = { count = 0, safe = true }
+local spawnWatch = Bots.Spawned:Connect(function(bot)
+	table.insert(respawns, { bot = bot, at = os.clock() })
+end)
+local roundWatch = Round.PhaseChanged:Connect(function(phase)
+	if phase ~= "ACTIVE" or roundAt then
+		return
+	end
+	roundAt = os.clock()
+	local fresh = {}
+	for _, entry in respawns do
+		if entry.at >= roundAt then
+			fresh[entry.bot] = true
+		end
+	end
+	for _, bot in Bots.all() do
+		if not fresh[bot] then
+			sittingOut.count += 1
+			local enemy = if bot.team == "Stinkers" then "Sharters" else "Stinkers"
+			sittingOut.safe = sittingOut.safe and Bots.isProtected(bot) and not Bots.addGas(bot, 40, { team = enemy, cause = "cloud" })
+		end
+	end
+end)
 print(TestControls.run(ada, "/fw end 1"))
 task.wait(20)
+spawnWatch:Disconnect()
+roundWatch:Disconnect()
 print("mode now", Round.getMode().id, Round.phase())
 check(Round.phase() == "ACTIVE", "the next round is on: " .. Round.phase())
 check(#Bots.all() == 3 and #workspace.Bots:GetChildren() == 3, "three bots, no old bodies: " .. #workspace.Bots:GetChildren())
+local started = roundAt :: number
+local fresh, at = {}, {}
+for _, entry in respawns do
+	if entry.at >= started and entry.at <= started + SPREAD + 1e-6 then
+		table.insert(fresh, entry.bot)
+		table.insert(at, entry.at - started)
+	end
+end
+check(#fresh == 3 and at[1] == 0 and math.abs(at[2] - SPREAD / 2) < 1e-6 and math.abs(at[3] - SPREAD) < 1e-6, `each bot respawns once, half a second for the three ({table.concat(at, ", ")})`)
+check(sittingOut.count == 2 and sittingOut.safe, "the two still to come wait in their old bodies, where no gas lands")
 for _, bot in Bots.all() do
 	check(Bots.isAlive(bot) and bot.character ~= before[bot], "a fresh avatar: " .. bot.name)
 	check(Bots.gasOf(bot) == 0, "no gas: " .. bot.name .. " " .. Bots.gasOf(bot))

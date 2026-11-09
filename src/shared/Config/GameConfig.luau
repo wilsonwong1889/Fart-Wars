@@ -21,6 +21,12 @@ local GameConfig = {
 	RESPAWN_SECONDS = 3,
 	-- Invulnerable this long after spawning, unless they fire first.
 	SPAWN_PROTECTION_SECONDS = 3,
+	-- A new round's spawns (every player's and bot's) are spread over this
+	-- long, not sent to every client in one frame (each new avatar is
+	-- hundreds of instances); each one's protection starts with its own
+	-- spawn. Until its turn, the last round's avatar sits out: it can't be
+	-- gassed, and its shots and abilities are dropped.
+	ROUND_SPAWN_SPREAD_SECONDS = 0.5,
 	-- Network slack for anything on an interval (shots, Fart Dash): two
 	-- requests may arrive this much closer together than the interval
 	-- (15% of it, and never less than FIRE_SLACK_SECONDS), but over time

@@ -13,8 +13,9 @@
 --   * Q abilities: Recovery Burst's vent puff, Gas Pulse's wind-up ring
 --   * "BRO IS THE ALPHA FART!" across the screen when someone hits the
 --     streak, with its sound
--- Effects thin out (no clouds or puffs) at Roblox graphics quality 3 or
--- lower, or with Reduced effects on in Settings.
+-- Effects thin out (no clouds or puffs) by Detail's rule: Reduced effects
+-- or Low detail in Settings, Roblox graphics quality 3 or lower, or on
+-- Automatic a PC that's struggling (under 40 frames a second lately).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -33,6 +34,7 @@ local Combatants = require(Client.Combatants)
 local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
+local Detail = require(Client.Detail)
 local CameraController = require(script.Parent.CameraController)
 local InputController = require(script.Parent.InputController)
 
@@ -60,19 +62,10 @@ local pool: { BasePart } = {}
 local poolNext = 0
 local started = false
 
--- Whether to hold back on effects (Settings, or Roblox graphics quality
--- 1-3). Clouds that gas you are gameplay, so they always show.
+-- Whether to hold back on effects (Detail.reducedEffects, the rule every
+-- effect follows). Clouds that gas you are gameplay, so they always show.
 function EffectsController.reduced(): boolean
-	if Settings.reducedEffects or Settings.lowDetail then
-		return true
-	end
-	local ok, level = pcall(function()
-		return (UserSettings():GetService("UserGameSettings") :: any).SavedQualityLevel
-	end)
-	if not ok or typeof(level) ~= "EnumItem" or level == Enum.SavedQualitySetting.Automatic then
-		return false
-	end
-	return level.Value <= 3
+	return Detail.reducedEffects()
 end
 
 local function effectPart(name: string): BasePart

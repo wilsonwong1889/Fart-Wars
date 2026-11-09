@@ -40,6 +40,7 @@ local UI = require(Client.UI)
 local Audio = require(Client.Audio)
 local Settings = require(Client.Settings)
 local GasNumbers = require(Client.GasNumbers)
+local ShotFeed = require(Client.ShotFeed)
 local InputController = require(script.Parent.InputController)
 local WeaponFxController = require(script.Parent.WeaponFxController)
 
@@ -814,6 +815,8 @@ function CombatController.start()
 			onCombatEvent(event)
 		end
 	end)
+	-- Everyone's shots (ShotFeed: unreliable, a frame's worth at a time).
+	ShotFeed.listen(onCombatEvent)
 	player.CharacterAdded:Connect(function()
 		lastDash = -math.huge
 		lastStage = 0

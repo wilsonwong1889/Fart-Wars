@@ -99,6 +99,13 @@ def smooth(obj, angle=40):
         pass
 
 
+def _standin(extra, standin):
+    """A piece's extra record, marked out of the stand-in model if it is."""
+    if standin:
+        return extra
+    return dict(extra or {}, standin=False)
+
+
 class Builder:
     """Builds one weapon from primitives, keeping a record of each piece
     (for the game's stand-in model and icons) and joining the pieces by
@@ -148,8 +155,10 @@ class Builder:
         objects.append(obj)
         return obj
 
-    def box(self, role, size, center, bevel=0.06, rotation=(0, 0, 0), segments=3, part=None):
-        """A bevelled block: size and center in Blender axes (x, y, z)."""
+    def box(self, role, size, center, bevel=0.06, rotation=(0, 0, 0), segments=3, part=None, standin=True):
+        """A bevelled block: size and center in Blender axes (x, y, z).
+        `standin=False` (here, on cyl, ball and ring too) keeps the piece
+        in the meshes but out of the game's stand-in model."""
         bpy.ops.mesh.primitive_cube_add(size=1, location=center, rotation=[math.radians(a) for a in rotation])
         obj = bpy.context.active_object
         obj.scale = size
@@ -159,10 +168,10 @@ class Builder:
             mod.width = bevel
             mod.segments = segments
             mod.limit_method = "ANGLE"
-        self._record(obj, role, "block", (size[0], size[2], size[1]), {"corner": bevel})
+        self._record(obj, role, "block", (size[0], size[2], size[1]), _standin({"corner": bevel}, standin))
         return self._finish(obj, role, part)
 
-    def cyl(self, role, radius, length, center, axis="Y", radius2=None, vertices=28, bevel=0.02, part=None):
+    def cyl(self, role, radius, length, center, axis="Y", radius2=None, vertices=28, bevel=0.02, part=None, standin=True):
         """A cylinder (or a cone with radius2) along a Blender axis."""
         rotation = {"X": (0, math.radians(90), 0), "Y": (math.radians(90), 0, 0), "Z": (0, 0, 0)}[axis]
         if radius2 is None:
@@ -176,16 +185,16 @@ class Builder:
             mod.segments = 2
             mod.limit_method = "ANGLE"
         diameter = 2 * max(radius, radius2 or 0)
-        self._record(obj, role, "cylinder", (length, diameter, diameter))
+        self._record(obj, role, "cylinder", (length, diameter, diameter), _standin(None, standin))
         return self._finish(obj, role, part)
 
-    def ball(self, role, radius, center, scale=(1, 1, 1), part=None):
+    def ball(self, role, radius, center, scale=(1, 1, 1), part=None, standin=True):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=radius, location=center)
         obj = bpy.context.active_object
         obj.scale = scale
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
         size = (2 * radius * scale[0], 2 * radius * scale[2], 2 * radius * scale[1])
-        self._record(obj, role, "ball" if scale == (1, 1, 1) else "block", size, {"corner": radius})
+        self._record(obj, role, "ball" if scale == (1, 1, 1) else "block", size, _standin({"corner": radius}, standin))
         return self._finish(obj, role, part)
 
     def ring(self, role, major, minor, center, axis="Y", standin=True, part=None):
@@ -193,10 +202,7 @@ class Builder:
         bpy.ops.mesh.primitive_torus_add(major_radius=major, minor_radius=minor, major_segments=32, minor_segments=10, location=center, rotation=rotation)
         obj = bpy.context.active_object
         # A torus stands in as a short cylinder.
-        extra = {"ring": True}
-        if not standin:
-            extra["standin"] = False
-        self._record(obj, role, "cylinder", (2 * minor, 2 * (major + minor), 2 * (major + minor)), extra)
+        self._record(obj, role, "cylinder", (2 * minor, 2 * (major + minor), 2 * (major + minor)), _standin({"ring": True}, standin))
         return self._finish(obj, role, part)
 
     def join(self):

@@ -71,9 +71,27 @@ Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
 		table.insert(heard, { event = event, at = now() })
 	end
 end)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed): each heard
+-- when its frame's are sent, at the end of every frame here as the
+-- Heartbeat sends them in Roblox.
+local ShotFeed = require(server.ShotFeed)
+task.spawn(function()
+	while true do
+		ShotFeed.flush()
+		task.wait()
+	end
+end)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	if player.Name == "Ada" then
+		for i, shooter in shooters do
+			table.insert(heard, { event = { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] }, at = now() })
+		end
+	end
+end)
 -- Events of `kinds` from combatant `id` (a shot's or a throw's shooter, a
 -- dash's or an ability's player) since `since`.
 local function from(id: number, kinds: { string }, since: number): { Heard }
+	ShotFeed.flush()
 	local list = {}
 	for _, entry in heard do
 		local event = entry.event
@@ -191,6 +209,7 @@ local function duel(weapon: string, distance: number, seconds: number, options: 
 	local since = now()
 	for _ = 1, math.ceil(seconds / TICK) do
 		brain:tick(TICK)
+		ShotFeed.flush() -- the frame ends: its shots go out
 		task.wait(TICK)
 		Bots.vent(dummy, 100)
 	end

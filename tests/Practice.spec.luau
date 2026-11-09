@@ -73,11 +73,20 @@ Data.setStore({
 
 -- What the server sends whom.
 local events: { [Player]: { any } } = {}
-Remotes.CombatEvent.FiredToClient:Connect(function(player, event)
+local function hear(player: Player, event: any)
 	events[player] = events[player] or {}
 	table.insert(events[player], event)
+end
+Remotes.CombatEvent.FiredToClient:Connect(hear)
+-- Shots come a frame's worth at a time, unreliably (ShotFeed).
+local ShotFeed = require(game.ServerScriptService.Server.ShotFeed)
+Remotes.Shots.FiredToClient:Connect(function(player, shooters, froms, tos)
+	for i, shooter in shooters do
+		hear(player, { kind = "shot", shooter = shooter, from = froms[i], to = tos[i] })
+	end
 end)
 local function sent(player: Player, kind: string, test: ((any) -> boolean)?): number
+	ShotFeed.flush() -- the frame's shots, sent
 	local n = 0
 	for _, event in events[player] or {} do
 		if event.kind == kind and (not test or test(event)) then
@@ -345,6 +354,9 @@ check(mine:GetAttribute("Gas") == 0 and sent(nosy, "hit") == 0, "another player'
 check(sent(me, "shot", function(e)
 	return e.shooter == nosy.UserId
 end) == 0, "and yard shots are only shown to the shooter")
+check(sent(nosy, "shot", function(e)
+	return e.shooter == nosy.UserId
+end) >= 1, "who does see where they went")
 press(PracticeConfig.SKIP_KEY)
 task.wait(0.2)
 check(me:GetAttribute("State") == "MENU_SPECTATOR" and me:GetAttribute("PracticeEnded") == "skipped", "Enter skips")

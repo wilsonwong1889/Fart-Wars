@@ -36,6 +36,7 @@ local ClientState = require(Client.ClientState)
 local Combatants = require(Client.Combatants)
 local Compass = require(Client.Compass)
 local Settings = require(Client.Settings)
+local ShotFeed = require(Client.ShotFeed)
 local UI = require(Client.UI)
 local InputController = require(script.Parent.InputController)
 
@@ -671,8 +672,10 @@ function CompassController.start()
 	build()
 	local pingRemote = ClientState.remote("Ping") :: RemoteEvent
 	pingRemote.OnClientEvent:Connect(CompassController.receive)
+	-- Throws (CombatEvent) and shots (ShotFeed) mark a fight.
 	local combatEvent = ClientState.remote("CombatEvent") :: RemoteEvent
 	combatEvent.OnClientEvent:Connect(onCombatEvent)
+	ShotFeed.listen(onCombatEvent)
 	Combatants.watch(watchGas)
 	InputController.PingPressed:Connect(CompassController.ping)
 	-- A new team: the old one's pings mean nothing now.

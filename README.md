@@ -136,7 +136,7 @@ Rojo maps the source like this (`default.project.json`):
 | `ReplicatedStorage.Shared` | `src/shared` | `TeamBalance` (the team rules), `RoundClock`, `States`, `Signal`, `WeaponModel` (the weapons from the Blender art), `MeshBuilder` (builds the Blender meshes in the game) |
 | `ReplicatedStorage.Shared.MeshData` | `src/shared/MeshData` | the weapon and shot meshes, packed (generated from Blender) |
 | `ReplicatedStorage.Assets.Weapons`, `Assets.Props`, `Assets.Effects` | Studio (Rojo leaves them alone) | the Blender meshes, if imported ([`art/README.md`](art/README.md)) |
-| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `SettingsRequest`, `SendFeedback`, `LeaderboardRequest`, `Ping`, `LaunchPad`, `Practice` |
+| `ReplicatedStorage.Remotes` | `default.project.json` | `RequestPlay`, `RequestTeam`, `RequestSpectate`, `RoundSnapshot`, `RoundUpdate`, `TeamUpdate`, `UIMessage`, `FireWeapon`, `FartDash`, `CombatEvent`, `Shots` (an `UnreliableRemoteEvent`), `ProgressEvent`, `UseAbility`, `ShopRequest`, `ProfileUpdate`, `RewardsRequest`, `Emote`, `ReportPlayer`, `ClientReport`, `PrestigeRequest`, `SettingsRequest`, `SendFeedback`, `LeaderboardRequest`, `Ping`, `LaunchPad`, `Practice` |
 | `ServerScriptService.Server` | `src/server` | `Bootstrap.server.luau`, `Telemetry`, `Health`, `Profiler`, `Moderation`, `TestControls`, `Messages`, `RateLimit`, `Cadence`, `RoundAwards` (the award maths), `MapDressing` (the map's Blender props) |
 | `ServerScriptService.Server.Services` | `src/server/Services` | the services below |
 | `ServerScriptService.Server.Modes` | `src/server/Modes` | `TeamElimination` (the default) and `GasControl` |
@@ -207,8 +207,12 @@ cooldown, casts every shot itself, and never accepts a hit, score, timer or
 team count from a client, and there's no remote at all for coins, XP or
 levels, and a purchase sends only the weapon's ID. `RoundSnapshot` and
 `ShopRequest` answer requests; `RoundUpdate`, `TeamUpdate`, `UIMessage`,
-`CombatEvent`, `ProgressEvent` and `ProfileUpdate` go from the server to
-clients. Exact payloads are in
+`CombatEvent`, `Shots`, `ProgressEvent` and `ProfileUpdate` go from the
+server to clients. `Shots` is the one unreliable remote: every shot is
+only a picture on the other clients (hits, damage and eliminations are
+`CombatEvent`, reliable), so a lost one costs nothing and never holds up a
+hit marker, and they go a frame's worth at a time as flat arrays
+(`ShotFeed`). Exact payloads are in
 [`docs/implementation-packet.md`](docs/implementation-packet.md).
 
 ## Brainrot Battlefield v0
@@ -347,11 +351,11 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Badges` | the six badges and the beta window's edges (UTC); the beta's boom never sold or given elsewhere; the Beta Tester once (joining isn't playing; before and after the window, nothing; the boom kept, and given back if missing); achievements once each (a bot's kill counts for nobody), old profiles catching up; missing IDs (earned, skipped, counted, the selftest's warning, awarded once set); BadgeService failures (counted, retried a minute later five times a session, then next visit; a refusal for a badge already owned); the favorite prompt (the first win at the results, the mouse free until answered, never again, ten minutes mid-round waiting for the results or the home screen, never unsaved); INVITE |
 | `Prestige` | off as shipped; refusals (level, in a match, unsaved); the preview's exact numbers; tokens (made up, used, expired); a failed save putting everything back; the reset and everything kept; the rank's rewards and tags; climbing again; no power; the screen's two presses |
 | `Leaderboard` | the weekly leaderboard against a stand-in OrderedDataStore: weeks from Monday 00:00 UTC; Studio without API access (no budget, refused requests) napping quietly; what counts from real play (never bots, kills of or by bots, test eliminations or ones between rounds; wins for those who played, not over bots alone); batched writes, the budget reserve, the flush on its own, leaving and shutdown; cached reads, live counts for players here, ranks, ties, your rank past the page; outages; a new week; the screen (TOP, tabs, avatars, your line, the countdown, the nap, Space, PLAY closing it) |
-| `WeaponArt` | the Blender art for every weapon, its moving parts, and the packed meshes (each unpacking to its size, facing out); the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); built in the game (a stand-in EditableMesh), every gun dressed in the meshes, the stand-in hidden, the hotbar too; equip, recoil, springs past rest, the twirl, sway and walk bob, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; the pump, the gauge's needle, the Stink Lobber's bomb; muzzle particles, lights and rings, impacts (light, ring), a hit's flash, barrel smoke, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, lighting and trailing smoke, the burst, splats on walls (never players), reduced effects, the imported and built meshes |
+| `WeaponArt` | the Blender art for every weapon, its moving parts, and the packed meshes (each unpacking to its size, facing out); the held gun from the stand-in pieces and from imported meshes (sized and placed from the art, a sideways or missing import falling back); built in the game (a stand-in EditableMesh), every gun dressed in the meshes, the stand-in hidden, the hotbar too; equip, recoil, springs past rest, the twirl, sway and walk bob, the Thunderclapper's flash and camera kick, reduce motion, the tank's glow; the pump, the gauge's needle, the Stink Lobber's bomb; muzzle particles, lights and rings, impacts (light, ring), a hit's flash, barrel smoke, explosion smoke and rings, the particle budget; the hotbar's 3D icons and the locker's turning previews; shots: the bolt from the muzzle flying into its target, lighting and trailing smoke, the burst, splats on walls (never players), reduced effects, the imported and built meshes; one rule for thinning effects out (Reduced effects, graphics quality 3 or lower, a frame rate under 40 on Automatic) for the explosions, the guns and the shots alike; the Gas Blaster's stand-in, nine parts with the whole gun's outline and colours |
 | `MapArt` | the map's Blender meshes: every prop modelled at its part's size (a module at one section of it) and used, every named part in the map; the plain map until imported; imported at any scale (or inside the importer's Model), each part dressed in its colour and material while it stays the invisible hitbox, so what collides or can be hit is unchanged; walls, trims and floors as modules along their parts, running along each wall, none stretched more than a quarter; low cover's walls and crates stretched across its wider footprint but never up or down, their imports still accepted; spawn pads still spawning; the thrones and the Gutter's toilet facing their bowls; barrels' meshes going and coming back without ever colliding; sideways or empty imports left out and reported; dressing twice; Bean Rain's bean mesh; selftest |
 | `GasControl` | the zone on the full-size map (round, as wide as its ring, clear of the dividers, fair to both spawns), bots' spots in it, the mode and its HUD (line, bar, marker), capture times by team size (bots and a full ten-a-side too), points only while held alone, contests, captures running down, eliminations not scoring, holders' rewards and their cap, the result naming the mode; rotation (off, small servers even filled with bots, taking turns, growing and shrinking); a map missing its zone |
 | `Audio` | every sound's ID and mix (volume, pitch variety, how far it carries); flat sounds at their volume and a pitch in their range, Settings' sound and volume ruling everything; sounds in the world from where they happen, too far away not played, the voice pool (its size, a share per sound, freed when a sound ends or in time, the oldest reused, a lost anchor rebuilt); in the game, others' shots, blasts, throws, splats, abilities, dashes and emotes in the world, your own shots, hits, warnings, emote and throw flat (never echoed), the screens' sounds flat |
-| `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping, the cloud, tracer and effect budgets, the profiler and `/fw perf` |
+| `Network` | late shots at still and moving targets, lost, bunched and out-of-order shots, hit markers only from the server, hits by ping; shots on the unreliable `Shots` remote, a frame's worth at a time as flat arrays (one event to each client, a busy frame split under 900 bytes, in order), hits staying reliable, every client handler getting every shot; the cloud, tracer and effect budgets, the profiler and `/fw perf` |
 | `HitFeedback` | the hit marker at the crosshair, only on the server's verdict: body, headshot (bigger, gold, the hit sound pitched up), the hit that sets them off (bigger still, a ring) and one that did nothing (grey, silent); the pop, the fade, back-to-back hits; REDUCE MOTION and REDUCED EFFECTS |
 | `GasNumbers` | the floating gas numbers on the real server: your own hits only, the server's amount where it landed, white, a headshot's bigger and gold, a bot's, the Spritzer's "+9%"; none for spawn protection, a teammate or someone going off; side by side, the pool, reduced effects and reduce motion |
 | `ChainCallouts` | chain counts from the server (players, a bot and barrels, a branching chain keeping one count, a stink bomb starting none); "CHAIN x2!" and up for the chain's owner (tagline, colour, size, the sting's pitch, a camera kick that never turns the view); nothing guessed; the line near someone else's chain, not far away or over your own; reduce motion and reduced effects |
@@ -367,7 +371,7 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
 | `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes, results and counts by mode, rotation on a small server through a full Gas Control round, a kill finished in the last second (a player's and a bot's) in the result and the awards |
-| `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, PLAY under the results (one drop, even mid-load), churn |
+| `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, PLAY under the results (one drop, even mid-load), churn; a new round's spawns spread over half a second (one in the first frame, evenly apart, the teams taking turns, protection from each one's own spawn), the avatars still to come sitting out (no gas, shots dropped); with `PlayerCharacterDestroyBehavior` on, a respawn's old body destroyed at once and a new round the same |
 | `ClientShell` | the home screen, PLAY, dropping in while the avatar loads, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, the results from the lobby and PLAY under them, against the real server |
 | `Camera` | the mouse locked to the centre in a match and free on the home screen, freed and locked again by MouseLock; the 3rd person mouse lock setting; the over-the-shoulder offset (eased in, snapped with Reduce motion, none in first person or with a free mouse), pulled in by walls but not by art meshes or things you walk through; the avatar facing where the camera looks without stopping a Fart Dash; spectating |
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
@@ -417,8 +421,12 @@ Where the plans left room, or disagreed, Phase 1 does this:
 - **Activity is movement the server sees, and shooting.** An avatar has to
   travel 6 studs across the ground, or fire, or dash; jumping or turning on
   the spot, held keys and remote pings don't count.
-- **Every round starts from the spawns.** All active players respawn at
-  their team's spawn when a round starts. A death respawns after 3 seconds
+- **Every round starts from the spawns.** All active players (and bots)
+  respawn at their team's spawn when a round starts, spread over half a
+  second with the teams taking turns, so no client is sent every new
+  avatar in one frame. Each one's spawn protection starts at its own
+  spawn; till its turn, the last round's avatar sits out (nothing gasses
+  it, and its shots and Q are dropped). A death respawns after 3 seconds
   at the team's spawn farthest from enemies.
 - **Spectators watch from fixed views**, never from another player's eyes,
   so nothing tactical leaks to someone about to press PLAY.
@@ -454,7 +462,10 @@ Where the plans left room, or disagreed, Phase 1 does this:
   players' shots, blasts, stink bombs, abilities, dashes and emotes)
   plays from there and fades with distance, from a fixed pool of voices.
 - **Effects thin out at Roblox graphics quality 3 or lower** (no clouds or
-  puffs), or with Reduced effects on in Settings.
+  puffs, half the particles, no lights, smoke, trails, bursts, rings or
+  splats; every shot's bolt still shows), or with Reduced effects or Low
+  detail on in Settings, or, on Automatic (most players' setting), while
+  the frame rate is under 40 and for 20 seconds after (`Detail`).
 
 ## Phase 3 decisions
 

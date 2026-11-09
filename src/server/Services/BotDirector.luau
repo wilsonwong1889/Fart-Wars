@@ -15,8 +15,9 @@
 -- Roblox's default animations played from the server, and one BotBrain
 -- driving it. A bot that dies is back RESPAWN_SECONDS later (BotService
 -- clears the old body away), every bot starts again from a spawn when a
--- round starts or the map reloads, and a bot no longer needed goes at once
--- (exploding first if it's mid-countdown, so the kill still counts).
+-- round starts (spread over ROUND_SPAWN_SPREAD_SECONDS, like the players)
+-- or the map reloads, and a bot no longer needed goes at once (exploding
+-- first if it's mid-countdown, so the kill still counts).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -31,6 +32,7 @@ local BotFill = require(Shared.BotFill)
 local Server = script.Parent.Parent
 local Telemetry = require(Server.Telemetry)
 local Health = require(Server.Health)
+local Spread = require(Server.Spread)
 local BotBrain = require(Server.Bots.BotBrain)
 local TeamService = require(script.Parent.TeamService)
 local MapService = require(script.Parent.MapService)
@@ -345,6 +347,38 @@ local function respawnAll()
 	end
 end
 
+-- A new round: every bot starts again from a spawn, spread over the same
+-- moment as the players' (GameConfig.ROUND_SPAWN_SPREAD_SECONDS, the teams
+-- taking turns), not all in one frame. Till its turn a bot stands still in
+-- its old body, which sits out (nothing gasses it); one moved, respawned
+-- or removed meanwhile has been seen to.
+local function roundStart()
+	local spread = GameConfig.ROUND_SPAWN_SPREAD_SECONDS
+	local byTeam: { [string]: { { slot: Slot, token: number } } } = {}
+	for _, slot in slots do
+		stopBrain(slot)
+		BotService.sitOut(slot.bot, spread + 1)
+		local team = slot.bot.team
+		byTeam[team] = byTeam[team] or {}
+		table.insert(byTeam[team], { slot = slot, token = slot.token })
+	end
+	-- In a known order before the shuffle, so a test run goes the same way.
+	local groups = {}
+	for _, team in TeamConfig.order do
+		local group = byTeam[team] or {}
+		table.sort(group, function(a, b)
+			return a.slot.bot.id > b.slot.bot.id
+		end)
+		table.insert(groups, group)
+	end
+	Spread.over(spread, Spread.alternate(groups), function(turn)
+		local slot = turn.slot
+		if slots[slot.bot.id] == slot and slot.token == turn.token then
+			spawnBot(slot)
+		end
+	end)
+end
+
 -- A life ended: back in RESPAWN_SECONDS, unless the bot has been moved,
 -- respawned or removed by then.
 local function onDied(bot: BotService.Bot, character: Model)
@@ -607,7 +641,7 @@ function BotDirector.start()
 	BotService.Died:Connect(onDied)
 	RoundService.PhaseChanged:Connect(function(phase: string)
 		if phase == States.Phase.ACTIVE then
-			respawnAll()
+			roundStart()
 		end
 	end)
 	MapService.Loaded:Connect(respawnAll)
