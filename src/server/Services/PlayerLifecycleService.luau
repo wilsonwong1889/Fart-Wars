@@ -105,6 +105,7 @@ local function keepsAvatar(state: string?): boolean
 end
 
 local function removeCharacter(player: Player)
+	player:SetAttribute("RespawnAt", nil)
 	local character = player.Character
 	if character then
 		player.Character = nil
@@ -190,6 +191,17 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 	if not ok then
 		warn(`[Lifecycle] couldn't spawn {player.Name}: {err}`)
 	end
+	-- The body this life replaces: Roblox only takes it out of the world,
+	-- and what still holds it (its Died handler, its gun) would keep it in
+	-- memory for good, one more every respawn. Gone once anything finishing
+	-- with it (the replaced body's explosion) has.
+	if previous and previous ~= player.Character then
+		task.delay(2, function()
+			if previous.Parent == nil then
+				previous:Destroy()
+			end
+		end)
+	end
 	-- Spectated while it loaded: the avatar that just arrived goes too. (A
 	-- newer spawn replaces this one by itself.)
 	if runtimes[player] == runtime and runtime.state ~= PlayerState.ACTIVE then
@@ -216,6 +228,7 @@ end
 
 local function onCharacterAdded(player: Player, character: Model)
 	local runtime = runtimes[player]
+	player:SetAttribute("RespawnAt", nil)
 	if not runtime or not keepsAvatar(runtime.state) then
 		-- Nobody off a team (or out of the practice yard) keeps an avatar
 		-- (Studio can auto-load one before the server turns that off).
@@ -259,6 +272,11 @@ local function onCharacterAdded(player: Player, character: Model)
 			Telemetry.count("Lifecycle.spawnDeaths")
 		end
 		PlayerLifecycleService.Died:Fire(player, character)
+		-- When the next life starts, so the screen can count down to it
+		-- (cleared as the new avatar arrives).
+		if runtimes[player] == runtime and runtime.state == PlayerState.ACTIVE then
+			player:SetAttribute("RespawnAt", now() + GameConfig.RESPAWN_SECONDS)
+		end
 		task.wait(GameConfig.RESPAWN_SECONDS)
 		if runtimes[player] == runtime and runtime.state == PlayerState.ACTIVE and runtime.spawnToken == token and player.Character == character then
 			spawnPlayer(player, runtime)

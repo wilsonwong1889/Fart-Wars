@@ -142,7 +142,8 @@ Rejection reasons: `rateLimited`, `badPayload`, `notActive`, `dead`,
 Player attributes the server sets: `State`, `TeamId`, `PreferredTeam`,
 `Weapon`, `Coins`, `Level`, `XP` (toward the next level), `XPToNext`,
 `LifetimeXP`, `DataStatus` (`loading`, `ready`, `unsaved`), `Ability`,
-`AbilityReadyAt` (server time), `Tracer` (cosmetic id), `LoadoutPending`. Character attributes: `ProtectedUntil`, `Gas` (0-100),
+`AbilityReadyAt` (server time), `Tracer` (cosmetic id), `LoadoutPending`,
+`RespawnAt` (server time; while down, when the next life starts). Character attributes: `ProtectedUntil`, `Gas` (0-100),
 `GasStage` (0-4), `ExplodesAt` (server time). Gas barrel attributes:
 `Health`, `Ready`, `FuseAt` (server time).
 

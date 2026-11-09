@@ -3,7 +3,9 @@
 -- applies the answer):
 --   * no bots at all while no human is in the server
 --   * otherwise bots make up the difference to the fill target, counting
---     every human in the server, playing or not (at 4: 1 human, 3 bots;
+--     the humans BotDirector counts: the ones playing on a team (or one,
+--     while someone's here but nobody is), not anyone in the lobby, the
+--     practice yard or moved off for being AFK (at 4: 1 human, 3 bots;
 --     2, 2; 3, 1; 4 or more, none)
 --   * the teams' totals (humans + bots) stay level: a bot that has to go
 --     comes from the bigger team (level: the one with fewer humans, which
@@ -31,8 +33,9 @@ function BotFill.target(humans: number, fillTo: number): number
 	return if humans <= 0 then 0 else math.max(0, fillTo - humans)
 end
 
--- `humans`: everyone in the server; `humanCounts`: the humans playing on
--- each team; `botCounts`: the bots on each team now.
+-- `humans`: the humans that count (BotDirector: the ones playing, or one
+-- while someone's here but nobody is); `humanCounts`: the humans playing
+-- on each team; `botCounts`: the bots on each team now.
 function BotFill.plan(humans: number, humanCounts: Counts, botCounts: Counts, order: { string }, fillTo: number): Plan
 	local bots: Counts = {}
 	local have = 0

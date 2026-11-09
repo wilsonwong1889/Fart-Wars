@@ -47,6 +47,9 @@ local CombatService = {}
 -- (shooter, part, weapon, from): every part a shot hits, so other services
 -- (barrels) can react to it.
 CombatService.PartHit = Signal.new()
+-- (bot, part, weapon, from): the same for a bot's shot, so a bot sets off
+-- a barrel like anyone.
+CombatService.BotPartHit = Signal.new()
 -- (shooter, from, direction, weapon): a lobbed weapon fired.
 CombatService.Lobbed = Signal.new()
 -- (bot, from, direction, weapon): a bot's lobbed weapon fired.
@@ -239,9 +242,22 @@ function CombatService.fire(player: Player, direction: unknown, shotId: unknown)
 		practiceShot(player, character :: Model, head.Position, aim / length, weapon)
 		return
 	end
+	-- Between rounds (from the buzzer to the next round) nobody fights: the
+	-- client holds its fire then, so this is only a shot from the last
+	-- moment, dropped quietly rather than refused (refusals add up toward a
+	-- cheat flag).
+	if MatchScoreService.betweenRounds() then
+		AFKService.markActive(player)
+		Telemetry.count("Combat.shotsBetweenRounds")
+		return
+	end
 	checkMovement(player, entry, head.Position, at)
 	entry.lastShotAt = at
 	table.insert(entry.shots, at)
+	-- Kept to the last minute here, not only when a shot hits someone: an
+	-- hour of fire into the sky grew it to tens of thousands, and the next
+	-- hit's trim held the server up for about a second.
+	trim(entry.shots, at)
 
 	PlayerLifecycleService.endProtection(player)
 	AFKService.markActive(player)
@@ -345,6 +361,7 @@ function CombatService.fireAsBot(bot: BotService.Bot, direction: Vector3): boole
 	if not result then
 		return true
 	end
+	CombatService.BotPartHit:Fire(bot, result.Instance, weapon, from)
 	local headshot = result.Instance.Name == "Head"
 	local amount = CombatService.gasAt(weapon, (result.Position - from).Magnitude, headshot)
 	local source: GasService.Source = { team = bot.team, bot = bot.id, cause = "shot", weapon = weapon.id }

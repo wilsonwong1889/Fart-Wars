@@ -31,6 +31,7 @@ local Chain = require(Server.Chain)
 local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
+local MatchScoreService = require(script.Parent.MatchScoreService)
 
 local GAS = GameConfig.GAS
 
@@ -255,6 +256,12 @@ end
 -- Adds gas to `victim` from `source`. Returns whether any went in.
 function GasService.add(victim: Player, amount: number, source: Source): boolean
 	if not FeatureFlags.GAS_COMBAT or amount <= 0 then
+		return false
+	end
+	-- Between rounds (from the buzzer to the next round) nothing gasses
+	-- anyone, not even a bomb, cloud or fuse that comes down after the
+	-- buzzer, so the results are for reading.
+	if MatchScoreService.betweenRounds() then
 		return false
 	end
 	local victimTeam = TeamService.teamOf(victim)

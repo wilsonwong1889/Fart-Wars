@@ -490,6 +490,28 @@ grip(me)
 frames(0.5)
 Fx.fired(me.UserId)
 check(Fx.cameraKick() > 0, "my own Thunderclapper kicks my camera")
+-- The kick settles back: Roblox's camera starts each frame where the last
+-- one looked, so a kick put on whole every frame would pile up and leave
+-- the aim higher after every shot.
+do
+	local camera = workspace.CurrentCamera
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CFrame = CFrame.new(0, 10, 0)
+	local function pitch(): number
+		return math.deg(math.asin(camera.CFrame.LookVector.Y))
+	end
+	local function frame()
+		RunService.RenderStepped:Fire(1 / 60)
+		RunService:RenderFrame(1 / 60)
+	end
+	frame()
+	local peak = pitch()
+	for _ = 1, 60 do
+		frame()
+	end
+	check(peak > 0.5 and peak <= 2 * 1.6 + 1e-3, `the view tips up by the kick, no more ({peak})`)
+	check(math.abs(pitch()) < 0.05, `and a second later it's back where it was ({pitch()})`)
+end
 frames(1)
 
 -- Reduce motion.

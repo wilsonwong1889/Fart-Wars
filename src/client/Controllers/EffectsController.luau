@@ -410,9 +410,16 @@ local function renderGas(character: Model)
 		if Settings.reduceMotion then
 			highlight.FillTransparency = 0.55
 		else
-			TweenService:Create(highlight, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			local pulse = TweenService:Create(highlight, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
 				FillTransparency = 0.4,
-			}):Play()
+			})
+			pulse:Play()
+			-- It repeats for ever, so it stops with its outline (gas
+			-- recovered, or the body gone): left running, every explosion
+			-- added one more tween to every client.
+			highlight.Destroying:Connect(function()
+				pulse:Cancel()
+			end)
 		end
 	elseif outline and not critical then
 		outline:Destroy()

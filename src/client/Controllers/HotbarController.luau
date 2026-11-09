@@ -199,7 +199,8 @@ HotbarController.renderSlots = renderSlots
 -- The Q slot, every frame.
 local function renderAbility()
 	local p = HotbarController.parts
-	p.bar.Visible = ClientState.isActive() and not InputController.menuOpen
+	-- Down, the respawn countdown has the screen (CombatController).
+	p.bar.Visible = ClientState.isActive() and not InputController.menuOpen and ClientState.alive()
 	local id = player:GetAttribute("Ability")
 	local ability = type(id) == "string" and AbilityConfig[id]
 	if not ability then

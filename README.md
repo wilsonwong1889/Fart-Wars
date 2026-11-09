@@ -62,8 +62,8 @@ repository holds credentials or API keys, and nothing should.
 | Gas | replaces health. Stages at 25 / 50 / 75%; at 100% a one-second countdown, then the explosion. Five seconds without taking gas, it drains 5% a second |
 | Eliminations | the last enemy to add gas scores; others from the last 10 seconds assist. Five in a row without dying: the whole server hears "BRO IS THE ALPHA FART!" |
 | Explosions | an exploding player blasts 40% gas onto the killer's enemies within 14 studs (not through walls), credited to the killer; chains stop after 4 steps |
-| Barrels | 12 gas barrels in the middle. Two shots light the fuse; 0.6 s later they blast 40% gas onto the last shooter's enemies within 16 studs, set off nearby barrels, and come back 20 s later |
-| Spawning | the team's pad farthest from enemies; 3 seconds of protection, ended by firing; respawn 3 seconds after a death |
+| Barrels | 12 gas barrels in the middle. Two shots light the fuse (anyone's, a bot's too); 0.6 s later they blast 40% gas onto the last shooter's enemies within 16 studs, set off nearby barrels, and come back 20 s later |
+| Spawning | the team's pad farthest from enemies, facing the way out (the spawn room's nearer back door); 3 seconds of protection, ended by firing; respawn 3 seconds after a death, counted down on screen |
 | Match mode | `FeatureFlags.MATCH_MODE`: `"Rounds"` (default) or `"Continuous"` (join straight onto a team, no timer, scores run on) |
 | Coins and XP | elimination 10 coins / 20 XP, assist 5 / 10, chain or barrel kill +5 coins, the 5-kill streak 50 / 100, 5 and 10 minutes of play 25 / 50 and 75 / 100 (once a session). Coins are spent in the shop; XP only levels you up |
 | Levels | 1 to 50: 100 XP a level at first, rising ever faster (730 at level 24, 4,090 at 49; 61,640 in all). Pacing and the model that checks it: [`docs/economy.md`](docs/economy.md). Unlocks at 5, 10, 15, 20, 25, 30, 40 and 50; level 50 pays 1,000 coins and the Alpha Farter badge, then 250 coins every 5,000 XP |
@@ -108,7 +108,9 @@ card. Bindings live in `UIConfig.keys`.
 
 **Round states:** WAITING → ACTIVE (300 s) → RESULTS (15 s) → ACTIVE, or back
 to WAITING when there aren't enough players. A round in progress always
-finishes, even if a whole team leaves. The server owns every timestamp;
+finishes, even if a whole team leaves. Between rounds (from the buzzer to
+the next round) nobody fights: guns and abilities hold, and no gas lands,
+not even from a bomb or barrel that goes off after the buzzer. The server owns every timestamp;
 clients get a snapshot with an absolute end time and work out the countdown
 from the server clock, so lag never stretches a round.
 

@@ -437,6 +437,23 @@ local function humansInServer(): number
 	return count
 end
 
+-- The humans the fill counts: the ones holding a team slot, so someone on
+-- the loading screen, in the lobby or the practice yard, or moved off for
+-- being AFK doesn't take a bot from the people playing (four in the
+-- server with one playing used to mean no bots at all for that one).
+-- While someone is here but nobody's playing, one, so the battlefield
+-- behind the menu keeps its bots; nobody here, none.
+local function humansToCount(): number
+	if humansInServer() == 0 then
+		return 0
+	end
+	local playing = 0
+	for _, n in TeamService.humanCounts() do
+		playing += n
+	end
+	return math.max(1, playing)
+end
+
 local function apply(plan: BotFill.Plan)
 	local byTeam: { [string]: { Slot } } = {}
 	for _, slot in slots do
@@ -467,7 +484,7 @@ function BotDirector.reconcile()
 	if not started then
 		return
 	end
-	local humans = if enabled then humansInServer() else 0
+	local humans = if enabled then humansToCount() else 0
 	local botCounts: { [string]: number } = {}
 	for _, team in TeamConfig.order do
 		botCounts[team] = 0

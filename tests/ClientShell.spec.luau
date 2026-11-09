@@ -260,6 +260,60 @@ UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButto
 task.wait(0.05)
 UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
 check(shots == 1, "a left click fires one shot")
+-- The results (between rounds): the gun holds its fire, so nothing reaches
+-- the server to be refused; the next round it fires again.
+do
+	local ClientState = require(game.StarterPlayer.StarterPlayerScripts.Client.ClientState)
+	local live = ClientState.snapshot
+	local results = table.clone(live :: any)
+	results.phase = "RESULTS"
+	ReplicatedStorage.Remotes.RoundUpdate:FireClient(me, results)
+	task.wait(0.4)
+	UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+	task.wait(0.05)
+	UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+	check(shots == 1 and not ClientState.canFight(), "in the results a click sends nothing")
+	ReplicatedStorage.Remotes.RoundUpdate:FireClient(me, live)
+	task.wait(0.05)
+	check(ClientState.canFight(), "the round back: fighting again")
+end
+-- Taps and timing (the Gas Blaster, a 0.3 s interval). A click a little
+-- before the gun is ready fires once, when it is; one far too early is
+-- dropped. Held, the gun keeps to its schedule: a shot a frame late doesn't
+-- push the next one later (timed from each late shot, an automatic gun
+-- lost a frame every shot).
+do
+	local Combat = require(game.StarterPlayer.StarterPlayerScripts.Client.Controllers.CombatController)
+	local function click()
+		UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+		task.wait(0.03)
+		UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
+	end
+	task.wait(0.5)
+	local before = shots
+	click()
+	check(shots == before + 1, "a click with the gun ready fires")
+	task.wait(0.15)
+	click()
+	check(shots == before + 1, "a click a little before it's ready: nothing yet")
+	task.wait(0.2)
+	check(shots == before + 2, "then it fires, once it's ready")
+	task.wait(0.3)
+	check(shots == before + 2, "just the once")
+	click()
+	check(shots == before + 3, "ready again: fires")
+	click()
+	task.wait(0.5)
+	check(shots == before + 3, "a click far too early (over 0.2 s) is dropped")
+	check(Combat.fire(), "on schedule")
+	task.wait(0.316)
+	check(Combat.fire(), "a frame late")
+	task.wait(0.285)
+	check(Combat.fire(), "and the next is back on schedule, not a frame later")
+	task.wait(0.1)
+	check(not Combat.fire(), "but never faster than the gun")
+end
+local shotsBeforeMenu = shots
 press(Enum.KeyCode.M)
 check(home.menu.Enabled and home.resume.Modal, "M opens the menu with the mouse free")
 RunService.RenderStepped:Fire(0.016)
@@ -268,7 +322,7 @@ task.wait(0.4)
 UserInputService.InputBegan:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
 UserInputService.InputEnded:Fire({ UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }, false)
 task.wait(0.05)
-check(shots == 1, "no firing in the menu")
+check(shots == shotsBeforeMenu, "no firing in the menu")
 press(Enum.KeyCode.M)
 check(not home.menu.Enabled, "M closes it")
 key(Enum.KeyCode.Tab, true)
@@ -294,11 +348,62 @@ check(hud.left.Score.Text == "2" and hud.right.Score.Text == "0", "the score")
 frames(60)
 check(hud.time.Text == "4:00" or hud.time.Text == "3:59", "a minute later the clock says so")
 
+-- Down: the HUD gives way to a countdown to the next life (the server's
+-- RespawnAt), and a trigger held through it doesn't fire the new life's
+-- first moment away (firing ends spawn protection).
+do
+	local ClientState = require(client.ClientState)
+	local hotbar = require(client.Controllers.HotbarController).parts
+	local function render()
+		RunService.RenderStepped:Fire(0.016)
+	end
+	task.wait(0.5)
+	local fireDown = { UserInputType = Enum.UserInputType.MouseButton1, KeyCode = Enum.KeyCode.Unknown }
+	local before = shots
+	UserInputService.InputBegan:Fire(fireDown, false)
+	task.wait(0.1)
+	check(shots > before, "holding the trigger fires")
+	local body = me.Character
+	body.Humanoid.Health = 0
+	task.wait(0.2)
+	render()
+	check(not ClientState.alive() and type(me:GetAttribute("RespawnAt")) == "number", "down, and the server says when the next life starts")
+	check(combat.respawn.Visible and string.find(combat.respawn.Text, "^BACK IN %d$"), "a countdown: " .. combat.respawn.Text)
+	check(not combat.crosshair.Visible and not combat.gasMeter.Visible and not combat.dashMeter.Visible, "no crosshair, gas bar or dash bar meanwhile")
+	check(not hotbar.bar.Visible, "and no hotbar")
+	task.wait(3.5)
+	render()
+	check(me.Character ~= body and ClientState.alive() and me:GetAttribute("RespawnAt") == nil, "the next life")
+	check(not combat.respawn.Visible and combat.crosshair.Visible and hotbar.bar.Visible, "the HUD is back")
+	local after = shots
+	task.wait(1)
+	check(shots == after, "the trigger held through the death doesn't fire the new life away")
+	UserInputService.InputEnded:Fire(fireDown, false)
+	task.wait(0.4)
+	UserInputService.InputBegan:Fire(fireDown, false)
+	task.wait(0.05)
+	UserInputService.InputEnded:Fire(fireDown, false)
+	check(shots == after + 1, "a fresh press fires")
+end
+
 -- The AFK warning (Rival keeps moving; I stand still).
 still[me] = true
+-- One AFK check first, so a wander step just before isn't seen as moving
+-- after the idle time is set.
+frames(1.1)
 TestControls.idle(me, 44)
 frames(2)
 check(hud.afk.Visible and hud.afk.Title.Text == "BRO FELL ASLEEP MID-FART!", "the AFK warning")
+do
+	local order = (hud.afk:FindFirstAncestorWhichIsA("ScreenGui") :: ScreenGui).DisplayOrder
+	local over = {}
+	for _, screen in gui:GetChildren() do
+		if screen:IsA("ScreenGui") and screen.Name ~= "SoftShutdown" and screen ~= hud.afk:FindFirstAncestorWhichIsA("ScreenGui") and screen.DisplayOrder >= order then
+			table.insert(over, screen.Name)
+		end
+	end
+	check(#over == 0, "drawn above every menu and the results, so it's seen from the shop too: " .. table.concat(over, ", "))
+end
 check(string.find(hud.afkCountdown.Text, "spectators in 1%d?s"), "with a countdown")
 local root = me.Character.HumanoidRootPart
 root.CFrame = root.CFrame * CFrame.new(12, 0, 0)

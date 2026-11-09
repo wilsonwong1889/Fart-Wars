@@ -2,14 +2,16 @@
 -- (and blasts) wear their health down; at zero the fuse burns for a moment
 -- (the barrel's "FuseAt" attribute, so clients can outline it), then it
 -- blasts gas onto the enemies of whoever fired the last shot or set off the
--- chain. Credit only ever goes to that one player, so it's never
--- ambiguous; a barrel nobody shot (no owner) can't go off. It disappears
--- and is back, full, after RESPAWN_SECONDS. A barrel is a link in a chain
--- reaction like any explosion (Chain): one lit by a shot starts a chain,
--- one lit by a blast is the next link of that blast's chain.
+-- chain. Credit only ever goes to that one player, or that one bot (a bot's
+-- shots and blasts set barrels off like anyone's, its explosion credited to
+-- it like its other kills), so it's never ambiguous; a barrel nobody shot
+-- (no owner) can't go off. It disappears and is back, full, after
+-- RESPAWN_SECONDS. A barrel is a link in a chain reaction like any
+-- explosion (Chain): one lit by a shot starts a chain, one lit by a blast
+-- is the next link of that blast's chain.
 --   CombatEvent { kind = "barrel", position, radius, owner?, chain }   all clients
--- (`owner`: the user ID of whoever set it off; `chain`: its place in its
--- chain reaction, 1 for the first.)
+-- (`owner`: the user ID of whoever set it off, or the bot's id; `chain`:
+-- its place in its chain reaction, 1 for the first.)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -28,8 +30,9 @@ local BARREL = GameConfig.BARREL
 
 local BarrelService = {}
 
--- (owner?, chained): a barrel went off; the owner is whoever finished it,
--- and `chained` says another barrel's blast set it off (a chain reaction).
+-- (owner?, chained, ownerBot?): a barrel went off; the owner is whoever
+-- finished it (or `ownerBot`, a bot's id, in its place), and `chained`
+-- says another barrel's blast set it off (a chain reaction).
 BarrelService.Exploded = Signal.new()
 
 type Barrel = {
@@ -37,6 +40,8 @@ type Barrel = {
 	health: number,
 	state: "ready" | "fused" | "gone",
 	owner: Player?,
+	-- A bot that owns it (its id), in place of `owner`.
+	ownerBot: number?,
 	ownerTeam: string?,
 	depth: number,
 	-- The chain reaction of the blast that lit it (none if a shot did).
@@ -76,7 +81,7 @@ end
 local function reset(barrel: Barrel)
 	barrel.health = BARREL.HEALTH
 	barrel.state = "ready"
-	barrel.owner, barrel.ownerTeam, barrel.depth, barrel.chain = nil, nil, 0, nil
+	barrel.owner, barrel.ownerBot, barrel.ownerTeam, barrel.depth, barrel.chain = nil, nil, nil, 0, nil
 	barrel.chained = false
 	barrel.model:SetAttribute("FuseAt", nil)
 	setVisible(barrel.model, true)
@@ -106,7 +111,7 @@ local function explode(barrel: Barrel)
 	setVisible(barrel.model, false)
 	publish(barrel)
 	Telemetry.count("Barrel.explosions")
-	BarrelService.Exploded:Fire(barrel.owner, barrel.chained)
+	BarrelService.Exploded:Fire(barrel.owner, barrel.chained, barrel.ownerBot)
 	local remotes = ReplicatedStorage:WaitForChild("Remotes")
 	local combatEvent = remotes:WaitForChild("CombatEvent") :: RemoteEvent
 	local radius = reach(barrel)
@@ -116,7 +121,7 @@ local function explode(barrel: Barrel)
 		kind = "barrel",
 		position = at,
 		radius = radius,
-		owner = if barrel.owner then barrel.owner.UserId else nil,
+		owner = if barrel.owner then barrel.owner.UserId else barrel.ownerBot,
 		chain = chain.count,
 	})
 	if barrel.ownerTeam then
@@ -125,6 +130,7 @@ local function explode(barrel: Barrel)
 			radius = radius,
 			gas = BARREL.GAS,
 			owner = barrel.owner,
+			ownerBot = barrel.ownerBot,
 			ownerTeam = barrel.ownerTeam,
 			cause = "barrel",
 			depth = barrel.depth,
@@ -139,27 +145,27 @@ local function explode(barrel: Barrel)
 	end)
 end
 
--- Lights the fuse (once), crediting `owner` (the last shot or the chain);
--- `chain` is the chain reaction of the blast that lit it, if one did, and
--- `chained` is set when that blast was another barrel's.
-local function fuse(barrel: Barrel, owner: Player?, ownerTeam: string?, depth: number, chain: Chain.Chain?, chained: boolean?)
+-- Lights the fuse (once), crediting `owner` (the last shot or the chain),
+-- or `ownerBot` (a bot's id) in its place; `chain` is the chain reaction
+-- of the blast that lit it, if one did, and `chained` is set when that
+-- blast was another barrel's.
+local function fuse(barrel: Barrel, owner: Player?, ownerTeam: string?, depth: number, chain: Chain.Chain?, chained: boolean?, ownerBot: number?)
 	if barrel.state ~= "ready" then
 		return
 	end
 	barrel.state = "fused"
 	barrel.health = 0
 	barrel.owner, barrel.ownerTeam, barrel.depth, barrel.chain = owner, ownerTeam, depth, chain
+	barrel.ownerBot = if owner then nil else ownerBot
 	barrel.chained = chained == true
 	barrel.model:SetAttribute("FuseAt", now() + BARREL.FUSE_SECONDS)
 	publish(barrel)
 	task.delay(BARREL.FUSE_SECONDS, explode, barrel)
 end
 
--- A shot at a barrel part: health down; the last shot owns the explosion.
-function BarrelService.shoot(shooter: Player, part: Instance, amount: number): boolean
+local function hit(part: Instance, amount: number, team: string?, owner: Player?, ownerBot: number?): boolean
 	local model = part:FindFirstAncestorOfClass("Model")
 	local barrel = model and barrels[model]
-	local team = TeamService.teamOf(shooter)
 	if not (barrel and barrel.state == "ready" and team) then
 		return false
 	end
@@ -167,9 +173,19 @@ function BarrelService.shoot(shooter: Player, part: Instance, amount: number): b
 	publish(barrel)
 	if barrel.health <= 0 then
 		-- A shot starts a chain at depth 1, like a shot elimination's blast.
-		fuse(barrel, shooter, team, 1)
+		fuse(barrel, owner, team, 1, nil, nil, ownerBot)
 	end
 	return true
+end
+
+-- A shot at a barrel part: health down; the last shot owns the explosion.
+function BarrelService.shoot(shooter: Player, part: Instance, amount: number): boolean
+	return hit(part, amount, TeamService.teamOf(shooter), shooter, nil)
+end
+
+-- A bot's shot (its id and team): the same, the explosion its own.
+function BarrelService.shootAsBot(botId: number, team: string, part: Instance, amount: number): boolean
+	return hit(part, amount, team, nil, botId)
 end
 
 function BarrelService.get(model: Model): Barrel?
@@ -219,6 +235,9 @@ function BarrelService.start()
 	CombatService.PartHit:Connect(function(shooter, part, weapon)
 		BarrelService.shoot(shooter, part, weapon.gasPerHit)
 	end)
+	CombatService.BotPartHit:Connect(function(bot, part, weapon)
+		BarrelService.shootAsBot(bot.id, bot.team, part, weapon.gasPerHit)
+	end)
 	-- Blasts set off barrels in range (with a clear line), one step deeper.
 	ExplosionService.Blasted:Connect(function(blast)
 		for _, barrel in barrels do
@@ -226,7 +245,7 @@ function BarrelService.start()
 			if barrel.state == "ready" and (at - blast.position).Magnitude <= blast.radius
 				and not ExplosionService.blocked(blast.position, at)
 			then
-				fuse(barrel, blast.owner, blast.ownerTeam, blast.depth + 1, blast.chain, blast.cause == "barrel")
+				fuse(barrel, blast.owner, blast.ownerTeam, blast.depth + 1, blast.chain, blast.cause == "barrel", blast.ownerBot)
 			end
 		end
 	end)

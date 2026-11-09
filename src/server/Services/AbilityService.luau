@@ -27,6 +27,7 @@ local AFKService = require(script.Parent.AFKService)
 local GasService = require(script.Parent.GasService)
 local BotService = require(script.Parent.BotService)
 local ExplosionService = require(script.Parent.ExplosionService)
+local MatchScoreService = require(script.Parent.MatchScoreService)
 
 local AbilityService = {}
 
@@ -112,8 +113,15 @@ function AbilityService.use(player: Player): boolean
 		reject(player, "notEquipped")
 		return false
 	end
-	if not table.find(ability.allowedStates, PlayerLifecycleService.stateOf(player) or "") then
+	local state = PlayerLifecycleService.stateOf(player)
+	if not table.find(ability.allowedStates, state or "") then
 		reject(player, "notActive")
+		return false
+	end
+	-- Between rounds nobody fights (CombatService), and Q waits too, the
+	-- practice yard aside; quietly, like a shot, and nothing is spent.
+	if state ~= "PRACTICE" and MatchScoreService.betweenRounds() then
+		Telemetry.count("Ability.betweenRounds")
 		return false
 	end
 	local root = rootOf(player)

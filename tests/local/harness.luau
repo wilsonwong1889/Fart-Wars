@@ -475,6 +475,27 @@ local function isCF(value)
 	return getmetatable(value) == CF
 end
 local IDENTITY = cf(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+-- The same frame with its rotation made orthonormal again (Gram-Schmidt on
+-- the right and up columns, the back column their cross product), as
+-- Roblox keeps it. An exact rotation (an avatar facing along an axis)
+-- comes out unchanged.
+local function orthonormal(c)
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = table.unpack(c)
+	local lx = math.sqrt(r00 * r00 + r10 * r10 + r20 * r20)
+	if lx < 1e-12 then
+		return c
+	end
+	r00, r10, r20 = r00 / lx, r10 / lx, r20 / lx
+	local d = r01 * r00 + r11 * r10 + r21 * r20
+	r01, r11, r21 = r01 - d * r00, r11 - d * r10, r21 - d * r20
+	local ly = math.sqrt(r01 * r01 + r11 * r11 + r21 * r21)
+	if ly < 1e-12 then
+		return c
+	end
+	r01, r11, r21 = r01 / ly, r11 / ly, r21 / ly
+	r02, r12, r22 = r10 * r21 - r20 * r11, r20 * r01 - r00 * r21, r00 * r11 - r10 * r01
+	return cf(x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22)
+end
 local function cfMul(a, b)
 	local ax, ay, az, a00, a01, a02, a10, a11, a12, a20, a21, a22 = table.unpack(a)
 	local bx, by, bz, b00, b01, b02, b10, b11, b12, b20, b21, b22 = table.unpack(b)
@@ -1813,6 +1834,10 @@ METHODS = {
 	PVInstance = {
 		GetPivot = pivotOf,
 		PivotTo = function(self, target)
+			-- Orthonormal, like Roblox's: the inverse below is a transpose,
+			-- so a rotation a hair off would be cubed on every move (a
+			-- turned avatar moved a few hundred times ended up NaN).
+			target = orthonormal(target)
 			if isA(self, "BasePart") then
 				self.CFrame = target
 				return
@@ -1820,7 +1845,7 @@ METHODS = {
 			local delta = target * pivotOf(self):Inverse()
 			for _, item in descendants(self) do
 				if isA(item, "BasePart") then
-					item.CFrame = delta * item.CFrame
+					item.CFrame = orthonormal(delta * item.CFrame)
 				end
 			end
 			records[self].props.WorldPivot = target
@@ -2046,7 +2071,10 @@ METHODS = {
 			local old = self.Character
 			if old then
 				fireIfExists(self, "CharacterRemoving", old)
-				destroy(old)
+				-- As Roblox does by default: out of the world, not destroyed
+				-- (Workspace.PlayerCharacterDestroyBehavior); whoever's done
+				-- with it destroys it.
+				setParent(old, nil)
 			end
 			local character = newInstance("Model")
 			character.Name = self.Name

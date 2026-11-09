@@ -262,6 +262,11 @@ local function build()
 		Parent = toast,
 	})
 
+	-- On its own screen above every menu and the results (the HUD is under
+	-- them), so someone idling in the shop sees it before being moved off
+	-- their team; under the update screen.
+	local afkScreen = UI.screen("AFKWarning", 25)
+	p.afkScreen = afkScreen
 	local afk = UI.new("Frame", {
 		Name = "AFKWarning",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -269,7 +274,7 @@ local function build()
 		Size = UDim2.new(0, 620, 0, 150),
 		BackgroundColor3 = C.warning,
 		Visible = false,
-		Parent = hud,
+		Parent = afkScreen,
 	}, { UI.corner(16), UI.stroke(C.stroke, 4), UI.padding(10) })
 	p.afk = afk
 	UI.label(UIConfig.afkWarning, 40, { Name = "Title", TextWrapped = true, Size = UDim2.new(1, 0, 0, 52), Parent = afk })
@@ -663,6 +668,20 @@ end
 
 local function renderScoreboard()
 	local p = HUDController.parts
+	-- Each team's bots: the ones on the field, then, up to the team's bot
+	-- count, the ones between lives, so a bot waiting to respawn stays
+	-- listed the way a player who's down does.
+	local botsOn: { [string]: { Combatants.Combatant } } = {}
+	for _, bot in Combatants.bots(true) do
+		local team = bot.team
+		if team then
+			local list = botsOn[team] or {}
+			botsOn[team] = list
+			if bot.character or #list < (ClientState.bots[team] or 0) then
+				table.insert(list, bot)
+			end
+		end
+	end
 	for team, rows in p.columns do
 		for _, child in rows:GetChildren() do
 			if child:IsA("TextLabel") then
@@ -692,21 +711,21 @@ local function renderScoreboard()
 				Parent = rows,
 			})
 		end
-		-- The bots on the field (their names say they're bots).
-		local order = #members
-		for _, bot in Combatants.bots() do
-			if bot.team == team then
-				order += 1
-				UI.label(bot.name, 17, {
-					Name = tostring(bot.id),
-					LayoutOrder = order,
-					Size = UDim2.new(1, 0, 0, 22),
-					Font = UIConfig.bodyFont,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextColor3 = C.muted,
-					Parent = rows,
-				})
-			end
+		-- The bots after the players, by name (their names say they're bots).
+		local bots = botsOn[team] or {}
+		table.sort(bots, function(a, b)
+			return if a.name ~= b.name then a.name < b.name else a.id > b.id
+		end)
+		for i, bot in bots do
+			UI.label(bot.name, 17, {
+				Name = tostring(bot.id),
+				LayoutOrder = #members + i,
+				Size = UDim2.new(1, 0, 0, 22),
+				Font = UIConfig.bodyFont,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = C.muted,
+				Parent = rows,
+			})
 		end
 	end
 	local watching = 0
@@ -810,6 +829,15 @@ function HUDController.start()
 			renderScoreboard()
 		end
 	end)
+	-- Held open, it keeps up: lives, joins, leaves and team moves.
+	local function refreshScoreboard()
+		if HUDController.parts.scoreboard.Enabled then
+			renderScoreboard()
+		end
+	end
+	Combatants.AvatarAdded:Connect(refreshScoreboard)
+	Combatants.AvatarRemoved:Connect(refreshScoreboard)
+	ClientState.TeamsChanged:Connect(refreshScoreboard)
 	for _, name in { "ZoneActive", "ZoneOwner", "ZoneContested", "ZoneCapturing", "ZoneProgress" } do
 		workspace:GetAttributeChangedSignal(name):Connect(HUDController.renderZone)
 	end

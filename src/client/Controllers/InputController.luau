@@ -125,11 +125,14 @@ function InputController.start()
 			InputController.EmoteReleased:Fire()
 		end
 	end)
-	-- Losing focus (alt-tab) lets go of every held input.
+	-- Losing focus (alt-tab) lets go of every held input. Alt-Tab also
+	-- presses Left Alt on its way out, which flips the free mouse, so that
+	-- goes too: coming back, a match is locked to the crosshair as it was.
 	UserInputService.WindowFocusReleased:Connect(function()
 		setFire(false)
 		InputController.ScoreboardHeld:Fire(false)
 		InputController.EmoteReleased:Fire()
+		MouseLock.setFree("key", false)
 	end)
 end
 

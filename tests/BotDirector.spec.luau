@@ -1,5 +1,6 @@
 -- Bots filling the server, through the real Bootstrap: one human gets
--- three bots, 2v2; joins, leaves and team changes add, remove and move
+-- three bots, 2v2; only humans playing count (one still in the lobby takes
+-- no bot's place); joins, leaves and team changes add, remove and move
 -- them; a dead bot is back after RESPAWN_SECONDS with no body left
 -- behind; two bots face to face fight at a human rate of fire and the kill
 -- is credited; the /fw bots commands; a new round brings every bot back in a
@@ -73,10 +74,11 @@ print("10 s in:", line(), Round.phase())
 local bob = join("Bob", 2)
 task.wait(1)
 print("bob joined:", line())
-check(#Bots.all() == 2, "2 bots for 2 humans")
+check(#Bots.all() == 3, "Bob in the lobby takes no bot's place: still 3 bots for Ada")
 play(bob)
 task.wait(1)
 print("bob plays:", line())
+check(#Bots.all() == 2, "Bob playing: 2 bots for 2 humans")
 c = TeamService.counts()
 check(c.Stinkers == 2 and c.Sharters == 2, "still 2v2")
 -- Bob forced onto Ada's team: a bot crosses to even it.

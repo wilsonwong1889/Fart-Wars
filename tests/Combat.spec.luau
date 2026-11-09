@@ -294,4 +294,47 @@ for _ = 1, 40 do
 end
 check(Telemetry.isFlagged(spammer) and not Telemetry.isFlagged(ada), "a flood of rejected requests is flagged")
 
+-- Between rounds nobody fights: after the buzzer a shot does nothing (it
+-- isn't even refused, so a held trigger can't add up to a cheat flag), and
+-- gas lands on nobody, so the results are for reading; the next round is
+-- a fight again.
+do
+	local cy, di = join("Cy"), join("Di")
+	local teams = TeamService.counts()
+	local first = next(teams)
+	TeamService.testSetTeam(cy, first)
+	TeamService.testSetTeam(di, if first == "Stinkers" then "Sharters" else "Stinkers")
+	TestControls.spawn(cy)
+	TestControls.spawn(di)
+	task.wait(3.2) -- past spawn protection
+	local function fireAcross(): number
+		lineUp(cy, di)
+		local before = gas(di)
+		shoot(cy, BODY)
+		task.wait(0.31)
+		return gas(di) - before
+	end
+	local function allRejects(): number
+		local n = 0
+		for _, times in Telemetry.snapshot().rejects.FireWeapon or {} do
+			n += times
+		end
+		return n
+	end
+	check(RoundService.phase() == "ACTIVE" and fireAcross() > 0, "mid-round, a shot gasses")
+	check(RoundService.testEndPhaseIn(0), "the buzzer")
+	task.wait(1.2)
+	check(RoundService.phase() == "RESULTS" and Scores.betweenRounds(), "the results: between rounds")
+	local refused, broadcast = allRejects(), count(cy, "shot")
+	check(fireAcross() == 0, "a shot in the results gasses nobody")
+	check(count(cy, "shot") == broadcast and allRejects() == refused, "it isn't sent round, nor counted as a refusal")
+	local held = gas(di)
+	check(not Gas.add(di, 20, { attacker = cy, cause = "shot" }) and gas(di) <= held, "and no gas lands at all (bombs, clouds and fuses neither)")
+	check(RoundService.testEndPhaseIn(0), "the next round")
+	task.wait(1.2)
+	check(RoundService.phase() == "ACTIVE" and not Scores.betweenRounds(), "a round again")
+	task.wait(3.2)
+	check(fireAcross() > 0, "and a shot gasses again")
+end
+
 return { status = "PASS", checks = checks }

@@ -60,7 +60,19 @@ local CombatController = {}
 CombatController.parts = {} :: { [string]: any }
 
 local player = Players.LocalPlayer
-local lastShot = -math.huge
+-- When the gun may fire next. Held, it stays on schedule: a shot that
+-- lands a frame late doesn't push the next one later, and SHOT_GIVE lets
+-- six frames of 1/60 s count as the Spritzer's 0.1 s (timed from each late
+-- shot, it fired every seventh frame: 8.6 a second, not 10).
+local nextShotAt = -math.huge
+local SHOT_GIVE = 0.008
+-- A click this soon before the gun is ready still fires, once it is.
+local TAP_BUFFER = 0.2
+local pressedAt = -math.huge
+local tapPending = false
+-- The life the trigger was pressed in: held through a death, it doesn't
+-- fire the new life's first moment away (firing ends spawn protection).
+local pressedLife: Model? = nil
 local lastDash = -math.huge
 local shotId = 0
 local streak = 0
@@ -163,6 +175,16 @@ local function build()
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.62, 0),
 		Size = UDim2.new(0, 600, 0, 44),
+		Visible = false,
+		Parent = screen,
+	})
+	-- Down: when the next life starts (the server's RespawnAt), under the
+	-- card that says who did it.
+	p.respawn = UI.label("", 24, {
+		Name = "Respawn",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0.62, 50),
+		Size = UDim2.new(0, 600, 0, 30),
 		Visible = false,
 		Parent = screen,
 	})
@@ -443,19 +465,20 @@ local function aim(): (Vector3?, Vector3?, Vector3?)
 end
 
 function CombatController.fire(): boolean
-	if not (FeatureFlags.GAS_COMBAT and canAct()) then
+	if not (FeatureFlags.GAS_COMBAT and canAct() and ClientState.canFight()) then
 		return false
 	end
 	local gun = weapon()
 	local at = clock()
-	if at - lastShot < gun.fireInterval then
+	if at < nextShotAt - SHOT_GIVE then
 		return false
 	end
 	local direction, from = aim()
 	if not (direction and from) then
 		return false
 	end
-	lastShot = at
+	nextShotAt = math.max(nextShotAt, at - SHOT_GIVE) + gun.fireInterval
+	tapPending = false
 	shotId += 1
 	ClientState.send("FireWeapon", direction, shotId)
 	Audio.play(gun.fireSound)
@@ -479,7 +502,7 @@ end
 function CombatController.useAbility(): boolean
 	local id = player:GetAttribute("Ability")
 	local readyAt = player:GetAttribute("AbilityReadyAt")
-	if type(id) ~= "string" or not canAct() then
+	if type(id) ~= "string" or not canAct() or not ClientState.canFight() then
 		return false
 	end
 	if type(readyAt) == "number" and workspace:GetServerTimeNow() < readyAt then
@@ -495,10 +518,19 @@ local function startFiring()
 	end
 	firing = true
 	task.spawn(function()
-		while InputController.fireHeld do
-			CombatController.fire()
-			task.wait(math.max(0.05, weapon().fireInterval - (clock() - lastShot)))
+		-- Held, it fires on the gun's schedule; a tap that came a little
+		-- early (the button already up) gets its one shot when the gun's
+		-- ready.
+		while (InputController.fireHeld or (tapPending and clock() - pressedAt < TAP_BUFFER)) and player.Character == pressedLife do
+			local ready = clock() >= nextShotAt - SHOT_GIVE
+			if not CombatController.fire() and ready then
+				-- The gun was ready, so something else held it (a menu,
+				-- between rounds): a tap only waits for the gun.
+				tapPending = false
+			end
+			task.wait(math.max(0, nextShotAt - SHOT_GIVE - clock()))
 		end
+		tapPending = false
 		firing = false
 	end)
 end
@@ -703,10 +735,12 @@ end
 -- Every frame: the crosshair follows the mouse, the dash meter counts down.
 local function render()
 	local p = CombatController.parts
-	local aiming = ClientState.isActive() and not InputController.menuOpen
+	local up = ClientState.alive()
+	local inMatch = ClientState.isActive() and not InputController.menuOpen
+	local aiming = inMatch and up
 	styleCrosshair()
 	p.crosshair.Visible = aiming
-	UserInputService.MouseIconEnabled = not aiming
+	UserInputService.MouseIconEnabled = not inMatch
 	if aiming then
 		local mouse = UserInputService:GetMouseLocation()
 		p.crosshair.Position = UDim2.new(0, mouse.X, 0, mouse.Y)
@@ -718,9 +752,18 @@ local function render()
 	p.weapon.Visible = aiming
 	p.weapon.Text = string.upper(weapon().displayName) .. (if player:GetAttribute("LoadoutPending") then " · NEW LOADOUT ON RESPAWN" else "")
 
+	-- Down, waiting for the next life: a countdown in place of the HUD.
+	local respawnAt = player:GetAttribute("RespawnAt")
+	local down = ClientState.isActive() and not up and type(respawnAt) == "number"
+	p.respawn.Visible = down
+	if down then
+		local left = math.ceil((respawnAt :: number) - workspace:GetServerTimeNow())
+		p.respawn.Text = if left > 0 then `BACK IN {left}` else "DROPPING IN…"
+	end
+
 	-- Gas meter.
 	local character = player.Character
-	local active = ClientState.isActive() and character ~= nil
+	local active = ClientState.isActive() and character ~= nil and up
 	p.gasMeter.Visible = active and FeatureFlags.GAS_COMBAT
 	p.streak.Visible = active and streak > 0
 	p.streak.Text = `STREAK {streak}`
@@ -754,6 +797,7 @@ function CombatController.start()
 	dressHitMarker()
 	InputController.FireHeld:Connect(function(held)
 		if held then
+			pressedAt, tapPending, pressedLife = clock(), true, player.Character
 			startFiring()
 		end
 	end)

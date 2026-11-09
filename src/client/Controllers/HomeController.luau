@@ -1101,9 +1101,11 @@ local function renderPicker()
 	local p = HomeController.parts
 	local counts, max = othersCounts(), ClientState.maxTeamSize
 	local selected = HomeController.selectedTeam
+	local locked = false
 	for _, team in TeamConfig.order do
 		local card = p.teamButtons[team]
 		local allowed = TeamBalance.preferenceAllowed(counts, TeamConfig.order, max, team, ClientState.bots)
+		locked = locked or not allowed
 		card:SetAttribute("Enabled", allowed)
 		card.AutoButtonColor = allowed
 		card.Lock.Visible = not allowed
@@ -1123,7 +1125,10 @@ local function renderPicker()
 		HomeController.choose(nil)
 		return
 	end
-	p.teamHint.Text = "Locked teams would make the match unfair. AUTO puts you where you're needed (with friends when it's fair)."
+	-- Why a card is locked, only when one is; otherwise just the choice.
+	p.teamHint.Text = if locked
+		then "A locked team would make the match unfair. AUTO puts you where you're needed."
+		else "Pick a side, or AUTO puts you where you're needed (with friends when it's fair)."
 end
 
 -- Coins, level, the XP bar and the badges.

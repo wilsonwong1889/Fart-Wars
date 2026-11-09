@@ -3,7 +3,7 @@
 -- round is live it keeps every combatant's numbers (RoundAwards does the
 -- maths): eliminations, deaths and assists from EliminationService.Credited
 -- (players and bots alike, by the ids the kill feed uses) and barrels from
--- BarrelService.Exploded (the player who set each one off). When the round
+-- BarrelService.Exploded (the player or bot who set each one off). When the round
 -- ends RoundService asks for the winners and sends them with the results.
 -- Only players still in the server and bots still in the game can win: one
 -- who has left isn't there to collect it, so the next best gets it.
@@ -100,9 +100,11 @@ function AwardService.start()
 			})
 		end
 	end)
-	BarrelService.Exploded:Connect(function(owner: Player?)
+	BarrelService.Exploded:Connect(function(owner: Player?, _chained: boolean, ownerBot: number?)
 		if owner and owner.Parent == Players and counting() then
 			tally:barrel(owner.UserId, now())
+		elseif ownerBot and counting() then
+			tally:barrel(ownerBot, now())
 		end
 	end)
 end

@@ -47,9 +47,10 @@ Combatants.AvatarRemoved = Signal.new()
 
 -- The bots' avatars on the field (each with the order it arrived in, so a
 -- new life wins over a body that hasn't gone yet), and the last name and
--- team seen for each bot.
+-- team seen for each bot, with when its last avatar went (nil while it
+-- has one).
 local avatars: { [Model]: number } = {}
-local seen: { [number]: { name: string, team: string? } } = {}
+local seen: { [number]: { name: string, team: string?, goneAt: number? } } = {}
 local arrivals = 0
 local started = false
 
@@ -116,12 +117,37 @@ local function avatarOf(id: number): Model?
 	return best
 end
 
+-- A body that has left the field is done with on this client too. The
+-- server only takes a player's out of the world (and a destroyed bot's
+-- reaches clients as just that), and the handlers screens hang on every
+-- avatar would keep each one, gun and all, in memory for good: one more
+-- every life. Once it has been out a moment, and isn't anyone's avatar,
+-- this client lets it go.
+local function release(avatar: Model)
+	task.delay(2, function()
+		if avatar:IsDescendantOf(workspace) then
+			return
+		end
+		for _, player in Players:GetPlayers() do
+			if player.Character == avatar then
+				return
+			end
+		end
+		pcall(avatar.Destroy, avatar)
+	end)
+end
+
 local function drop(avatar: Model)
 	if not avatars[avatar] then
 		return
 	end
+	release(avatar)
 	avatars[avatar] = nil
-	Combatants.AvatarRemoved:Fire(avatar, fromBot(avatar))
+	local who = fromBot(avatar)
+	if who and not avatarOf(who.id) then
+		seen[who.id].goneAt = os.clock()
+	end
+	Combatants.AvatarRemoved:Fire(avatar, who)
 end
 
 -- A bot's avatar, once it's on the field (it's seen both ways: by its tag
@@ -158,6 +184,7 @@ end
 
 local function characterRemoving(character: Model)
 	Combatants.AvatarRemoved:Fire(character, Combatants.fromCharacter(character))
+	release(character)
 end
 
 local function watchPlayer(player: Player)
@@ -249,8 +276,12 @@ function Combatants.avatars(): { Model }
 	return list
 end
 
--- The bots on the field now (with an avatar), one each, by name.
-function Combatants.bots(): { Combatant }
+-- The bots on the field now (with an avatar), one each, by name. With
+-- `betweenLives`, then every other bot this client has seen, with no
+-- avatar (character nil), the most recently gone first: those waiting to
+-- respawn, and those the server has since taken off, which only the
+-- team counts (ClientState.bots) can tell apart.
+function Combatants.bots(betweenLives: boolean?): { Combatant }
 	ensure()
 	local byId: { [number]: Combatant } = {}
 	for avatar in avatars do
@@ -266,6 +297,20 @@ function Combatants.bots(): { Combatant }
 	table.sort(list, function(a, b)
 		return if a.name ~= b.name then a.name < b.name else a.id > b.id
 	end)
+	if betweenLives then
+		local gone = {}
+		for id, last in seen do
+			if not byId[id] then
+				table.insert(gone, { id = id, last = last })
+			end
+		end
+		table.sort(gone, function(a, b)
+			return (a.last.goneAt or 0) > (b.last.goneAt or 0)
+		end)
+		for _, entry in gone do
+			table.insert(list, { id = entry.id, name = entry.last.name, team = entry.last.team, character = nil, player = nil, bot = true })
+		end
+	end
 	return list
 end
 

@@ -205,7 +205,9 @@ task.wait(0.1)
 local list = PlayersUI.parts.list
 local rows = 0
 for _, child in list:GetChildren() do
-	if child:IsA("Frame") then
+	-- The players (any bots filling in for those not playing yet are
+	-- listed too, marked BOT).
+	if child:IsA("Frame") and not child:FindFirstChild("Bot") then
 		rows += 1
 	end
 end

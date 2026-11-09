@@ -281,6 +281,45 @@ check(left[toots] and left[toots].id == -901 and left[toots].character == nil, "
 check(not PlayersUI.parts.list:FindFirstChild("-901"), "off the Players screen while it's between lives")
 local between = Combatants.get(-901)
 check(between and between.bot and between.name == "[BOT] Toots" and between.team == "Sharters" and between.character == nil, "between lives: still named, no avatar")
+-- The scoreboard keeps it while its team still counts it (it's only
+-- waiting to respawn, like a player who's down), held open it keeps up,
+-- and it drops the bot once the server takes it off the team.
+do
+	local ClientState = require(Client.ClientState)
+	local counts, bots = table.clone(ClientState.counts), table.clone(ClientState.bots)
+	-- The server's own bots on the Sharters are on the field too.
+	local onField = 0
+	for _, bot in Combatants.bots() do
+		if bot.team == "Sharters" then
+			onField += 1
+		end
+	end
+	local function teams(sharterBots: number)
+		local withCounts, withBots = table.clone(counts), table.clone(bots)
+		withCounts.Sharters = (counts.Sharters or 0) - (bots.Sharters or 0) + sharterBots
+		withBots.Sharters = sharterBots
+		Remotes.TeamUpdate:FireClient(me, { counts = withCounts, bots = withBots, maxTeamSize = ClientState.maxTeamSize })
+		task.wait(0.05)
+	end
+	local function rows(): number
+		local n = 0
+		for _, child in HUD.parts.columns.Sharters:GetChildren() do
+			if child:IsA("TextLabel") then
+				n += 1
+			end
+		end
+		return n
+	end
+	teams(onField + 1)
+	HUD.renderScoreboard()
+	check(HUD.parts.columns.Sharters:FindFirstChild("-901") and rows() == onField + 1, "the scoreboard keeps a bot between lives while its team counts it, and no more")
+	HUD.parts.scoreboard.Enabled = true
+	teams(onField)
+	check(not HUD.parts.columns.Sharters:FindFirstChild("-901") and rows() == onField, "held open, it drops the bot as soon as the server takes it off the team")
+	HUD.parts.scoreboard.Enabled = false
+	Remotes.TeamUpdate:FireClient(me, { counts = counts, bots = bots, maxTeamSize = ClientState.maxTeamSize })
+	task.wait(0.05)
+end
 Remotes.CombatEvent:FireClient(me, { kind = "elimination", killer = me.UserId, victim = -901, assists = {} })
 task.wait(0.05)
 check(string.find(lastLine().Text, "[BOT] Toots", 1, true), "so a late kill feed line still names it")
@@ -311,5 +350,23 @@ for _, event in {
 end
 task.wait(0.1)
 check(string.find(lastLine().Text, "Someone", 1, true), "an id nobody knows is Someone")
+
+-- A body that leaves the field only as Parent = nil (how a bot destroyed on
+-- the server reaches a client, and how Roblox takes a player's old body
+-- away) is let go here a moment later: the handlers screens hang on every
+-- avatar would otherwise keep every life in memory.
+do
+	local ghost = spawnBot(-905, "Sharters", "[BOT] Ghost", 30)
+	task.wait(0.1)
+	local released = false
+	ghost.Destroying:Connect(function()
+		released = true
+	end)
+	ghost.Parent = nil
+	task.wait(0.5)
+	check(not released, "not at once (effects may still be finishing with it)")
+	task.wait(2)
+	check(released, "but a moment later, it's let go")
+end
 
 return { status = "PASS", checks = checks }

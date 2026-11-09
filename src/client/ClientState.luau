@@ -57,12 +57,39 @@ function ClientState.inPractice(): boolean
 	return ClientState.state() == States.Player.PRACTICE
 end
 
+-- Whether this player's avatar is up: one that's down waits for its next
+-- life (no crosshair, hotbar or gas bar meanwhile, just the countdown).
+function ClientState.alive(): boolean
+	local character = Players.LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0
+end
+
 function ClientState.teamId(): string?
 	return Players.LocalPlayer:GetAttribute("TeamId")
 end
 
 function ClientState.remaining(): number?
 	return RoundClock.remaining(ClientState.snapshot, workspace:GetServerTimeNow())
+end
+
+-- Whether shots and abilities count now: anywhere but the gap between
+-- rounds (from a round's buzzer to the next round), where the server
+-- gasses nobody, so the guns hold their fire. Waiting for players is
+-- warm-up, and continuous play has no buzzer.
+function ClientState.canFight(): boolean
+	local snapshot = ClientState.snapshot
+	if ClientState.inPractice() or not snapshot then
+		return true
+	end
+	if snapshot.phase == States.Phase.RESULTS then
+		return false
+	end
+	if snapshot.phase == States.Phase.ACTIVE then
+		local left = ClientState.remaining()
+		return left == nil or left > 0
+	end
+	return true
 end
 
 local function setCounts(counts: { [string]: number }?, bots: { [string]: number }?)

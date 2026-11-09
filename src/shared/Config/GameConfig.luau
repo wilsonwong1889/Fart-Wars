@@ -24,9 +24,11 @@ local GameConfig = {
 	-- Network slack for anything on an interval (shots, Fart Dash): two
 	-- requests may arrive this much closer together than the interval
 	-- (15% of it, and never less than FIRE_SLACK_SECONDS), but over time
-	-- nobody gets more than one per interval (see Cadence).
+	-- nobody gets more than one per interval (see Cadence). A quarter of a
+	-- second covers a late or lost packet: at 0.05, one shot 60 ms late
+	-- got the next, on-time one refused, though the shooter saw it fire.
 	FIRE_INTERVAL_TOLERANCE = 0.85,
-	FIRE_SLACK_SECONDS = 0.05,
+	FIRE_SLACK_SECONDS = 0.25,
 
 	-- The gas meter, which replaces health. Hits fill it; at 100 a short
 	-- countdown, then the player explodes. Percentages throughout.

@@ -5,9 +5,10 @@
 --     crosses over, 2v2; AUTO takes the free slot, so no bot moves
 --   * a team of 10 bots (fill 20) can still be picked: I take a bot's
 --     place and it crosses over, 10v10
---   * between players nothing changes: a second player can't stack on my
---     team (2v0 players) and lands where a bot just left; a friend breaks
---     a 1v1 tie and joins me, a second friend can't make it 3v1
+--   * between players nothing changes: a second player in the lobby takes
+--     no bot's place; playing, they can't stack on my team (2v0 players)
+--     and a bot makes way where they land; a friend breaks a 1v1 tie and
+--     joins me, a second friend can't make it 3v1
 --   * SWITCH TEAM in a match goes by the players too: alone it evens
 --     nothing; two of us against ten bots it does, and a bot crosses back
 --   * on the home screen a team the players would unbalance is still
@@ -136,6 +137,7 @@ local oneLine = game:GetService("TextService"):GetTextSize(hint.Text, hint.TextS
 check(oneLine.X > hint.Size.X.Offset, "the team hint takes more than one line")
 check(hint.TextWrapped and hint.AutomaticSize == Enum.AutomaticSize.Y, "so it wraps, and its label grows to fit it")
 check(open("Stinkers") and open("Sharters"), "alone with bots: neither team is locked")
+check(not string.find(home.teamHint.Text, "locked", 1, true), "and the hint doesn't talk about locks: " .. home.teamHint.Text)
 check(cards.Stinkers.Count.Text == "2" and cards.Stinkers.Max.Text == "/ 10 · 🤖 2 bots", "the Stinkers card: 2, both bots: " .. cards.Stinkers.Max.Text)
 check(cards.Sharters.Count.Text == "1" and cards.Sharters.Max.Text == "/ 10 · 🤖 1 bot", "the Sharters card: 1 bot: " .. cards.Sharters.Max.Text)
 pick(cards.Stinkers)
@@ -178,7 +180,7 @@ check(TeamService.counts().Stinkers <= 10, "never past ten once the bots have mo
 
 -- A second player: between players, nothing changes.
 local rival = join("Rival", 2)
-check(#BotService.all() == 18 and is(TeamService.botCounts(), 9, 9), "Rival arrives: a bot goes, from the side Rival will be sent to " .. line())
+check(#BotService.all() == 19 and is(TeamService.botCounts(), 9, 10), "Rival arrives: in the lobby, Rival takes no bot's place yet " .. line())
 local counts, bots = TeamService.counts(), TeamService.botCounts()
 check(not TeamBalance.preferenceAllowed(counts, ORDER, 10, "Stinkers", bots), "Rival's screen: my team is locked (2v0 players)")
 check(TeamBalance.preferenceAllowed(counts, ORDER, 10, "Sharters", bots), "the bots' side is open")
@@ -186,15 +188,15 @@ Lifecycle.requestPlay(rival, "Stinkers")
 task.wait(0.6)
 check(rival:GetAttribute("TeamId") == "Sharters", "Rival can't stack on my team")
 check(string.find(told[rival] or "", "uneven", 1, true) ~= nil, "and is told why: " .. tostring(told[rival]))
-check(is(TeamService.counts(), 10, 10) and is(TeamService.humanCounts(), 1, 1), "10v10, a player a side " .. line())
+check(is(TeamService.counts(), 10, 10) and is(TeamService.humanCounts(), 1, 1) and #BotService.all() == 18, "10v10, a player a side: a bot made way for Rival " .. line())
 
 -- Friends still only break a tie.
 local pal = join("Pal", 3)
-check(#BotService.all() == 17, "a third player: 17 bots " .. line())
+check(#BotService.all() == 18, "a third player, still in the lobby: 18 bots " .. line())
 Lifecycle.requestPlay(pal, nil)
 task.wait(0.6)
 check(pal:GetAttribute("TeamId") == "Stinkers", "1v1 players: my friend Pal breaks the tie and joins me")
-check(is(TeamService.counts(), 10, 10) and is(TeamService.humanCounts(), 2, 1), "10v10 " .. line())
+check(is(TeamService.counts(), 10, 10) and is(TeamService.humanCounts(), 2, 1) and #BotService.all() == 17, "10v10, Pal in: 17 bots " .. line())
 local kit = join("Kit", 4)
 Lifecycle.requestPlay(kit, "Stinkers")
 task.wait(0.6)
@@ -213,18 +215,20 @@ task.wait(1.1)
 check(me:GetAttribute("TeamId") == "Sharters" and told[me] == "You switched to Sigma Sharters.", "switched")
 check(is(TeamService.humanCounts(), 1, 1) and is(TeamService.counts(), 10, 10) and is(TeamService.botCounts(), 9, 9), "and a bot crossed back: 10v10 " .. line())
 
--- Home again with one bot (fill 3): Pal alone on the Stinkers, a bot on
--- the Sharters. Level, but for me the Stinkers would be 2v0 players.
+-- Home again with one bot (fill 2; only those playing count, and I'm in
+-- the lobby): Pal alone on the Stinkers, a bot on the Sharters. Level,
+-- but for me the Stinkers would be 2v0 players.
 spectate()
-BotDirector.testSetFill(3)
+BotDirector.testSetFill(2)
 task.wait(0.5)
-check(is(TeamService.counts(), 1, 1) and is(TeamService.botCounts(), 0, 1), "fill 3: Pal against one bot " .. line())
+check(is(TeamService.counts(), 1, 1) and is(TeamService.botCounts(), 0, 1), "fill 2: Pal against one bot " .. line())
 click(home.play)
 check(not open("Stinkers") and open("Sharters"), "the players' lock holds: the Stinkers are locked for me, friend or not")
+check(string.find(home.teamHint.Text, "locked", 1, true), "and the hint says why a team is locked: " .. home.teamHint.Text)
 check(TeamBalance.preferenceAllowed(TeamService.counts(), ORDER, 10, "Stinkers"), "(counted as players, 1v1 would have let me stack)")
 click(cards.Stinkers)
 check(me:GetAttribute("State") == "MENU_SPECTATOR" and Home.selectedTeam ~= "Stinkers", "clicking the locked card does nothing")
 pick(cards.Sharters)
-check(me:GetAttribute("TeamId") == "Sharters" and is(TeamService.humanCounts(), 1, 1), "Sharters it is: against my friend, beside the bot " .. line())
+check(me:GetAttribute("TeamId") == "Sharters" and is(TeamService.humanCounts(), 1, 1), "Sharters it is: against my friend, the bot making way " .. line())
 
 return { status = "PASS", checks = checks }

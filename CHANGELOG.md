@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased: smoother play
+
+- Your aim stays where you put it. A shot's camera kick now settles back;
+  before, every kick stayed, so a held Spritzer or a run of shots climbed
+  off target (one Thunderclapper shot left the view about 11° higher), and
+  more at high frame rates.
+- Shots you see fire count. A late or lost packet's shots may arrive
+  bunched up (a quarter of a second of slack, up from 0.05), so the shot
+  after a network hiccup isn't thrown away; over time nobody fires faster
+  than the gun.
+- Tap firing works: a click up to 0.2 s before the gun is ready fires as
+  soon as it is. Held, automatic fire keeps its rate (the Spritzer fired
+  8.6 a second at 60 fps, not 10).
+- After you're gassed out, the screen counts down to your next life
+  ("BACK IN 3, 2, 1"), and the crosshair, hotbar and gas bar step aside
+  until then. A trigger held through it no longer fires the moment you're
+  back (which ended your spawn protection).
+- Every life starts facing the way out: the spawn pads face the spawn
+  room's nearer back door, not its solid front wall.
+- The results are for reading: from the buzzer to the next round nobody
+  fights and no gas lands, not even from a bomb or barrel that goes off
+  after the buzzer. Players could gas each other under the results card
+  (and be paid for it), and a countdown could carry into the next round.
+- Bots fill in for the people playing, not everyone in the server:
+  someone on the loading screen, in the lobby, in the practice yard or
+  away no longer takes a bot from the people in a match (four in the
+  server with one playing meant no bots at all). A newcomer takes a bot's
+  place when they press PLAY.
+- Bots' shots set off barrels like anyone's, with the blast and any chain
+  credited to the bot (Barrel Buster too).
+- The scoreboard keeps a bot listed while it waits to respawn, as it does
+  a player, and keeps up while you hold Tab.
+- The AFK warning shows over every menu and the results, so it's seen
+  before anyone is moved to spectators.
+- Alt-Tab no longer leaves the mouse unlocked in a match.
+- Choose a Team explains locked teams only when one is locked.
+- Long sessions stay smooth: old bodies are cleared on the server and on
+  every client (each respawn stayed in memory, gun and all), a body's gas
+  warning stops pulsing with it, and the server keeps a minute of shot
+  history, not all of it.
+
 ## 0.14.0: a practice yard, bots with every gun, launch pads, daily challenges and round awards
 
 - New players warm up first: a new profile's first PLAY goes to the

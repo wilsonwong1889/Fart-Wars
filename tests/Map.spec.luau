@@ -199,11 +199,21 @@ check(#pads.Stinkers >= 2 and #pads.Stinkers == #pads.Sharters, "the same number
 for _, pad in pads.Stinkers do
 	check(pad.Position.Z < -40 * S and pad.TeamColor == BrickColor.new("Lime green") and not pad.Neutral, "Stinker pads are theirs, at -Z")
 	check(pad.Duration == 0 and not pad.AllowTeamChangeOnTouch, "no forcefield yet, and touching doesn't switch teams")
-	check(pad.CFrame.LookVector.Z > 0.99, "and faces the middle of the map (+Z), not its own back wall")
 end
 for _, pad in pads.Sharters do
 	check(pad.Position.Z > 40 * S and pad.TeamColor == BrickColor.new("New Yeller"), "Sharter pads are theirs, at +Z")
-	check(pad.CFrame.LookVector.Z < -0.99, "and faces the middle of the map (-Z)")
+end
+for _, pad in pads.Stinkers do
+	local mirror = nil
+	for _, candidate in pads.Sharters do
+		if candidate.Name == pad.Name then
+			mirror = candidate
+		end
+	end
+	check(mirror, `{pad.Name} has a Sharters pad of the same name`)
+	local look, other = pad.CFrame.LookVector, mirror.CFrame.LookVector
+	check(math.abs(look.Y) < 1e-3 and math.abs(other.Y) < 1e-3, `{pad.Name}: both teams' pads face level`)
+	check((other - Vector3.new(look.X, 0, -look.Z)).Magnitude < 1e-3, `{pad.Name}: the Sharters' pad faces the mirror image of the Stinkers' way`)
 end
 check(MapService.safeSpawn("Stinkers", {}) ~= nil, "a spawn with nobody around")
 local nearEnemy = pads.Stinkers[1].Position
@@ -265,6 +275,22 @@ local function inside(point: Vector3): boolean
 	end
 	return false
 end
+-- Every life starts facing the way out. The spawn room is solid at the
+-- front and sides with its doors in the back wall, so a pad facing the
+-- middle put a wall in your face each spawn: straight ahead from each pad
+-- leaves the room through a door and reaches the corridor along the end
+-- wall (z -80..-76 in the layout) with nothing in the way.
+for team, sign in { Stinkers = 1, Sharters = -1 } do
+	for _, pad in pads[team] do
+		local look = pad.CFrame.LookVector
+		local from = pad.Position + Vector3.new(0, 3, 0)
+		check(look.Z * sign < -0.3, `{team} {pad.Name} faces toward its back wall's doors, not the solid front`)
+		local out = from + look * ((-78 * S * sign - from.Z) / look.Z)
+		check(not blocked(from, out), `{team} {pad.Name}: straight ahead leads out a door, to {out}`)
+		check(blocked(from, from + Vector3.new(0, 0, 40 * S * sign)), `{team} {pad.Name}: the front is still solid (so facing it would be a wall)`)
+	end
+end
+
 local looked = 0
 -- Eyes: standing; up on low cover (anyone can jump onto it, so check it
 -- everywhere); and on the enemy half, up on anything.

@@ -139,12 +139,20 @@ check(TeamService.activeCount() == 4 and avatars("Eve") == 0, "and frees the slo
 
 -- Death and respawn.
 local first = bo.Character :: Model
+local destroyed = false
+first.Destroying:Connect(function()
+	destroyed = true
+end)
 first.Humanoid.Died:Fire()
-task.wait(2.5)
+task.wait(0.1)
+check(type(bo:GetAttribute("RespawnAt")) == "number", "the server says when the next life starts")
+task.wait(2.4)
 check(bo.Character == first, "no respawn before 3 seconds")
 task.wait(1)
 check(bo.Character ~= first and bo.Character ~= nil and onOwnSpawn(bo), "a fresh avatar on the team's spawn after 3 seconds")
-check(avatars("Bo") == 1, "and the old one is gone")
+check(avatars("Bo") == 1 and bo:GetAttribute("RespawnAt") == nil, "and the old one is gone")
+task.wait(2.5)
+check(destroyed, "destroyed, not just out of the world (held by its handlers, every old body stayed in memory)")
 local doomed = dee.Character :: Model
 doomed.Humanoid.Died:Fire()
 task.wait(1)

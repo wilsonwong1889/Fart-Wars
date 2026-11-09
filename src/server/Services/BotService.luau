@@ -46,6 +46,7 @@ local TeamService = require(script.Parent.TeamService)
 local PlayerLifecycleService = require(script.Parent.PlayerLifecycleService)
 local EliminationService = require(script.Parent.EliminationService)
 local GasService = require(script.Parent.GasService)
+local MatchScoreService = require(script.Parent.MatchScoreService)
 
 local GAS = GameConfig.GAS
 local TAG = "Bot"
@@ -585,6 +586,10 @@ end
 -- any went in.
 function BotService.addGas(bot: Bot, amount: number, source: GasService.Source): boolean
 	if not FeatureFlags.GAS_COMBAT or amount <= 0 then
+		return false
+	end
+	-- Nothing between rounds, like a player's (GasService.add).
+	if MatchScoreService.betweenRounds() then
 		return false
 	end
 	local life = current(bot)

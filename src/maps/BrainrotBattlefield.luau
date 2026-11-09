@@ -138,7 +138,12 @@ local function build(entry: MapConfig.MapEntry): Model
 		Transparency = 0.35,
 	}, true)
 
-	MapKit.spawnPads(spawns, { -15, -5, 5, 15 }, -66)
+	-- Each pad faces the nearer of the back wall's two doors: the way out,
+	-- so every life starts looking at the exit, not at the solid front wall
+	-- (the run out turned 107 to 146 degrees from where a pad faced).
+	MapKit.spawnPads(spawns, { -15, -5, 5, 15 }, -66, function(x)
+		return Vector3.new(if x < 0 then -20.5 else 20.5, 0, -75)
+	end)
 
 	-- Cover comes in two heights. Tall cover (the throne, the bean cans, the
 	-- Gutter's toilet) hides you whole and grows with the map like the

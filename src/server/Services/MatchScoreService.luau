@@ -18,10 +18,13 @@ MatchScoreService.Changed = Signal.new()
 local scores: { [string]: number } = {}
 local open = false
 local closesAt = math.huge
+-- A round has ended and the next hasn't been set up (the results).
+local ended = false
 local mode: GameModeBase.GameMode? = nil
 local context: GameModeBase.Context? = nil
 
 function MatchScoreService.reset()
+	ended = false
 	for _, team in TeamConfig.order do
 		scores[team] = 0
 	end
@@ -40,10 +43,18 @@ end
 
 function MatchScoreService.freeze()
 	open = false
+	ended = true
 end
 
 function MatchScoreService.isOpen(): boolean
 	return open and workspace:GetServerTimeNow() < closesAt
+end
+
+-- The gap between rounds: from a round's buzzer (even before the round
+-- loop next looks) until the next one is set up, the results. Nobody
+-- fights then. Waiting for players isn't one: that's warm-up.
+function MatchScoreService.betweenRounds(): boolean
+	return ended or (open and workspace:GetServerTimeNow() >= closesAt)
 end
 
 function MatchScoreService.getScores(): { [string]: number }

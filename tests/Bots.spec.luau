@@ -15,7 +15,7 @@
 --   * a player shoots a bot out: hits, a point, no streak, no Eliminated
 --   * fireAsBot: everyone sees the shot, the victim hears who hit them,
 --     protection ends, one shot per interval, none mid-countdown, dead or
---     between rounds
+--     between rounds; its shots set off a barrel, the explosion the bot's
 --   * removed mid-countdown (credited), moved (not), fell while gassed
 --     (credited), died or destroyed with no gas (not); a bot that left
 --     can't be credited
@@ -330,6 +330,41 @@ place(whiffBody, 53, -14)
 task.wait(0.4)
 local whiffGas = Bots.gasOf(whiff)
 check(Combat.fireAsBot(toots, SOUTH) and Bots.gasOf(whiff) == whiffGas + 25, "a bot's shot gasses an enemy bot")
+-- A bot's shots set off a barrel like anyone's: lit by its second shot, the
+-- explosion is the bot's, and it gasses the bot's enemy standing beside it.
+do
+	local Barrels = require(server.Services.BarrelService)
+	local model = Barrels.all()[1]
+	local barrel = Barrels.get(model) :: any
+	local pivot = model:GetPivot()
+	model:PivotTo(pivot.Rotation + Vector3.new(53, pivot.Position.Y, 2))
+	local body = (model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")) :: BasePart
+	place(ada.Character, 60, 2)
+	-- Whiff (Toots's enemy too) well out of the blast: the checks below
+	-- count on its gas.
+	place(whiffBody, -53, -14)
+	task.wait(0.4)
+	local adaBefore, whiffBefore = Gas.gasOf(ada), Bots.gasOf(whiff)
+	local before = count("barrel")
+	local head = tootsBody:FindFirstChild("Head") :: BasePart
+	for _ = 1, 4 do
+		if barrel.state ~= "ready" then
+			break
+		end
+		check(Combat.fireAsBot(toots, body.Position - head.Position), "Toots shoots the barrel")
+		task.wait(0.31)
+	end
+	check(barrel.state == "fused" and barrel.ownerBot == toots.id and barrel.owner == nil, "two bot shots light a barrel, the bot its owner")
+	task.wait(GameConfig.BARREL.FUSE_SECONDS + 0.2)
+	check(count("barrel") == before + 1 and last("barrel").owner == toots.id, "it goes off, every client told it's the bot's")
+	check(Gas.gasOf(ada) > adaBefore, "and the blast gasses the bot's enemy beside it")
+	check(Bots.gasOf(whiff) <= whiffBefore, "but no one out of its reach")
+	Barrels.resetAll()
+	model:PivotTo(pivot)
+	place(ada.Character, 45, -14)
+	place(whiffBody, 53, -14)
+	task.wait(0.31)
+end
 check(Bots.addGas(toots, 100, { attacker = ada, cause = "shot" }) and not Combat.fireAsBot(toots, SOUTH), "no shots mid-countdown")
 task.wait(1.2)
 check(not Combat.fireAsBot(toots, SOUTH), "nor from the dead")

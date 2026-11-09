@@ -86,6 +86,11 @@ WeaponFxController.tracers = ShotFx.tracers
 local player = Players.LocalPlayer
 local frameParticles = 0
 local cameraKick = 0
+-- How much of the kick the camera is turned by now. Roblox's camera starts
+-- each frame from where the last one looked, so only the change is applied:
+-- the view kicks up and settles back, instead of every shot's kick staying
+-- and the aim climbing.
+local kickApplied = 0
 local clockTime = 0
 local impactAnchor: BasePart? = nil
 local impacts: { Attachment } = {}
@@ -576,13 +581,20 @@ function WeaponFxController.step(dt: number)
 	end
 end
 
--- The camera kick, after the camera has moved this frame.
+-- The camera kick, after the camera has moved this frame: turned by the
+-- change since last frame, so it comes back down as the kick fades. A
+-- camera that isn't Roblox's (a menu's fixed shot) keeps none.
 local function kickCamera()
-	if cameraKick > 0 and not Settings.reduceMotion then
-		local camera = workspace.CurrentCamera
-		if camera then
-			camera.CFrame *= CFrame.Angles(math.rad(cameraKick), 0, 0)
-		end
+	local camera = workspace.CurrentCamera
+	if not camera or camera.CameraType ~= Enum.CameraType.Custom then
+		kickApplied = 0
+		return
+	end
+	local want = if Settings.reduceMotion then 0 else cameraKick
+	local change = want - kickApplied
+	if math.abs(change) > 1e-4 then
+		camera.CFrame *= CFrame.Angles(math.rad(change), 0, 0)
+		kickApplied = want
 	end
 end
 
@@ -669,6 +681,11 @@ function WeaponFxController.start()
 	RunService.RenderStepped:Connect(WeaponFxController.step)
 	pcall(function()
 		RunService:BindToRenderStep("FartWarsCameraKick", Enum.RenderPriority.Camera.Value + 1, kickCamera)
+	end)
+	-- A new life starts with the camera level (CameraController): no kick
+	-- left to take back.
+	player.CharacterAdded:Connect(function()
+		cameraKick, kickApplied = 0, 0
 	end)
 end
 

@@ -43,9 +43,10 @@ the Output window help).
 - [ ] Open each locker tab from the home screen. Nothing overlaps or runs
       off its card. Close it.
 - [ ] PLAY opens "Choose a Team" (two cards with counts; a lock on a team
-      you can't join). Pick one: you spawn on its pad with the weapon in
-      your hand (the barrel should point forward; tell me if it's sideways
-      or backwards), the controls card shows for a few seconds, and the
+      you can't join). Pick one: you spawn on its pad facing the spawn
+      room's nearer back door (the way out), with the weapon in your hand
+      (the barrel should point forward; tell me if it's sideways or
+      backwards), the controls card shows for a few seconds, and the
       HUD shows the score boxes and timer ("WAITING FOR PLAYERS" alone),
       coins and the four buttons top right, the gas and dash bars, the
       hotbar and the level bar.
@@ -71,7 +72,8 @@ the Output window help).
 - [ ] Hold Tab: the scoreboard (not Roblox's player list).
 - [ ] Shift: a Fart Dash along the ground; not again for 3 seconds.
 - [ ] Stand still 45 seconds: "BRO FELL ASLEEP MID-FART!"; at 60 you're
-      back on the home screen as a spectator. PLAY again works.
+      back on the home screen as a spectator. PLAY again works. Do it
+      again with the shop open: the warning shows over it.
 - [ ] `/fw coins 5000`, `/fw xp 25000`: reward lines, level-up banners,
       the panel catches up. M → Weapons: buy the Spritzer ("Buying..." then
       "Bought!"). `/fw profile` says "saving".
@@ -98,7 +100,13 @@ the Output window help).
       nothing up there stops a shot or the camera.
 - [ ] Gas: the meter and the belly grow by stage; the critical outline
       pulses slowly (no flashing); at 100 a one-second countdown, then the
-      explosion, the kill feed and "EXPLODED" card.
+      explosion, the kill feed and "EXPLODED" card, with "BACK IN 3, 2, 1"
+      under it and no crosshair, hotbar or gas bar until you're back.
+      Hold fire through it: the new life doesn't fire until you press again.
+- [ ] Fire a few Thunderclapper shots with the mouse still: the view kicks
+      up and settles back where it was each time (it used to climb).
+- [ ] In the results, firing and Q do nothing, and nobody's gas changes;
+      the next round, both work again.
 - [ ] Nobody takes gas for 3 seconds after spawning (unless they fire).
 - [ ] A teammate can't be gassed (switch one client's team with
       `/fw team` and try).

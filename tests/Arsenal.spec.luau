@@ -38,6 +38,7 @@ local Loadout = require(server.Services.LoadoutService)
 local Data = require(server.Services.DataService)
 local Telemetry = require(server.Telemetry)
 local WeaponConfig = require(ReplicatedStorage.Shared.Config.WeaponConfig)
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local Remotes = ReplicatedStorage.Remotes
 local HttpService = game:GetService("HttpService")
@@ -153,23 +154,39 @@ check(Combat.weaponOf(me).id == "Spritzer" and me:GetAttribute("Weapon") == "Spr
 local aim = lineUp(30)
 shoot(aim)
 check(Gas.gasOf(foe) == WeaponConfig.weapons.Spritzer.gasPerHit, `a Spritzer hit: {WeaponConfig.weapons.Spritzer.gasPerHit}% gas`)
+local perHit = WeaponConfig.weapons.Spritzer.gasPerHit
+local tooFastBefore = rejects("FireWeapon", "tooFast")
 task.wait(0.02)
 shoot(aim)
-check(rejects("FireWeapon", "tooFast") == 1 and Gas.gasOf(foe) == WeaponConfig.weapons.Spritzer.gasPerHit, "far faster than its 0.1 s interval: refused")
+check(rejects("FireWeapon", "tooFast") == tooFastBefore and Gas.gasOf(foe) == 2 * perHit, "a shot bunched up right behind it (a packet late) still lands")
+-- Far faster than its 0.1 s interval for longer than the network slack
+-- covers: refused.
+for _ = 1, 8 do
+	task.wait(0.01)
+	shoot(aim)
+end
+local burst = rejects("FireWeapon", "tooFast") - tooFastBefore
+check(burst >= 4, `a burst far faster than its interval: refused once the slack is used ({burst} refused)`)
+local landed = Gas.gasOf(foe)
 task.wait(0.1)
 shoot(aim)
-check(Gas.gasOf(foe) == 2 * WeaponConfig.weapons.Spritzer.gasPerHit, "a tenth of a second later: another hit")
+check(Gas.gasOf(foe) == landed + perHit, "a tenth of a second later: another hit")
 -- Over time, no faster than its rate however the shots are timed (the
--- old per-gap tolerance let 0.085 s spacing through every time).
+-- old per-gap tolerance let 0.085 s spacing through every time): of N
+-- shots g apart, at most the slack's worth plus one per interval land.
 task.wait(1)
 local refusedBefore = rejects("FireWeapon", "tooFast")
 local up = Vector3.new(0, 1, 0) -- into the sky: only the rate matters here
-for _ = 1, 30 do
+local spritzer = WeaponConfig.weapons.Spritzer
+local slack = math.max(spritzer.fireInterval * (1 - GameConfig.FIRE_INTERVAL_TOLERANCE), GameConfig.FIRE_SLACK_SECONDS)
+local n, gap = 60, 0.085
+for _ = 1, n do
 	shoot(up)
-	task.wait(0.085)
+	task.wait(gap)
 end
 local refused = rejects("FireWeapon", "tooFast") - refusedBefore
-check(refused >= 3, `30 shots at 0.085 s: the rate holds ({refused} refused)`)
+local least = math.floor(n - (1 + slack / spritzer.fireInterval) - (n - 1) * gap / spritzer.fireInterval)
+check(least >= 3 and refused >= least, `{n} shots at {gap} s: the rate holds ({refused} refused, at least {least})`)
 -- Honest jitter: two shots bunched together after a steady rhythm pass.
 task.wait(1)
 refusedBefore = rejects("FireWeapon", "tooFast")

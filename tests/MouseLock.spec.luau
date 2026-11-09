@@ -188,6 +188,13 @@ press(Enum.KeyCode.M)
 check(MouseLock.isFree() and MouseLock.holds("key"), "the menu closing leaves the key's free mouse alone")
 press(Enum.KeyCode.LeftAlt)
 only("Alt locks it again", {})
+-- Alt-Tab: Left Alt goes down on the way out (freeing the mouse), then the
+-- window loses focus. Coming back, the match is locked as it was, not left
+-- with a cursor sliding the crosshair about.
+press(Enum.KeyCode.LeftAlt)
+check(MouseLock.holds("key"), "Alt-Tab's Alt frees the mouse")
+game:GetService("UserInputService").WindowFocusReleased:Fire()
+check(not MouseLock.holds("key") and not MouseLock.isFree(), "losing focus locks it again")
 
 -- The M menu and the screens it opens.
 press(Enum.KeyCode.M)
