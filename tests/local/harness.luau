@@ -18,8 +18,10 @@
 --
 -- Fart Wars additions: BrickColor (named palette entries); PlayerAdded and
 -- PlayerRemoving fire as Players gains and loses a Player; LoadCharacterAsync
--- builds a small rig at the RespawnLocation; Team:GetPlayers; and remotes
--- loop back within the one world (see RemoteEvent below).
+-- builds a small rig at the RespawnLocation (at once, or after the Players
+-- service's CharacterLoadSeconds attribute, as a real avatar takes a moment
+-- to load); Team:GetPlayers; and remotes loop back within the one world
+-- (see RemoteEvent below).
 
 local START_UNIX = 1_800_000_000 -- os.time() when the virtual clock starts
 local MAX_VIRTUAL_SECONDS = 3600
@@ -2068,6 +2070,15 @@ METHODS = {
 			setParent(self, nil)
 		end,
 		LoadCharacterAsync = function(self)
+			-- A spec can make it take a while, as a real avatar's appearance
+			-- does (the old body stays until the new one is in).
+			local loading = game:GetService("Players"):GetAttribute("CharacterLoadSeconds")
+			if type(loading) == "number" and loading > 0 then
+				task.wait(loading)
+				if self.Parent ~= game:GetService("Players") then
+					return -- left meanwhile
+				end
+			end
 			local old = self.Character
 			if old then
 				fireIfExists(self, "CharacterRemoving", old)

@@ -5,7 +5,10 @@
 --                 card on a first PLAY
 --   ResultsScreen the winner (or draw) and the countdown to the next round,
 --                 over the round's award cards (Top Fragger and co.: the
---                 winner's headshot, name and number)
+--                 winner's headshot, name and number). Only in a match: in
+--                 the lobby, the status chip says who won instead. It goes
+--                 by your team when the results began, so PLAY under them
+--                 says you were spectating
 --   Scoreboard    Tab (held): who is on each team, any bots after the
 --                 players (stats come with combat)
 -- Everything shown comes from ClientState; times come from the snapshot's
@@ -552,11 +555,24 @@ local function renderAwards(snapshot: RoundClock.Snapshot)
 	p.resultStack.Position = UDim2.new(0.5, 0, if any then 0.5 else 0.45, 0)
 end
 
+-- Which round's results are up, and the team this player was on as they
+-- began (nil: none). Pressing PLAY under the results puts you on a team for
+-- the next round, not in the one just played.
+local resultsRound: number? = nil
+local resultsTeam: string? = nil
+
 local function renderResults()
 	local p = HUDController.parts
 	local snapshot = ClientState.snapshot
-	-- (Not over the practice yard: it isn't in the round.)
-	local show = snapshot ~= nil and snapshot.phase == Phase.RESULTS and snapshot.result ~= nil and not ClientState.inPractice()
+	local over = snapshot ~= nil and snapshot.phase == Phase.RESULTS and snapshot.result ~= nil
+	if over and resultsRound ~= (snapshot :: RoundClock.Snapshot).roundId then
+		resultsRound = (snapshot :: RoundClock.Snapshot).roundId
+		resultsTeam = if ClientState.state() == States.Player.ACTIVE then ClientState.teamId() else nil
+	end
+	-- Only in a match: not over the practice yard (it isn't in the round),
+	-- and not in the lobby, whose status chip says who won (the card was
+	-- drawn under it, its awards behind the shop's offers).
+	local show = over and ClientState.state() == States.Player.ACTIVE
 	p.results.Enabled = show
 	if not show then
 		return
@@ -575,10 +591,10 @@ local function renderResults()
 		p.resultTitle.Text = "DRAW!"
 		p.resultTitle.TextColor3 = C.text
 	end
-	local mine = ClientState.teamId()
+	local mine = resultsTeam
 	-- A zone round's results say which mode it was, in its own words.
 	local zone = if (snapshot :: RoundClock.Snapshot).objective == "zone" then UIConfig.zone.results else nil
-	if not ClientState.isActive() or not mine then
+	if not mine then
 		p.resultYou.Text = "You were spectating"
 	elseif result.draw then
 		p.resultYou.Text = if zone then zone.draw else "Nobody out-farted anybody"

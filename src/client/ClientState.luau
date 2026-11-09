@@ -20,6 +20,7 @@ ClientState.TeamsChanged = Signal.new() -- (counts)
 ClientState.StateChanged = Signal.new() -- (state, previous)
 ClientState.TeamChanged = Signal.new() -- (teamId?)
 ClientState.Message = Signal.new() -- (payload from UIMessage)
+ClientState.DroppedIn = Signal.new() -- () the avatar is in, after dropping in
 
 ClientState.snapshot = nil :: RoundClock.Snapshot?
 -- Everyone on each team, and how many of them are bots (the team rules
@@ -30,6 +31,7 @@ ClientState.maxTeamSize = GameConfig.MAX_TEAM_SIZE
 
 local remotes: Folder
 local started = false
+local dropping = false
 
 function ClientState.remote(name: string): Instance
 	return remotes:WaitForChild(name)
@@ -55,6 +57,16 @@ end
 
 function ClientState.inPractice(): boolean
 	return ClientState.state() == States.Player.PRACTICE
+end
+
+-- Just onto a team, the avatar still on its way: the server makes this
+-- player ACTIVE before it loads the avatar (a moment, or a second or two),
+-- so meanwhile there's nothing to play. The screens keep the lobby's
+-- blurred shot and a free mouse, with "DROPPING IN…", until it's in
+-- (DroppedIn). A respawn or a team switch keeps the old body until
+-- the new one, so it isn't this.
+function ClientState.droppingIn(): boolean
+	return dropping
 end
 
 -- Whether this player's avatar is up: one that's down waits for its next
@@ -149,11 +161,30 @@ function ClientState.start()
 		end
 	end)
 	local lastState = ClientState.state()
+	dropping = lastState == States.Player.ACTIVE and player.Character == nil
 	player:GetAttributeChangedSignal("State"):Connect(function()
 		local state = ClientState.state()
 		local previous = lastState
 		lastState = state
+		-- Onto a team with no avatar: dropping in (set before StateChanged
+		-- fires, so the screens see it).
+		if state ~= States.Player.ACTIVE then
+			dropping = false
+		elseif previous ~= States.Player.ACTIVE then
+			dropping = player.Character == nil
+		end
 		ClientState.StateChanged:Fire(state, previous)
+	end)
+	-- In, once it can be followed (its Humanoid has replicated).
+	player.CharacterAdded:Connect(function(character)
+		if not dropping then
+			return
+		end
+		character:WaitForChild("Humanoid", 10)
+		if dropping and player.Character == character then
+			dropping = false
+			ClientState.DroppedIn:Fire()
+		end
 	end)
 	player:GetAttributeChangedSignal("TeamId"):Connect(function()
 		ClientState.TeamChanged:Fire(ClientState.teamId())

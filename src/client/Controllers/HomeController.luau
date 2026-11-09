@@ -8,13 +8,16 @@
 --               top right, level bottom left; in the middle the featured
 --               offers (two at a time, arrows for more), the title, PLAY
 --               (or Space or F; a bubble points at it for someone who
---               hasn't played yet) and the round's status. The
+--               hasn't played yet) and the round's status (under the
+--               results, who won: the results card is for the match). The
 --               later-phase screens say Coming Soon. A profile's first
 --               PLAY goes to the practice yard (PracticeController), and
 --               the team screen comes after it
 --   TeamSelect  after PLAY: "CHOOSE A TEAM", each team's card with its
 --               count (locked when joining it would make the teams
---               unfair), and AUTO; picking one joins the match
+--               unfair), and AUTO; picking one joins the match. The lobby
+--               goes at once, but the battlefield stays blurred until the
+--               avatar is in (ClientState.droppingIn: "DROPPING IN…")
 --   GameMenu    M in a match: resume, switch team (only when it evens the
 --               teams), spectate, and the same sections. The mouse is free
 --               while it's open, even in first person.
@@ -1080,7 +1083,11 @@ local function statusText(): string
 		local name = if snapshot.modeName and snapshot.mode ~= "TeamElimination" then ` ({snapshot.modeName})` else ""
 		return `Round in progress{name} · {RoundClock.format(ClientState.remaining())} left · {versus}`
 	elseif snapshot.phase == Phase.RESULTS then
-		return `Next round in {RoundClock.format(ClientState.remaining())} · {versus}`
+		-- The results card is for the match; here the chip says who won.
+		local result = snapshot.result
+		local winner = result and result.winner and TeamConfig.teams[result.winner]
+		local outcome = if winner then `{winner.name} won · ` elseif result then "Draw · " else ""
+		return `{outcome}Next round in {RoundClock.format(ClientState.remaining())} · {versus}`
 	end
 	return `{HUDController.waitingText(ClientState.counts)} · {versus}`
 end
@@ -1155,7 +1162,8 @@ local function renderWallet()
 end
 HomeController.renderWallet = renderWallet
 
--- The battlefield blurs behind the home screen and sharpens in a match.
+-- The battlefield blurs behind the home screen and sharpens in a match,
+-- once the avatar is in.
 local function blur(on: boolean)
 	local p = HomeController.parts
 	local size = if on then UIConfig.menuBlur else 0
@@ -1179,7 +1187,7 @@ local function render()
 	MouseLock.setFree("HomeScreen", not active)
 	ChatSpace.claim("HomeScreen", if active then nil else HomeController.CHAT_CLAIM)
 	fitPages()
-	blur(not active)
+	blur(not active or ClientState.droppingIn())
 	if active then
 		p.teamSelect.Enabled = false
 	end
@@ -1346,6 +1354,7 @@ function HomeController.start()
 	LockerController.BadgesChanged:Connect(renderWallet)
 	UserInputService.InputBegan:Connect(onKey)
 	ClientState.StateChanged:Connect(render)
+	ClientState.DroppedIn:Connect(render)
 	ClientState.TeamChanged:Connect(render)
 	ClientState.TeamsChanged:Connect(render)
 	ClientState.SnapshotChanged:Connect(render)

@@ -145,6 +145,17 @@ local function paidFor(player: Player, day: number, id: string): { any }
 	end
 	return found
 end
+-- Ends the round and waits for its results: at the buzzer, or a moment
+-- after while a bot's explosion is still counting down (its point goes in
+-- first).
+local function toResults()
+	Round.testEndPhaseIn(0)
+	local limit = os.clock() + 2
+	while Round.phase() ~= "RESULTS" and os.clock() < limit do
+		task.wait(0.1)
+	end
+	task.wait(0.2)
+end
 local function awake(seconds: number)
 	local deadline = os.clock() + seconds
 	while os.clock() < deadline do
@@ -235,8 +246,7 @@ check(TestControls.score(myTeam, 50), "my team well ahead")
 awake(65)
 check(countedSince(mark, me, "minutes") >= 1, "minutes on the battlefield count")
 local coinsBefore, xpBefore = data().Coins, data().LifetimeXP
-Round.testEndPhaseIn(0)
-task.wait(0.6)
+toResults()
 check(Round.phase() == "RESULTS" and Round.snapshot().result.winner == myTeam, "my team won")
 check(data().Challenges.progress.play3 == 1, "a round played")
 check(table.find(data().Challenges.claimed, "win1"), "and won: done")
@@ -271,8 +281,7 @@ mark = #counted
 awake(65)
 Team.testSetTeam(me, otherTeam)
 awake(5)
-Round.testEndPhaseIn(0)
-task.wait(0.6)
+toResults()
 check(Round.snapshot().result.winner == otherTeam, "the other team won")
 check(countedSince(mark, me, "rounds") == 1 and countedSince(mark, me, "wins") == 0, "a round played, but not won: five seconds on the winners isn't a win")
 check(data().Challenges.progress.play3 == 2, "two rounds played")

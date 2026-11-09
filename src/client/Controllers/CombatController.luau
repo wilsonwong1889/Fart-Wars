@@ -752,12 +752,17 @@ local function render()
 	p.weapon.Visible = aiming
 	p.weapon.Text = string.upper(weapon().displayName) .. (if player:GetAttribute("LoadoutPending") then " · NEW LOADOUT ON RESPAWN" else "")
 
-	-- Down, waiting for the next life: a countdown in place of the HUD.
+	-- Down, waiting for the next life: a countdown in place of the HUD. Just
+	-- onto a team, the first avatar still on its way: the countdown's end.
 	local respawnAt = player:GetAttribute("RespawnAt")
-	local down = ClientState.isActive() and not up and type(respawnAt) == "number"
+	local waiting = type(respawnAt) == "number" or ClientState.droppingIn()
+	local down = ClientState.isActive() and not up and waiting
 	p.respawn.Visible = down
 	if down then
-		local left = math.ceil((respawnAt :: number) - workspace:GetServerTimeNow())
+		local left = 0
+		if type(respawnAt) == "number" then
+			left = math.ceil(respawnAt - workspace:GetServerTimeNow())
+		end
 		p.respawn.Text = if left > 0 then `BACK IN {left}` else "DROPPING IN…"
 	end
 

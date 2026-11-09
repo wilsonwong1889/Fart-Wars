@@ -20,7 +20,8 @@ A mode is a module in `src/server/Modes` made with `GameModeBase.new`:
 
 `RoundService` runs the clock either way. Points go through
 `MatchScoreService.record(event, points)`, which only counts them while a
-round is open and the mode accepts them.
+round is open and the mode accepts them (and, just after the buzzer, an
+explosion whose countdown started before it: the result waits for it).
 
 Two modes so far:
 

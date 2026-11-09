@@ -1,7 +1,10 @@
 -- The match state machine, on server timestamps:
 --   WAITING  until at least MIN_ACTIVE_PLAYERS are active and neither team
 --            is empty (bots count, so one player and the bots start a round)
---   ACTIVE   for the mode's round length (300 s); scores count
+--   ACTIVE   for the mode's round length (300 s); scores count. The result
+--            is taken at the buzzer, or a moment after (MatchScoreService
+--            .landsBy) while a kill finished before it is still counting
+--            down, so that point is in it
 --   RESULTS  for the intermission (15 s); scores frozen, winner or draw shown
 --            with the round's awards (AwardService)
 --   then ACTIVE again, or WAITING if the population has dropped. A round in
@@ -263,7 +266,9 @@ function RoundService.step(at: number)
 			startRound(at)
 		end
 	elseif state.phase == Phase.ACTIVE then
-		if at >= (state.phaseEndTime :: number) then
+		-- At the buzzer, unless an explosion counting down at it hasn't
+		-- landed yet (a second at most): its point goes in first.
+		if at >= (state.phaseEndTime :: number) and at >= MatchScoreService.landsBy() then
 			endRound(at)
 		end
 	elseif state.phase == Phase.RESULTS then
@@ -302,6 +307,8 @@ function RoundService.testRotation(enabled: boolean?)
 end
 
 -- Test-only: ends the current round or intermission `seconds` from now.
+-- (A round's results still wait for an explosion counting down at its
+-- buzzer, a second at most: see step.)
 function RoundService.testEndPhaseIn(seconds: number): (boolean, string)
 	if not GameConfig.TEST_CONTROLS.ENABLED then
 		return false, "test controls are off (GameConfig.TEST_CONTROLS.ENABLED)"

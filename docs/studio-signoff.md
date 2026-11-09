@@ -50,6 +50,12 @@ the Output window help).
       HUD shows the score boxes and timer ("WAITING FOR PLAYERS" alone),
       coins and the four buttons top right, the gas and dash bars, the
       hotbar and the level bar.
+- [ ] While the avatar loads after picking a team, the lobby is gone but
+      the battlefield stays blurred, the camera's shots keep moving and
+      the mouse isn't locked, with DROPPING IN… in the middle; then the
+      blur clears and the camera is behind you. (Studio loads an avatar
+      quickly, so it may only flash by; a live server takes longer. Before,
+      the mouse locked over a frozen view and the camera snapped.)
 - [ ] Press 1-4 or click a hotbar slot with a second weapon owned: in the
       first 3 seconds of a spawn it swaps at once; later it says it waits
       for your respawn and the slot shows NEXT.
@@ -134,6 +140,14 @@ the Output window help).
 - [ ] Let the round end (`/fw end 5`): results, with the round's award
       cards under them (real headshots; a bot's card shows a robot), a
       15-second intermission, the next round starts by itself.
+- [ ] A kill in the last second: one client `/fw gas 95`, the other
+      `/fw end 3` and finishes them in the last second. The explosion lands
+      after the buzzer, and the results, a moment later, count it (not
+      DRAW), as the kill feed and the coins do.
+- [ ] One client spectates (M, SPECTATE) before a round ends: in the
+      lobby no results card shows; the status line says who won. PLAY
+      under the results: you drop in once (not again as the next round
+      starts), and the results card says "You were spectating".
 
 ## 3. Saving
 

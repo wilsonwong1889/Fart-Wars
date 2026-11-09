@@ -11,6 +11,8 @@
 --   * leaving frees everything; reconnecting starts fresh; joining and
 --     leaving over and over never duplicates an avatar or skews the counts
 --   * round time only counts while ACTIVE
+--   * PLAY under the results drops you in once: the next round leaves an
+--     avatar still loading, or only just in, where it is
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Teams = game:GetService("Teams")
@@ -202,6 +204,45 @@ local frozen = watching and watching.activeSecondsThisRound
 task.wait(10)
 check(active and active.activeSecondsThisRound >= 9, "an active player's round time counts")
 check(watching and watching.state == "MENU_SPECTATOR" and watching.activeSecondsThisRound == frozen, "a spectator's doesn't")
+
+-- PLAY under the results drops you in once. The next round leaves an
+-- avatar that is still loading, or under SPAWN_PROTECTION_SECONDS old,
+-- where it is: it used to give everyone a fresh one, so someone who pressed
+-- PLAY a moment before dropped in twice. Older ones start again at their
+-- spawn, as ever.
+do
+	local RoundService = require(server.Services.RoundService)
+	local drops: { [Player]: number } = {}
+	Lifecycle.Spawned:Connect(function(player)
+		drops[player] = (drops[player] or 0) + 1
+	end)
+	check(RoundService.phase() == "ACTIVE" and RoundService.testEndPhaseIn(0), "the round ends")
+	task.wait(0.5)
+	check(RoundService.phase() == "RESULTS", "the results")
+	local veteran = cy.Character
+	-- Fay's avatar takes a second to load, and the next round starts meanwhile.
+	local fay = join("Fay")
+	Players:SetAttribute("CharacterLoadSeconds", 1)
+	play(fay)
+	check(fay:GetAttribute("State") == "ACTIVE" and fay.Character == nil, "Fay presses PLAY under the results: on a team, the avatar on its way")
+	RoundService.testEndPhaseIn(0)
+	task.wait(0.3)
+	check(RoundService.phase() == "ACTIVE", "the next round starts while it loads")
+	task.wait(1.5)
+	Players:SetAttribute("CharacterLoadSeconds", nil)
+	check(drops[fay] == 1 and avatars("Fay") == 1 and onOwnSpawn(fay), `Fay drops in once, on the team's spawn ({drops[fay]} drops)`)
+	check(cy.Character ~= veteran and onOwnSpawn(cy), "Cy, there all along, starts the round from the spawn again")
+	-- Gus presses PLAY a moment before the next round: that avatar stays.
+	check(RoundService.testEndPhaseIn(0), "that round ends")
+	task.wait(0.5)
+	local gus = join("Gus")
+	play(gus)
+	local first = gus.Character
+	check(first and drops[gus] == 1, "Gus drops in under the results")
+	RoundService.testEndPhaseIn(0)
+	task.wait(0.5)
+	check(RoundService.phase() == "ACTIVE" and gus.Character == first and drops[gus] == 1, "the next round, a moment later, leaves Gus be: one drop")
+end
 
 -- Churn: players come and go, some mid-PLAY.
 local churn = {}

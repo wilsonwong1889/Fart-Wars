@@ -38,9 +38,11 @@ function AwardService.enabled(): boolean
 	return on == true and FeatureFlags.MATCH_MODE ~= "Continuous"
 end
 
--- Only a live round counts: not the intermission, not waiting.
-local function counting(): boolean
-	return AwardService.enabled() and MatchScoreService.isOpen()
+-- Only a live round counts: not the intermission, not waiting. A kill
+-- finished before the buzzer that lands just after it counts here as it
+-- does in the score (`countdownAt`, MatchScoreService.counts).
+local function counting(countdownAt: number?): boolean
+	return AwardService.enabled() and MatchScoreService.counts(countdownAt)
 end
 
 -- A new round: everyone back to nothing.
@@ -90,7 +92,7 @@ function AwardService.start()
 	end
 	started = true
 	EliminationService.Credited:Connect(function(credit: EliminationService.Credit)
-		if counting() then
+		if counting(credit.countdownAt) then
 			tally:elimination({
 				at = now(),
 				victim = credit.victim,

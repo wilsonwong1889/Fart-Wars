@@ -2,6 +2,9 @@
 -- switches to first person and back. Off a team (home screen, AFK) it
 -- shows the live battlefield from the map's fixed CameraPoints, never from
 -- a player's eyes, so a spectator learns nothing an active player couldn't.
+-- Dropping in (on a team, the avatar still loading: ClientState.droppingIn)
+-- the shots carry on, so the mouse doesn't lock over a frozen view; the
+-- camera takes the avatar once it's in.
 --
 -- In a match the mouse is locked to the centre crosshair in both views
 -- (like Arsenal or Rivals), unless something wants it free (MouseLock: the
@@ -145,7 +148,7 @@ local function spectate()
 end
 
 local function refresh()
-	if ClientState.isActive() then
+	if ClientState.isActive() and not ClientState.droppingIn() then
 		local entering = spectating
 		spectating = false
 		shotToken += 1
@@ -300,9 +303,12 @@ function CameraController.start()
 	InputController.CameraToggled:Connect(CameraController.toggle)
 	RunService:BindToRenderStep("FartWarsCamera", Enum.RenderPriority.Camera.Value + 1, CameraController.step)
 	ClientState.StateChanged:Connect(refresh)
+	-- Dropped in: the shots stop and the camera takes the new avatar.
+	ClientState.DroppedIn:Connect(refresh)
 	player.CharacterAdded:Connect(function(character)
 		character:WaitForChild("Humanoid", 10)
-		if ClientState.isActive() then
+		-- (Still dropping in: DroppedIn does it.)
+		if ClientState.isActive() and not ClientState.droppingIn() then
 			followAvatar()
 			faceForward(character)
 		end

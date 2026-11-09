@@ -4,12 +4,14 @@
 -- draining at 5% a second; taking gas stops that. At 100 the player can't
 -- fire or dash, a one-second countdown runs, and they explode: the last
 -- enemy to add gas is the killer (if they've added some in the last
--- ASSIST_WINDOW seconds) and other recent attackers assist. A player who
--- leaves, is moved off their team, or is respawned (a team switch, a new
--- round) mid-countdown explodes on the spot, and one who dies some other
--- way while gassed (Reset, a fall) is credited to their recent attacker,
--- so nobody can dodge giving the killer the point. The attacker may be a
--- bot (Source.bot): it's credited the same way, and its team scores.
+-- ASSIST_WINDOW seconds) and other recent attackers assist. A countdown
+-- that started before the round's buzzer scores though it lands after
+-- (MatchScoreService). A player who leaves, is moved off their team, or is
+-- respawned (a team switch, a new round) mid-countdown explodes on the
+-- spot, and one who dies some other way while gassed (Reset, a fall) is
+-- credited to their recent attacker, so nobody can dodge giving the killer
+-- the point. The attacker may be a bot (Source.bot): it's credited the same
+-- way, and its team scores.
 -- Bots' own meters live in BotService, on these same rules.
 -- Clients see it on the character: "Gas" (0-100), "GasStage" (0-4) and
 -- "ExplodesAt" (server time).
@@ -78,6 +80,8 @@ type Meter = {
 	weapon: string?,
 	-- The team behind the gas that started the countdown.
 	finishTeam: string?,
+	-- When the countdown started (the finishing hit).
+	countdownAt: number?,
 }
 local meters: { [Player]: Meter } = {}
 local started = false
@@ -126,6 +130,7 @@ local function meter(player: Player): Meter?
 		chain = nil,
 		weapon = nil,
 		finishTeam = nil,
+		countdownAt = nil,
 	}
 	meters[player] = fresh
 	return fresh
@@ -219,6 +224,7 @@ function GasService.explode(victim: Player)
 		assistBots = assistBots,
 		cause = m.cause,
 		weapon = m.weapon,
+		countdownAt = m.countdownAt,
 	})
 	-- The next link of the chain whose blast filled them, or a new chain.
 	local chain = Chain.link(m.chain)
@@ -243,8 +249,11 @@ local function beginExplosion(victim: Player, m: Meter, source: Source)
 	-- Mastery only for gas someone fired (not a bomb whose thrower left).
 	m.weapon = if source.attacker then source.weapon else nil
 	m.finishTeam = source.team or (source.attacker and TeamService.teamOf(source.attacker))
+	local at = now()
+	m.countdownAt = at
+	MatchScoreService.countdownStarted(at)
 	local character = m.character
-	character:SetAttribute("ExplodesAt", now() + GAS.EXPLOSION_COUNTDOWN_SECONDS)
+	character:SetAttribute("ExplodesAt", at + GAS.EXPLOSION_COUNTDOWN_SECONDS)
 	Telemetry.count("Gas.countdowns")
 	task.delay(GAS.EXPLOSION_COUNTDOWN_SECONDS, function()
 		if meters[victim] == m and m.character == character then

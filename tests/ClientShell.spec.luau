@@ -5,7 +5,9 @@
 --   * PLAY asks for a team (each card with its count, locked when unfair);
 --     picking one joins it: the home screen goes, the HUD shows your team,
 --     the hotbar your weapon, the top right your coins and the menu, the
---     controls card shows once, and the camera follows the avatar
+--     controls card shows once, and the camera follows the avatar. Until
+--     the avatar has loaded, the battlefield stays blurred, the shots carry
+--     on and the mouse stays free, with DROPPING IN…
 --   * V toggles first/third person, repeatedly, without breaking anything
 --   * Shift: Fart Dash (a push the server accepts, then a cooldown); M opens
 --     the menu with the mouse freed, and no firing or dashing in it; Tab
@@ -16,6 +18,9 @@
 --     names the winner; the AFK warning shows and clears
 --   * SPECTATE from the menu goes back home, and team choices that would
 --     unbalance the teams are greyed out
+--   * the results in the lobby: no card under it, the status chip says who
+--     won; PLAY under them, and the card says you were spectating, and the
+--     next round leaves the new avatar be
 local Players = game:GetService("Players")
 local UIConfig = require(game:GetService("ReplicatedStorage").Shared.Config.UIConfig)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -196,8 +201,26 @@ Locker.close()
 click(home.play)
 check(home.teamSelect.Enabled and me:GetAttribute("State") == "MENU_SPECTATOR", "PLAY asks for a team first")
 check(home.teamButtons.Stinkers.Count.Text == "0" and not home.teamButtons.Stinkers.Lock.Visible, "each team's card: its count, unlocked")
+-- The avatar takes a second to load. Until it's in, the battlefield stays
+-- blurred with DROPPING IN… and the mouse free (the mouse locked over a
+-- frozen view, then the camera snapped).
+local ClientState = require(client.ClientState)
+local combatParts = require(client.Controllers.CombatController).parts
+Players:SetAttribute("CharacterLoadSeconds", 1)
 click(home.teamButtons.Stinkers)
-task.wait(0.6)
+task.wait(0.3)
+RunService:RenderFrame(0.016)
+RunService.RenderStepped:Fire(0.016)
+check(me:GetAttribute("State") == "ACTIVE" and me.Character == nil and ClientState.droppingIn(), "on the team, the avatar on its way: dropping in")
+check(not home.home.Enabled and not home.teamSelect.Enabled and Lighting.MenuBlur.Size == UIConfig.menuBlur, "the lobby goes, the battlefield stays blurred")
+check(cam.CameraType == Enum.CameraType.Scriptable and not Camera.locked() and UserInputService.MouseBehavior == Enum.MouseBehavior.Default, "the shots carry on, the mouse not locked over them")
+check(combatParts.respawn.Visible and combatParts.respawn.Text == "DROPPING IN…" and not combatParts.crosshair.Visible, "DROPPING IN…, and no crosshair yet")
+task.wait(1.2)
+Players:SetAttribute("CharacterLoadSeconds", nil)
+RunService:RenderFrame(0.016)
+RunService.RenderStepped:Fire(0.016)
+check(me.Character ~= nil and not ClientState.droppingIn() and not combatParts.respawn.Visible, "the avatar's in")
+check(Camera.locked() and UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter and combatParts.crosshair.Visible, "now the mouse locks to the crosshair")
 check(Home.selectedTeam == "Stinkers" and me:GetAttribute("PreferredTeam") == "Stinkers", "the team choice reaches the server")
 check(me:GetAttribute("State") == "ACTIVE" and me:GetAttribute("TeamId") == "Stinkers", "picking a team joins it")
 check(not home.teamSelect.Enabled, "the team screen goes")
@@ -431,5 +454,26 @@ check(home.teamButtons.Sharters:GetAttribute("Enabled") == false and home.teamBu
 click(home.teamButtons.Sharters)
 check(Home.selectedTeam == "Stinkers", "clicking a greyed team does nothing")
 check(string.find(home.status.Text, "Round in progress"), "the status line says what's on")
+
+-- The results while I'm in the lobby: no card (it was drawn under the
+-- lobby, its award cards behind TODAY IN THE SHOP); the status chip says
+-- who won.
+TestControls.score("Sharters", 1)
+TestControls.endPhase(0)
+frames(0.6)
+check(home.home.Enabled and not hud.results.Enabled, "the round ends while I'm in the lobby: no results card under it")
+check(string.find(home.status.Text, "Sigma Sharters won · Next round in 0:1", 1, true) == 1, "the status chip says who won: " .. home.status.Text)
+-- PLAY under the results: on the field for the next round. The card, over
+-- the battlefield now, says I was spectating, not that my team lost; and
+-- the next round, a moment later, leaves the new avatar be.
+click(home.play)
+click(home.teamButtons.Stinkers)
+frames(0.6)
+check(me:GetAttribute("State") == "ACTIVE" and me.Character ~= nil, "PLAY under the results drops me in")
+check(hud.results.Enabled and hud.resultTitle.Text == "SIGMA SHARTERS WIN!" and hud.resultYou.Text == "You were spectating", "and the card says I was spectating: " .. hud.resultYou.Text)
+local dropped = me.Character
+TestControls.endPhase(0)
+frames(0.6)
+check(not hud.results.Enabled and me.Character == dropped, "the next round keeps that avatar: one drop")
 
 return { status = "PASS", checks = checks }

@@ -322,7 +322,10 @@ check(button and button.Text == "PC BETA TESTERS" and button:GetAttribute("Enabl
 Locker.close()
 check(not Shop.request(me, "buy", "cosmetic", boom).ok, "and it can't be bought")
 
--- Playing in the beta. My PLAY starts a round, which spawns Early again.
+-- Playing in the beta. My PLAY starts a round, which spawns Early again
+-- (Early's avatar is a few seconds old by then: a round leaves one that
+-- has only just come, under the spawn protection's 3 seconds, alone).
+task.wait(1.5)
 place(me, "Stinkers")
 task.wait(1.5)
 check(Lifecycle.stateOf(me) == "ACTIVE" and Rounds.phase() == "ACTIVE", "I'm playing, and a round is on")

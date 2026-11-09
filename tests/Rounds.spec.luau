@@ -3,7 +3,10 @@
 --   * ACTIVE for exactly 300 server seconds, RESULTS for 15, then ACTIVE
 --     again with the scores reset, over and over without a restart
 --   * the most validated eliminations wins; level scores (0-0 too) draw
---   * scores freeze the moment the round ends, even between loop ticks
+--   * scores freeze the moment the round ends, even between loop ticks,
+--     but a kill finished in the last second, whose explosion lands after
+--     the buzzer, is in the result and the awards (a player's or a bot's):
+--     the round waits for it, and nothing newer counts
 --   * a late loop tick still ends the round at its scheduled time
 --   * every change goes to clients as a snapshot; any client can ask for it
 --   * the test-only controls work from server code and chat, and the
@@ -278,5 +281,53 @@ end, 16), "the next round")
 check(RoundService.snapshot().mode == "TeamElimination", "under the minimum again: the default")
 check(nextRound().mode == "TeamElimination", "and it stays there")
 RoundService.testRotation(nil)
+
+-- A kill finished in the last second: the countdown starts before the
+-- buzzer and the explosion lands after it. The point is in the result (it
+-- was a draw, while the kill feed, the EXPLODED card and the coins said
+-- Ada got them), and in the awards; a bot's too. The round waits for it,
+-- a second at most, and nothing newer counts.
+local Gas = require(server.Services.GasService)
+local Bots = require(server.Services.BotService)
+local late = Bots.add(boTeam, "Late")
+do
+	local body = Instance.new("Model")
+	body.Name = late.name
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 2, 1)
+	root.CFrame = CFrame.new(53, 3, 0)
+	root.Parent = body
+	Instance.new("Humanoid").Parent = body
+	body.PrimaryPart = root
+	body.Parent = workspace
+	Bots.attach(late, body, { weapon = "GasBlaster" })
+end
+task.wait(GameConfig.SPAWN_PROTECTION_SECONDS + 0.5)
+local scores = MatchScoreService.getScores()
+check(RoundService.phase() == "ACTIVE" and scores[adaTeam] == 0 and scores[boTeam] == 0, "a fresh round, 0-0")
+TestControls.endPhase(0.5)
+local buzzer = RoundService.snapshot().phaseEndTime :: number
+check(Gas.add(bo, 100, { attacker = ada, cause = "shot" }) and Gas.isExploding(bo), "half a second before the buzzer, Ada finishes Bo")
+check(Bots.addGas(late, 100, { attacker = ada, cause = "shot" }) and Bots.isExploding(late), "and a bot of theirs")
+task.wait(0.75)
+check(now() > buzzer and RoundService.phase() == "ACTIVE" and MatchScoreService.betweenRounds(), "the buzzer: nobody fights, and the round waits for the two countdowns")
+check(not Gas.add(ada, 50, { attacker = bo, cause = "shot" }), "no gas lands after it")
+check(MatchScoreService.counts(buzzer - 0.1) and not MatchScoreService.counts(buzzer + 0.01) and not MatchScoreService.isOpen(), "a countdown from before the buzzer still counts; nothing newer does")
+check(waitFor(function()
+	return RoundService.phase() == "RESULTS"
+end, 1), "the results, once both have gone off")
+local lateRound = RoundService.snapshot()
+check(lateRound.result.winner == adaTeam and lateRound.result.scores[adaTeam] == 2 and lateRound.result.scores[boTeam] == 0, `both kills are in it: 2-0, not a draw ({lateRound.result.scores[adaTeam]}-{lateRound.result.scores[boTeam]})`)
+check(lateRound.phaseStartTime - buzzer <= GameConfig.GAS.EXPLOSION_COUNTDOWN_SECONDS + 0.5, "the results come a second or so after the buzzer")
+local topFragger = nil
+for _, award in lateRound.awards or {} do
+	if award.award == "TopFragger" then
+		topFragger = award
+	end
+end
+check(topFragger and topFragger.id == ada.UserId and topFragger.value == 2, "Top Fragger counts them too: Ada, 2")
+check(not MatchScoreService.counts(buzzer - 0.1), "once the result is taken, nothing more counts")
+Bots.remove(late)
 
 return { status = "PASS", checks = checks }

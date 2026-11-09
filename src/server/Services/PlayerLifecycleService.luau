@@ -49,6 +49,8 @@ export type Runtime = {
 	-- respawn that finishes late can tell it has been overtaken.
 	spawnToken: number,
 	lastSpawnAt: number?,
+	-- The spawn (its token) whose avatar is loading right now, if any.
+	loadingSpawn: number?,
 	-- Disconnected on leaving: a connection on the Player that refers back
 	-- to it would keep a departed player in memory.
 	characterAdded: RBXScriptConnection?,
@@ -187,7 +189,12 @@ local function spawnPlayer(player: Player, runtime: Runtime)
 		PlayerLifecycleService.Replacing:Fire(player, previous)
 	end
 	player.RespawnLocation = MapService.safeSpawn(teamId, PlayerLifecycleService.enemyPositions(teamId)) :: any
+	local token = runtime.spawnToken
+	runtime.loadingSpawn = token
 	local ok, err = pcall(player.LoadCharacterAsync, player)
+	if runtime.loadingSpawn == token then
+		runtime.loadingSpawn = nil
+	end
 	if not ok then
 		warn(`[Lifecycle] couldn't spawn {player.Name}: {err}`)
 	end
@@ -411,14 +418,24 @@ end
 
 -- Round hooks (RoundService).
 
+-- Whether the player's avatar is still loading, or arrived under
+-- SPAWN_PROTECTION_SECONDS ago: they're at their spawn already.
+local function freshlySpawned(runtime: Runtime, at: number): boolean
+	return runtime.loadingSpawn ~= nil
+		or (runtime.lastSpawnAt ~= nil and at - runtime.lastSpawnAt < GameConfig.SPAWN_PROTECTION_SECONDS)
+end
+
 -- A new round: everyone's round stats start again and every active player
--- starts from their team's spawn.
+-- starts from their team's spawn, except one who has only just got there
+-- (PLAY under the results a moment before: a second avatar straight after
+-- the first was a double drop).
 function PlayerLifecycleService.beginRound(id: number)
 	roundId = id
+	local at = now()
 	for player, runtime in runtimes do
 		runtime.activeSecondsThisRound = 0
 		runtime.currentRoundId = id
-		if runtime.state == PlayerState.ACTIVE then
+		if runtime.state == PlayerState.ACTIVE and not freshlySpawned(runtime, at) then
 			task.spawn(spawnPlayer, player, runtime)
 		end
 	end

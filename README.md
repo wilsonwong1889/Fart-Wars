@@ -48,13 +48,13 @@ repository holds credentials or API keys, and nothing should.
 | Capacity | 20 connections; at most 10 active players a team |
 | Start | at least 2 active players and nobody alone without an opponent (1v1 is fine) |
 | Rounds | 5 minutes, then 15 seconds of results, on a server that keeps running |
-| Joining mid-round | PLAY puts you straight into the current round |
+| Joining mid-round | PLAY puts you straight into the current round; under the results, onto the field for the next one (the results card says you were spectating), and that round leaves your new avatar where it is |
 | Team choice | only when it doesn't make the teams less even |
 | Friends | break a tie between equally fair teams, nothing more |
 | AFK | warning at 45 seconds ("BRO FELL ASLEEP MID-FART!"), spectator at 60, slot freed |
 | Camera | third person over the right shoulder; V toggles first person. In a match the mouse is locked to the crosshair; Left Alt frees it |
-| Home screen | the live battlefield behind the menu; you spectate until PLAY |
-| Result | most validated eliminations wins; level scores are a draw |
+| Home screen | the live battlefield behind the menu; you spectate until PLAY. Under the results its status line says who won (the results card is for those in the match) |
+| Result | most validated eliminations wins; level scores are a draw. A kill finished before the buzzer counts though the explosion lands after it; a barrel or stink bomb that goes off after the buzzer gasses nobody |
 | Combat | the Gas Blaster: 20% gas a body hit, 25% to the head, 0.3 s between shots; friendly fire off. Long shots do less: full gas out to a weapon's effective range, half at its full range (the server measures the distance) |
 | Weapons | Gas Blaster (starter, all-round: full gas to 120 studs, half by its 260-stud range), Spritzer (level 5, 400 coins: 9% (11% to the head) at 10 shots a second, out-eliminating the Gas Blaster up close, full gas to 45 studs, nothing past 90), Thunderclapper (level 15, 3,000: 40% / 55% to the head, one a second, full gas to 240 studs, half by its 420-stud range, slower walk), Stink Lobber (level 25, 7,000: a bomb lobbed over cover up to 150 studs, 15% splash and a 4-second cloud that gasses enemies in it) |
 | Abilities | Shift: Fart Dash (everyone). Q, one equipped: Recovery Burst (level 10: vent 35% gas, 20 s) or Gas Pulse (level 30: after a 0.4 s wind-up, 15% to enemies within 12 studs, 25 s). One cooldown whichever is equipped; a death resets it |
@@ -99,7 +99,9 @@ the directions, the lanes and the plaza (by their gates' names) and your
 team's pings; teammates too far away to pick out get a marker with the team
 symbol, and one in a fight or blowing up off the screen gets an arrow at
 its edge (`FeatureFlags.COMPASS`, `CompassConfig`). PLAY opens "Choose a Team": each
-team's card shows its count and is locked when joining it would be unfair. A
+team's card shows its count and is locked when joining it would be unfair.
+Picking one drops you in: the lobby goes, but the battlefield stays blurred,
+with DROPPING IN…, until your avatar has loaded. A
 new profile's first PLAY goes to the practice yard first: about half a minute
 in a yard of your own (gas the dummies, Fart Dash, blow up a barrel; SKIP or
 Enter any time), then the team screen. The PRACTICE tile on the home screen
@@ -110,7 +112,9 @@ card. Bindings live in `UIConfig.keys`.
 to WAITING when there aren't enough players. A round in progress always
 finishes, even if a whole team leaves. Between rounds (from the buzzer to
 the next round) nobody fights: guns and abilities hold, and no gas lands,
-not even from a bomb or barrel that goes off after the buzzer. The server owns every timestamp;
+not even from a bomb or barrel that goes off after the buzzer. A kill
+finished before the buzzer (its countdown already running) still counts:
+the results wait for the explosion, a second at most. The server owns every timestamp;
 clients get a snapshot with an absolute end time and work out the countdown
 from the server clock, so lag never stretches a round.
 
@@ -362,9 +366,9 @@ They need `luau` on your PATH (`brew install luau`, or a release from
 | `Admin` | the admin code: a wrong code gives nothing and too many lock the box; the right one (any case) gives every weapon, ability and cosmetic, coins and spins, saved, and turns on the /fw commands for that player; the code never reaches the client; the Settings code box; never on the live place, the box only where the code works, and `ENABLED` off refusing it |
 | `Shop` | every refusal, purchases saved before confirming, failed saves rolled back, one request at a time, leaving mid-purchase; equipping now or on respawn, handling, abilities and tracers; the locker's tabs, buttons, pending state and answers |
 | `Continuous` | continuous play behind its flag |
-| `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes, results and counts by mode, rotation on a small server through a full Gas Control round |
-| `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, churn |
-| `ClientShell` | the home screen, PLAY, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, against the real server |
+| `Rounds` | the state machine, scoring, draws, frozen scores, late ticks, test controls, the remotes, results and counts by mode, rotation on a small server through a full Gas Control round, a kill finished in the last second (a player's and a bot's) in the result and the awards |
+| `Lifecycle` | join, PLAY, spawn, rapid PLAY, team choice, spectate, death and respawn, switching, leave, reconnect, PLAY under the results (one drop, even mid-load), churn |
+| `ClientShell` | the home screen, PLAY, dropping in while the avatar loads, HUD, crosshair, left click, V/M/Tab/Shift, results, the AFK warning, the results from the lobby and PLAY under them, against the real server |
 | `Camera` | the mouse locked to the centre in a match and free on the home screen, freed and locked again by MouseLock; the 3rd person mouse lock setting; the over-the-shoulder offset (eased in, snapped with Reduce motion, none in first person or with a free mouse), pulled in by walls but not by art meshes or things you walk through; the avatar facing where the camera looks without stopping a Fart Dash; spectating |
 | `MouseLock` | why the mouse is free (reasons, Changed only on real changes); Left Alt frees it and locks it again, not while typing; every screen with buttons frees it while open and lets go however it closes (its button, M, two at once, PLAY, spectating, the server moving you out); the third-person mouse lock setting; ALT on the controls card |
 | `Settings` | saved settings: the list (defaults, steps, colours, junk values); the server (a new profile empty, a save in the profile and adding to it, one a second, junk payloads and actions refused and changing nothing, written on leaving and back on rejoining, damaged saves back to defaults, a newer build's choices kept, saves without the field, still SaveVersion 1); the client (saved choices back on joining with their effects and on the Settings page, changes saved shortly after in one save, never refused, a choice made while loading winning); field of view and sensitivity in third and first person, with the M menu and Alt, and the usual field of view on the home screen's shots; the crosshair's colour and size; the weapon previews' own view |

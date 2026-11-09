@@ -34,6 +34,17 @@ local AFK = require(server.Services.AFKService)
 local Map = require(server.Services.MapService)
 local Telemetry = require(server.Telemetry)
 local Remotes = ReplicatedStorage.Remotes
+-- Ends the round and waits for its results: at the buzzer, or a moment
+-- after while a bot's explosion is still counting down (its point goes in
+-- first).
+local function toResults()
+	Round.testEndPhaseIn(0)
+	local limit = os.clock() + 2
+	while Round.phase() ~= "RESULTS" and os.clock() < limit do
+		task.wait(0.1)
+	end
+	task.wait(0.2)
+end
 local RAIN = EventConfig.BEAN_RAIN
 
 local refills = 0
@@ -65,8 +76,7 @@ task.wait(0.5)
 -- Off.
 check(FeatureFlags.EVENTS == false, "off as shipped")
 for _ = 1, 6 do
-	Round.testEndPhaseIn(0)
-	task.wait(0.4)
+	toResults()
 	Round.testEndPhaseIn(0)
 	task.wait(0.4)
 	check(Events.phase() == nil, "rounds don't book events while off")
@@ -82,8 +92,7 @@ Events.testEnable(true)
 Events.setRandom(Random.new(3))
 local booked = 0
 for _ = 1, 10 do
-	Round.testEndPhaseIn(0)
-	task.wait(0.4)
+	toResults()
 	Round.testEndPhaseIn(0)
 	task.wait(0.4)
 	if Events.phase() == "booked" then
@@ -187,8 +196,7 @@ task.wait(0.2)
 Events.book(workspace:GetServerTimeNow())
 task.wait(1.5)
 check(#Events.beans() > 0, "rain again")
-Round.testEndPhaseIn(0)
-task.wait(0.5)
+toResults()
 check(Events.phase() == nil and #workspace.Events:GetChildren() == 0, "the round's end clears it")
 Events.testEnable(nil)
 

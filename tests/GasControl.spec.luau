@@ -214,6 +214,17 @@ game:GetService("RunService").Heartbeat:Fire(0.2)
 check(hud.phase.Text == "GAS CONTROL", "and which mode it is")
 
 -- Exact seconds: the zone's own ticks, with nothing else running between.
+-- Ends the round and waits for its results: at the buzzer, or a moment
+-- after while a bot's explosion is still counting down (its point goes in
+-- first).
+local function toResults()
+	Round.testEndPhaseIn(0)
+	local limit = os.clock() + 2
+	while Round.phase() ~= "RESULTS" and os.clock() < limit do
+		task.wait(0.1)
+	end
+	task.wait(0.2)
+end
 local function hold(seconds: number)
 	for _ = 1, math.round(seconds / ZONE.TICK_SECONDS) do
 		Zone.tick(ZONE.TICK_SECONDS)
@@ -378,8 +389,7 @@ check(zoneGrants >= 1, "holding the zone pays, through the ledger")
 check((Telemetry.snapshot().counters["Economy.coins.zone"] or 0) == ZONE.COINS * ZONE.REWARDS_PER_ROUND, "up to the round's cap")
 
 -- The result.
-Round.testEndPhaseIn(0)
-task.wait(0.5)
+toResults()
 local result = Round.snapshot().result
 check(Round.phase() == "RESULTS" and result and result.winner == "Stinkers", "most zone points wins")
 check(result.mode == "GasControl" and (Telemetry.snapshot().counters["round.GasControl.ended"] or 0) == 1, "the result says it was Gas Control, and it's counted as one")
@@ -398,8 +408,7 @@ task.wait(1.2)
 check(not Zone.isActive() and workspace:GetAttribute("ZoneActive") == false, "no zone in Team Elimination")
 Round.testRotation(true)
 local function nextRound(): string
-	Round.testEndPhaseIn(0)
-	task.wait(0.5)
+	toResults()
 	Round.testEndPhaseIn(0)
 	task.wait(0.5)
 	return Round.snapshot().mode

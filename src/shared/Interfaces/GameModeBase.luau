@@ -17,6 +17,9 @@ export type ScoreEvent = {
 	-- bot's are always given).
 	killerTeam: string?,
 	victimTeam: string?,
+	-- An explosion's: when its countdown started (the finishing hit). One
+	-- that started before the buzzer counts though it lands after.
+	countdownAt: number?,
 }
 export type Context = {
 	roundId: number,

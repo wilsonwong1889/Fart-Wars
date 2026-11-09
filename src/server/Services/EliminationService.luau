@@ -1,8 +1,9 @@
 -- Every elimination goes through here, exactly once per life, whatever
 -- caused it: the death gets an event ID, the killer's team a point (if the
--- round is open), the killer a streak, and other recent attackers an
--- assist. Kills in a row without dying build a streak; reaching
--- STREAK.ALPHA_AT tells the whole server "BRO IS THE ALPHA FART!" once.
+-- round is open, or the explosion was already counting down at its buzzer),
+-- the killer a streak, and other recent attackers an assist. Kills in a row
+-- without dying build a streak; reaching STREAK.ALPHA_AT tells the whole
+-- server "BRO IS THE ALPHA FART!" once.
 -- Streaks end with any death; the best one is kept for the session.
 -- Other services hear about it through Eliminated and Alpha (rewards).
 -- Bots (BotService) score and show in the kill feed like players, by their
@@ -49,6 +50,9 @@ export type Info = {
 	cause: string, -- "shot", "chain", "barrel", "lob", "cloud", "pulse", "died" (reset or fell while gassed), "test"
 	-- The weapon that set off the explosion (its shot, stink bomb or cloud).
 	weapon: string?,
+	-- An explosion's: when its countdown started. One finished before the
+	-- buzzer scores though it lands after (MatchScoreService.counts).
+	countdownAt: number?,
 }
 export type Elimination = {
 	event: number,
@@ -68,6 +72,8 @@ export type Credit = {
 	killer: number?,
 	assists: { number },
 	cause: string,
+	-- An explosion's countdown start (Info.countdownAt).
+	countdownAt: number?,
 }
 
 type Record = { streak: number, bestStreak: number, eliminations: number, deaths: number }
@@ -174,6 +180,7 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 			victim = victim,
 			killerTeam = killerTeam,
 			victimTeam = victimTeam,
+			countdownAt = info.countdownAt,
 		})
 	end
 	if killer then
@@ -228,6 +235,7 @@ function EliminationService.eliminate(victim: Player, character: Model, info: In
 		killer = if killer then killer.UserId else killerBot,
 		assists = assistIds,
 		cause = info.cause,
+		countdownAt = info.countdownAt,
 	} :: Credit)
 	return eventId
 end
@@ -263,6 +271,7 @@ function EliminationService.eliminateBot(victim: number, character: Model, info:
 			victimBot = victim,
 			killerTeam = killerTeam,
 			victimTeam = victimTeam,
+			countdownAt = info.countdownAt,
 		})
 	end
 	Telemetry.count(`Elimination.cause.{info.cause}`)
@@ -294,6 +303,7 @@ function EliminationService.eliminateBot(victim: number, character: Model, info:
 		killer = if killer then killer.UserId else killerBot,
 		assists = assistIds,
 		cause = info.cause,
+		countdownAt = info.countdownAt,
 	} :: Credit)
 	return eventId
 end

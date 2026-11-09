@@ -105,6 +105,8 @@ type Life = {
 	chain: Chain.Chain?,
 	-- The team behind the gas that started the countdown.
 	finishTeam: string?,
+	-- When the countdown started (the finishing hit).
+	countdownAt: number?,
 	connections: { RBXScriptConnection },
 }
 
@@ -249,6 +251,7 @@ local function explode(life: Life)
 		assists = assists,
 		assistBots = assistBots,
 		cause = life.cause,
+		countdownAt = life.countdownAt,
 	})
 	-- The next link of the chain whose blast filled it, or a new chain.
 	local chain = Chain.link(life.chain)
@@ -270,7 +273,10 @@ local function beginExplosion(life: Life, source: GasService.Source)
 	life.chainDepth = source.chainDepth or 0
 	life.chain = source.chain
 	life.finishTeam = source.team or (source.attacker and TeamService.teamOf(source.attacker))
-	life.character:SetAttribute("ExplodesAt", now() + GAS.EXPLOSION_COUNTDOWN_SECONDS)
+	local at = now()
+	life.countdownAt = at
+	MatchScoreService.countdownStarted(at)
+	life.character:SetAttribute("ExplodesAt", at + GAS.EXPLOSION_COUNTDOWN_SECONDS)
 	Telemetry.count("Bots.countdowns")
 	task.delay(GAS.EXPLOSION_COUNTDOWN_SECONDS, explode, life)
 end
@@ -499,6 +505,7 @@ function BotService.attach(bot: Bot, character: Model, loadout: Loadout?)
 		chainDepth = 0,
 		chain = nil,
 		finishTeam = nil,
+		countdownAt = nil,
 		connections = {},
 	}
 	lives[bot] = life

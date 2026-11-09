@@ -23,6 +23,22 @@
   fights and no gas lands, not even from a bomb or barrel that goes off
   after the buzzer. Players could gas each other under the results card
   (and be paid for it), and a countdown could carry into the next round.
+- A kill finished in the last second counts. The finishing hit starts
+  the one-second countdown, so the explosion lands after the buzzer, and
+  the results said DRAW while the kill feed, the EXPLODED card and the
+  coins said you got it. Now the results wait for it (a second at most)
+  and it's in the score and the awards, a bot's kill too. Gas that lands
+  after the buzzer still counts for nothing, so a barrel or stink bomb
+  that goes off then gasses nobody.
+- PLAY under the results drops you in once. You're on the field for the
+  next round, the results card says you were spectating (not that your
+  team lost), and the next round leaves your new avatar where it is; it
+  used to drop you in again a moment later.
+- Picking a team, the battlefield stays blurred with DROPPING IN… until
+  your avatar has loaded, instead of the mouse locking over a frozen view
+  and the camera snapping to you.
+- In the lobby, the results card no longer hides under the lobby (its
+  award cards behind TODAY IN THE SHOP): the status line says who won.
 - Bots fill in for the people playing, not everyone in the server:
   someone on the loading screen, in the lobby, in the practice yard or
   away no longer takes a bot from the people in a match (four in the
